@@ -4,10 +4,10 @@ English *Peninei Halakha* by Rabbi Eliezer Melamed (Yeshivat Har Bracha) to read
 audio, playlists, recommendations, KTS transliteration, and AI translations (labelled as AI) of the Hebrew-only volumes.
 Text © Yeshivat Har Bracha, CC BY 4.0 (ph.yhb.org.il/terms).
 
-- **Android:** `dist/Pearls-1.8.1.apk`
+- **Android:** `dist/Pearls-1.9.0.apk` (works offline; download audio, smart downloads)
 - **iPad / iPhone / Mac:** unzip `dist/Pearls-Apple.zip` (or use `apple/` after `./apple/sync_www.sh`) and follow
   `apple/README.md`.
-- **Build everything:** `./build.sh` (needs python3, node, cargo, zip, plus the signing keys in `signer/`; see `CLAUDE.md`).
+- **Build everything:** `./build.sh` (needs python3, node, a JDK, zip, plus the signing keys in `signer/`; see `CLAUDE.md`).
 
 Also in this repo:
 

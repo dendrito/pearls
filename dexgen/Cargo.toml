@@ -1,7 +1,0 @@
-[package]
-name = "dexgen"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-smali = "0.6.2"

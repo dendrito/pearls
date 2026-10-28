@@ -2,10 +2,9 @@
 # Build everything: books -> web app -> Android APK -> Apple project zip.
 #   ./build.sh            lite APK (English bundled, Hebrew fetched live)
 #   PEARLS_FULL=1 ./build.sh   bundle the Hebrew too (bigger, works offline)
-# Needs: python3, node, cargo (first run only), zip. Signing keys in signer/key.pem + signer/cert.pem (not in git).
+# Needs: python3, node, a JDK (javac + java), zip. Signing keys in signer/key.pem + signer/cert.pem (not in git).
 set -e
 cd "$(dirname "$0")"
-[ -x dexgen/target/release/dexgen ] || (cd dexgen && cargo build --release --quiet)
 [ -d signer/node_modules ] || (cd signer && npm ci --silent)
 if [ ! -f signer/key.pem ] || [ ! -f signer/cert.pem ]; then
   echo "Missing signer/key.pem or signer/cert.pem. Use the existing keys so the APK installs over the current one;"
@@ -14,6 +13,7 @@ if [ ! -f signer/key.pem ] || [ ! -f signer/cert.pem ]; then
 fi
 python3 make_catalog.py
 python3 make_translit.py
+python3 make_en_books.py
 python3 make_he_books.py
 python3 android/build_apk.py
 VER=$(sed -n 's/.*versionName="\([^"]*\)".*/\1/p' android/AndroidManifest.xml)

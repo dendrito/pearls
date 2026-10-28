@@ -46,6 +46,16 @@ is in `chat-transcript.jsonl.gz`.
   - the fix ships under new filenames, because Meldar caches fonts as immutable for a year.
   - **Not deployed yet:** Meldar's source repo wasn't reachable from the chat.
 
+## Since the move (1.9.0)
+
+- The Android app runs offline:
+  - all English text is bundled;
+  - Hebrew is kept on the phone once it has loaded;
+  - audio can be downloaded per chapter, per book or per playlist.
+- Smart downloads: download ahead, delete after listening, Wi‑Fi only and a storage limit.
+- The status and navigation bars follow the skin.
+- The native code is now Java, built with javac + D8. dexgen and the smali code are gone.
+
 ## Open items, in order
 
 1. **Translate Emuna 20-30.** Then run `./build.sh`, republish the web artifact and send the APK.
@@ -57,6 +67,5 @@ is in `chat-transcript.jsonl.gz`.
    - 07 Likkutim I
    - 08 Likkutim II
 3. **Deploy the Meldar font fix** to meldar.pages.dev and meldar-proto.pages.dev. Steps are in `meldar-font-fix/README.md`.
-4. **Android status-bar colour for light skins.** This needs native code in `android/smali`.
-5. **Meldar importer** for the `pearls-study-log/1` export.
-6. **Decide KTS vs Meldar's `sp` transliteration.** See `docs/`.
+4. **Meldar importer** for the `pearls-study-log/1` export.
+5. **Decide KTS vs Meldar's `sp` transliteration.** See `docs/`.

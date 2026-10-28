@@ -166,6 +166,8 @@ function applySkin() {
   if (id === "classic") delete document.body.dataset.skin; else document.body.dataset.skin = id;
   document.body.classList.toggle("light", !!sk.light);
   const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.body).getPropertyValue("--ink").trim() || sk.bg;
+  const bar = (m && /^#[0-9a-f]{6}$/i.test(m.content)) ? m.content : sk.bg;   // Android: status and navigation bars follow the skin
+  if (window.PearlsNative && window.PearlsNative.setBars) try { window.PearlsNative.setBars(bar, !!sk.light); } catch {}
 }
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener("change", () => { if (state.prefs.skin === "pearl-auto") applySkin(); });
 const HEB_FONTS = [
@@ -344,6 +346,13 @@ const cur = () => BYID[P.queue[P.idx]];
 function playQueue(ids, start = 0, ctx = null) {
   const first = ids[start]; ids = ids.filter(id => BYID[id] && (hasHe(BYID[id]) || hasEn(BYID[id])));
   if (!ids.length) { toast("No recording of this yet. The text is here to read."); return; }
+  if (NATIVE && !online()) {                 // offline: only what's on the phone can play
+    const have = ids.filter(id => dlState(BYID[id]).s === "done" || (dlState(BYID[id]).s === "loading" && localSrc(BYID[id], 0, DL.idx[id].lang)));
+    if (!have.length) { toast("You're offline and these chapters aren't downloaded."); return; }
+    if (BYID[first] && !have.includes(first)) { toast(`You're offline and “${R(BYID[first].title)}” isn't downloaded.`); return; }
+    if (have.length < ids.length) toast(`Offline: playing the ${have.length} downloaded chapter${have.length > 1 ? "s" : ""}`);
+    ids = have;
+  }
   start = Math.max(0, ids.indexOf(first)); P.queue = ids; P.idx = Math.max(0, Math.min(start, P.queue.length - 1)); P.ctx = ctx;
   if (ctx && state.speedBy[ctx]) state.speed = state.speedBy[ctx];
   store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx }); load(true, true);
@@ -352,8 +361,9 @@ function load(autoplay, fresh) {
   const t = cur(); if (!t) return;
   const p = state.plays[t.id];
   if (fresh) { P.part = p && !p.done && p.part != null ? Math.min(p.part, nSections(t) - 1) : 0; P.fails = 0; }
-  P.lang = wantsEnglish(t) ? "en" : "he";
-  audio.src = partUrl(t, P.part, P.lang); audio.playbackRate = state.speed;
+  P.lang = playLang(t);
+  audio.src = srcFor(t, P.part, P.lang); audio.playbackRate = state.speed;
+  if (fresh) smartSoon(2500);
   const resumeAt = fresh && p && !p.done && p.part === P.part ? p.pos : 0;
   audio.addEventListener("loadedmetadata", function once() {
     audio.removeEventListener("loadedmetadata", once);
@@ -362,6 +372,10 @@ function load(autoplay, fresh) {
   });
   if (autoplay) audio.play().catch(() => {});
   mediaSession(t); renderMini(); refreshPlaying(); syncNP();
+}
+function playLang(t) {                        // the language a chapter plays in; offline, whatever was downloaded
+  const want = wantsEnglish(t) ? "en" : "he", e = DL.idx[t.id];
+  return e && e.lang !== want && !online() && localSrc(t, 0, e.lang) ? e.lang : want;
 }
 function toggle() { if (!cur()) return; audio.paused ? audio.play().catch(() => {}) : audio.pause(); }
 function nextTrack(skipped) {
@@ -388,7 +402,7 @@ audio.addEventListener("timeupdate", () => {
   const now = Date.now();
   if (!audio.paused && p._t) { const dt = Math.min(2, (now - p._t) / 1000); p.sec += dt * state.speed; if (tick % 8 === 0) logDay(dt * 8 / 60); }
   p._t = now; p.pos = audio.currentTime; p.part = P.part; p.last = now;
-  if (P.part === nSections(t) - 1 && audio.duration && audio.currentTime / audio.duration > .92 && !p.done) { p.done = true; p.n = (p.n || 0) + 1; logDay(0, t.id); }
+  if (P.part === nSections(t) - 1 && audio.duration && audio.currentTime / audio.duration > .92 && !p.done) { p.done = true; p.n = (p.n || 0) + 1; logDay(0, t.id); smartSoon(5000); }
   if (++tick % 8 === 0) save.plays();
   if (P.sleepAt && now >= P.sleepAt) { P.sleepAt = null; audio.pause(); toast("Sleep timer: paused"); }
   updateProgress();
@@ -402,7 +416,17 @@ audio.addEventListener("ended", () => {
   next(false);
 });
 audio.addEventListener("error", () => {
-  const t = cur(); if (!t) return;
+  const t = cur(); if (!t || !audio.getAttribute("src")) return;
+  if (audio.src.startsWith("file:")) {        // a downloaded file that won't play: stream it instead, and fetch it again later
+    const n = dlName(t, P.part, P.lang); DL.files.delete(n);
+    if (online()) { audio.src = partUrl(t, P.part, P.lang); audio.play().catch(() => {}); return; }
+  }
+  if (!online() && !localSrc(t, P.part, P.lang)) {
+    const nx = P.queue.slice(P.idx + 1).findIndex(id => isDownloaded(BYID[id]));
+    if (nx >= 0) { P.idx += nx + 1; load(true, true); toast("Offline: skipped to the next downloaded chapter"); }
+    else { audio.pause(); toast("You're offline and this chapter isn't downloaded."); }
+    return;
+  }
   if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); toast("No English reading for this section — playing the Hebrew"); return; }
   P.fails++;
   if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); return; }   // a missing section file: skip it
@@ -418,6 +442,174 @@ function mediaSession(t) {
     ms.setActionHandler("nexttrack", () => next(true)); ms.setActionHandler("previoustrack", prev);
     ms.setActionHandler("seekbackward", () => audio.currentTime -= 15); ms.setActionHandler("seekforward", () => audio.currentTime += 30);
   } catch {}
+}
+
+/* ---------- downloads (Android app): audio for offline listening, smart downloads ----------
+   Files are fetched by Android's DownloadManager (PearlsNative, see android/java) into the app's files folder as
+   BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
+   language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
+const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
+const DL = {
+  ok: false, dir: "", free: 0, files: new Map(), active: new Map(), timer: null,
+  idx: store.get("dlIdx", {}),                 // chapter id -> { lang, auto, at }
+  failed: store.get("dlFailed", {}),           // file name -> time it failed (missing on the server)
+  prefs: Object.assign({ wifiOnly: true, smart: true, ahead: 3, autoDelete: true, limitMB: 2048 }, store.get("dlPrefs", {}))
+};
+const saveDl = () => { store.set("dlIdx", DL.idx); store.set("dlFailed", DL.failed); store.set("dlPrefs", DL.prefs); };
+const dlName = (t, i, lang) => `${t.id}-${String(i + 1).padStart(2, "0")}-${lang}.mp3`;
+const dlNames = (t, lang) => Array.from({ length: nSections(t) }, (_, i) => dlName(t, i, lang));
+const online = () => navigator.onLine !== false;
+function dlRefresh() {
+  if (!NATIVE) return;
+  try {
+    const i = JSON.parse(NATIVE.info()); DL.ok = !!i.ok; DL.dir = i.dir || ""; DL.free = i.free || 0;
+    const st = JSON.parse(NATIVE.status());
+    DL.active = new Map((st.active || []).map(a => [a.name, a]));
+    (st.failed || []).forEach(f => { DL.failed[f.name] = Date.now(); });
+    if ((st.failed || []).length) saveDl();
+    DL.files = new Map(JSON.parse(NATIVE.list()).map(f => [f.n, f.s]));
+  } catch {}
+}
+/* "none" | "loading" | "waiting" (queued for Wi-Fi or a connection) | "done" */
+function dlState(t) {
+  const e = DL.idx[t.id]; if (!e) return { s: "none" };
+  const names = dlNames(t, e.lang); let have = 0, gone = 0, done = 0, total = 0, act = 0, waiting = 0;
+  for (const n of names) {
+    if (DL.files.has(n)) { have++; continue; }
+    const a = DL.active.get(n);
+    if (a) { act++; done += a.done || 0; total += a.total > 0 ? a.total : 0; if (a.status !== "running") waiting++; continue; }
+    if (DL.failed[n]) gone++;
+  }
+  if (have && have + gone >= names.length) return { s: "done", lang: e.lang };
+  if (act) return { s: waiting === act ? "waiting" : "loading", lang: e.lang, pct: Math.round(100 * (have + (total ? act * done / total : 0)) / names.length) };
+  if (have) return { s: "loading", lang: e.lang, pct: Math.round(100 * have / names.length), stalled: true };
+  return { s: "none" };
+}
+const isDownloaded = t => dlState(t).s === "done";
+const localSrc = (t, i, lang) => { const n = dlName(t, i, lang); return DL.files.has(n) && DL.dir ? DL.dir + n : null; };
+const srcFor = (t, i, lang) => localSrc(t, i, lang) || partUrl(t, i, lang);
+function dlBytes(t, lang) {                    // what a chapter will take: Hebrew 64 kbit/s, English ~107 kbit/s
+  const e = DL.idx[t.id]; if (e && e.lang === lang) { const s = dlNames(t, lang).reduce((a, n) => a + (DL.files.get(n) || 0), 0); if (s) return s; }
+  const d = dur(t); return d ? d * (lang === "en" ? 16000 : 8000) : nSections(t) * 2e6;
+}
+const dlUsed = () => [...DL.files.values()].reduce((a, b) => a + b, 0);
+const fmtMB = b => b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`;
+function dlLang(t) { return wantsEnglish(t) ? "en" : "he"; }
+function downloadTrack(t, opts = {}) {
+  if (!NATIVE || !DL.ok || !t || !(hasHe(t) || hasEn(t))) return false;
+  const lang = opts.lang || dlLang(t), prev = DL.idx[t.id];
+  if (prev && prev.lang !== lang) { try { NATIVE.remove(JSON.stringify(dlNames(t, prev.lang))); } catch {} }
+  const jobs = dlNames(t, lang).map((name, i) => ({ url: partUrl(t, i, lang), name, title: `${R(t.title)} (${i + 1}/${nSections(t)})` }))
+    .filter(j => !DL.files.has(j.name));
+  jobs.forEach(j => delete DL.failed[j.name]);
+  DL.idx[t.id] = { lang, auto: !!opts.auto && (!prev || prev.auto), at: Date.now() };
+  saveDl();
+  if (jobs.length) { try { NATIVE.enqueue(JSON.stringify(jobs), !!DL.prefs.wifiOnly); } catch {} }
+  hebrewPosts(t).catch(() => {});             // keep the Hebrew text too, for reading offline
+  dlPoll(); return true;
+}
+function removeDownload(t) {
+  const e = DL.idx[t.id]; if (!e || !NATIVE) return;
+  try { NATIVE.remove(JSON.stringify(dlNames(t, e.lang))); } catch {}
+  delete DL.idx[t.id]; saveDl(); dlRefresh(); dlPaint();
+}
+function dlPoll() {                            // while anything is downloading, refresh every 2.5 s
+  if (!NATIVE) return;
+  clearTimeout(DL.timer);
+  dlRefresh(); dlPaint();
+  if (DL.active.size) DL.timer = setTimeout(dlPoll, 2500);
+}
+/* Smart downloads: keep the chapter you're on and the next few in your queue (or the ones you're partway through)
+   on the phone, delete what smart downloads fetched once you've heard it, and stay under the storage limit. */
+function smartRun() {
+  if (!NATIVE || !DL.ok) return;
+  dlRefresh();
+  const p = DL.prefs, now = cur();
+  if (p.autoDelete) for (const id in DL.idx) {
+    const e = DL.idx[id], t = BYID[id];
+    if (t && e.auto && isDone(id) && !(now && now.id === id)) { try { NATIVE.remove(JSON.stringify(dlNames(t, e.lang))); } catch {} delete DL.idx[id]; }
+  }
+  if (!p.smart || !online()) { saveDl(); dlPaint(); return; }
+  const want = [];
+  const take = t => { if (t && !want.includes(t) && (hasHe(t) || hasEn(t)) && !isDone(t.id)) want.push(t); };
+  if (P.queue.length) for (let k = Math.max(0, P.idx); k < P.queue.length && want.length < p.ahead + 1; k++) take(BYID[P.queue[k]]);
+  Object.entries(state.plays).filter(([id, x]) => BYID[id] && !x.done && (x.part || x.pos > 30)).sort((a, b) => b[1].last - a[1].last)
+    .slice(0, 2).forEach(([id]) => { if (want.length < p.ahead + 1) take(BYID[id]); });
+  const limit = p.limitMB ? p.limitMB * 1e6 : Infinity;
+  let used = dlUsed() + [...DL.active.values()].reduce((a, x) => a + Math.max(0, (x.total || 0) - (x.done || 0)), 0);
+  for (const t of want) {
+    if (DL.idx[t.id]) continue;
+    const need = dlBytes(t, dlLang(t));
+    if (used + need > limit) {                 // make room: smart downloads you've heard, then the oldest ones not wanted now
+      const victims = Object.entries(DL.idx).filter(([id, e]) => e.auto && BYID[id] && !want.includes(BYID[id]))
+        .sort((a, b) => (isDone(b[0]) - isDone(a[0])) || (a[1].at - b[1].at));
+      const freeable = victims.reduce((a, [id, e]) => a + dlBytes(BYID[id], e.lang), 0);
+      if (used - freeable + need > limit) break;   // wouldn't fit even then: delete nothing
+      for (const [id, e] of victims) { if (used + need <= limit) break; used -= dlBytes(BYID[id], e.lang);
+        try { NATIVE.remove(JSON.stringify(dlNames(BYID[id], e.lang))); } catch {} delete DL.idx[id]; }
+      if (used + need > limit) break;
+    }
+    downloadTrack(t, { auto: true }); used += need;
+  }
+  saveDl(); dlPaint();
+}
+let smartT = null;
+const smartSoon = (ms = 1500) => { if (!NATIVE) return; clearTimeout(smartT); smartT = setTimeout(smartRun, ms); };
+/* buttons and badges that show a chapter's download state; dlPaint() updates them in place */
+const DLI = {
+  get: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg>',
+  done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.2 12.3l2.5 2.5 5-5.2"/></svg>',
+  wait: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3.5 9a12.5 12.5 0 0 1 17 0M6.5 12.3a8 8 0 0 1 11 0M9.5 15.5a3.6 3.6 0 0 1 5 0"/><circle cx="12" cy="18.6" r="1" fill="currentColor"/></svg>'
+};
+function dlLabel(t) {
+  const st = dlState(t), L = st.lang === "en" ? "English" : "Hebrew";
+  if (st.s === "done") return { cls: "on", icon: DLI.done, text: `Downloaded · ${L}` };
+  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: DL.prefs.wifiOnly && !online() ? "Waiting for a connection" : DL.prefs.wifiOnly ? "Waiting for Wi‑Fi" : "Queued" };
+  if (st.s === "loading") return { cls: "busy", icon: DLI.wait, text: `Downloading ${st.pct || 0}%` };
+  return { cls: "", icon: DLI.get, text: "Download" };
+}
+function dlButton(t) {
+  if (!NATIVE || !(hasHe(t) || hasEn(t))) return "";
+  const l = dlLabel(t);
+  return `<button class="btn line dlbtn ${l.cls}" data-act="dl" data-id="${t.id}" data-dl="${t.id}">${l.icon}<span>${l.text}</span></button>`;
+}
+function dlBadge(t) {
+  if (!NATIVE) return "";
+  const st = dlState(t);
+  return `<span class="dlb ${st.s}" data-dlb="${t.id}">${st.s === "done" ? DLI.done : st.s === "none" ? "" : DLI.wait}</span>`;
+}
+function dlPaint() {
+  document.querySelectorAll("[data-dl]").forEach(b => { const t = BYID[b.dataset.dl]; if (!t) return; const l = dlLabel(t);
+    b.className = `btn line dlbtn ${l.cls}`; b.innerHTML = `${l.icon}<span>${l.text}</span>`; });
+  document.querySelectorAll("[data-dlb]").forEach(b => { const t = BYID[b.dataset.dlb]; if (!t) return; const st = dlState(t);
+    b.className = `dlb ${st.s}`; b.innerHTML = st.s === "done" ? DLI.done : st.s === "none" ? "" : DLI.wait; });
+  const many = document.querySelectorAll("[data-dlmany]"); many.forEach(b => { b.innerHTML = dlManyLabel(b.dataset.ids.split(",")); });
+  if (location.hash === "#downloads" && !document.querySelector(".scrim")) { const y = window.scrollY; vDownloads(); window.scrollTo(0, y); }
+}
+function dlManyLabel(ids) {
+  const ts = ids.map(id => BYID[id]).filter(t => t && (hasHe(t) || hasEn(t)));
+  const done = ts.filter(isDownloaded).length, busy = ts.filter(t => ["loading", "waiting"].includes(dlState(t).s)).length;
+  if (ts.length && done === ts.length) return `${DLI.done}<span>All downloaded</span>`;
+  if (busy) return `${DLI.wait}<span>Downloading ${done}/${ts.length}</span>`;
+  return `${DLI.get}<span>Download${done ? ` the rest (${ts.length - done})` : " all"}</span>`;
+}
+function dlManyButton(ids) {
+  if (!NATIVE) return "";
+  const ok = ids.filter(id => BYID[id] && (hasHe(BYID[id]) || hasEn(BYID[id]))); if (!ok.length) return "";
+  return `<button class="btn line dlbtn" data-act="dlmany" data-ids="${ok.join(",")}" data-dlmany>${dlManyLabel(ok)}</button>`;
+}
+function dlMany(ids) {
+  const ts = ids.map(id => BYID[id]).filter(t => t && (hasHe(t) || hasEn(t)) && !isDownloaded(t) && dlState(t).s === "none");
+  if (!ts.length) { toast("Already downloaded"); return; }
+  const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
+  dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
+    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this phone` : ""}. Each chapter downloads in the language it plays in (${audioLang === "auto" ? "matching your reading language" : audioLang === "en" ? "English where recorded" : "Hebrew"}).
+    ${DL.prefs.wifiOnly ? "Downloads wait for Wi‑Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
+    $("[data-x]", s).onclick = close;
+    $("[data-ok]", s).onclick = () => { close(); ts.forEach(t => downloadTrack(t)); toast(`Downloading ${ts.length} chapter${ts.length > 1 ? "s" : ""}`); };
+  });
 }
 
 /* ---------- icons ---------- */
@@ -462,7 +654,7 @@ function trackRow(t, o = {}) {
   return `<div class="trk ${playing ? "playing" : ""} ${playing && audio.paused ? "paused" : ""}" data-id="${t.id}">
     <button class="trk-play" data-act="play" data-id="${t.id}" aria-label="Play ${esc(R(t.title))}">${art(t)}</button>
     <button class="txt" data-act="${o.openChapter === false ? "play" : "chapter"}" data-id="${t.id}" style="text-align:left">
-      <div class="t">${playing ? '<span class="eq"><i></i><i></i><i></i></span>' : ""}${esc(R(t.title))}</div>
+      <div class="t">${playing ? '<span class="eq"><i></i><i></i><i></i></span>' : ""}${esc(R(t.title))}${dlBadge(t)}</div>
       <div class="m">${o.why ? `<span class="why">${esc(o.why)}</span> · ` : ""}${esc(R(t.vol.short))} · ch. ${t.n}${t.vol.he ? (t.translated ? " · AI translation" : " · Hebrew") : ""}${d ? ` · ${mins(d)}` : ""}${p.done ? " · ✓ heard" : ""}</div>
       ${pct ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}
     </button>
@@ -496,6 +688,7 @@ function vHome() {
   <div class="view">
     <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(SEASON.label)}</div>
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
+    ${offlineCard()}
     ${todayCard()}
     ${hero ? `<section class="hero"><div class="orb"></div>
       <div class="eyebrow" style="position:relative;color:var(--gold-2)">Today's pearl</div>
@@ -612,7 +805,7 @@ function vVol(book) {
       <div class="stats"><span>${ts.length} chapters</span>${total ? `<span>${ts.every(dur) ? "" : "≈ "}${(total / 3600).toFixed(1)} h of audio${ts.every(dur) ? "" : "+"}</span>` : ""}${heard ? `<span>${heard}/${ts.length} heard</span>` : ""}</div></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn gold" data-act="playvol" data-id="${v.book}" data-start="${ts.indexOf(firstUnheard)}">${I.play}${heard ? "Continue" : "Play the book"}</button>
-      <button class="btn ghost" data-act="savevol" data-id="${v.book}">${I.plus}Save as playlist</button></div>
+      <button class="btn ghost" data-act="savevol" data-id="${v.book}">${I.plus}Save as playlist</button>${dlManyButton(ts.map(t => t.id))}</div>
     <div class="list">${ts.map(t => trackRow(t)).join("")}</div>
     ${v.book === "03" ? `<p class="note">Audio for this volume may not be available; the text is.</p>` : ""}
   </div>`;
@@ -620,26 +813,51 @@ function vVol(book) {
 /* In the Apple app the page runs from the pearls:// scheme; text requests go through its proxy (the site's CORS headers are malformed). */
 const net = u => window.PEARLS_PROXY ? window.PEARLS_PROXY + encodeURIComponent(u) : u;
 const textCache = {};
-function loadBook(id) {
-  return new Promise((ok, bad) => {
+let bookQueue = Promise.resolve();
+function loadBook(id, dir = "books") {   // one <script> at a time: each file calls PH_BOOK_LOAD(data)
+  const job = bookQueue.then(() => new Promise((ok, bad) => {
     window.PH_BOOK_LOAD = d => ok(d);
-    const s = document.createElement("script"); s.src = `books/${id}.js`; s.onerror = () => bad(new Error("missing"));
+    const s = document.createElement("script"); s.src = `${dir}/${id}.js`; s.onerror = () => { s.remove(); bad(new Error("missing")); };
     s.onload = () => s.remove(); document.head.appendChild(s);
-  });
+  }));
+  bookQueue = job.catch(() => {}); return job;
+}
+/* Offline text. English: bundled in en/ (official translation, fetched by fetch_en_text.py). Hebrew: fetched once from
+   ph.yhb.org.il and kept on the phone by the Android app (PearlsNative), so a chapter read once reads offline. */
+function textGet(key) { if (!NATIVE) return null; try { const s = NATIVE.readText(key); return s ? JSON.parse(s) : null; } catch { return null; } }
+function textPut(key, v) { if (NATIVE) try { NATIVE.writeText(key, JSON.stringify(v)); } catch {} }
+const getJSON = (url, timeout = 25000) => new Promise((ok, bad) => { const x = new XMLHttpRequest(); x.open("GET", net(url)); x.timeout = timeout;
+  x.onload = () => { if (x.status !== 200) return bad(new Error("HTTP " + x.status)); try { ok(JSON.parse(x.responseText)); } catch (e) { bad(e); } };
+  x.onerror = () => bad(new Error("network")); x.ontimeout = () => bad(new Error("timeout")); x.send(); });
+const slugList = t => { const n = Math.max(t.sections || 0, 1); return Array.from({ length: Math.max(n + 2, 30) }, (_, i) => `${t.id}-${String(i + 1).padStart(2, "0")}`); };
+const hebPosts = {};
+async function hebrewPosts(t, opts = {}) {   // every Hebrew section of a chapter, one request, kept for offline
+  if (hebPosts[t.id]) return hebPosts[t.id];
+  let posts = textGet(`he-${t.id}.json`);
+  if (!posts) {
+    if (opts.cachedOnly) return null;
+    posts = (await getJSON(`https://ph.yhb.org.il/wp-json/wp/v2/posts?per_page=50&_fields=slug,title,content,link&slug=${slugList(t).join(",")}`))
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+    if (posts.length) textPut(`he-${t.id}.json`, posts);
+  }
+  posts.forEach(p => { hebCache[p.slug] = p; });
+  return (hebPosts[t.id] = posts);
 }
 async function fetchSections(t) {
   if (textCache[t.id]) return textCache[t.id];
   if (t.vol.he && t.translated) { const d = await loadBook(t.id); textCache[t.id] = d; return d; }
-  const n = Math.max(t.sections || 0, 1);
-  const slugs = Array.from({ length: Math.max(n + 2, 30) }, (_, i) => `${t.id}-${String(i + 1).padStart(2, "0")}`);
-  const site = t.vol.he ? "https://ph.yhb.org.il" : "https://ph.yhb.org.il/en";
-  const url = `${site}/wp-json/wp/v2/posts?per_page=50&_fields=slug,title,content,link&slug=${slugs.join(",")}`;
-  const res = await new Promise((ok, bad) => { const x = new XMLHttpRequest(); x.open("GET", net(url)); x.timeout = 20000;
-    x.onload = () => x.status === 200 ? ok(x.responseText) : bad(new Error("HTTP " + x.status)); x.onerror = () => bad(new Error("network")); x.ontimeout = () => bad(new Error("timeout")); x.send(); });
-  const posts = JSON.parse(res).sort((a, b) => a.slug.localeCompare(b.slug));
-  if (t.vol.he) {   // Hebrew-only chapter not yet translated: read the Hebrew live from ph.yhb.org.il
+  if (t.vol.he) {   // Hebrew-only chapter not yet translated: the Hebrew from ph.yhb.org.il
+    const posts = await hebrewPosts(t);
     const d = { id: t.id, translated: false, sections: posts.map(p => ({ slug: p.slug, link: p.link, title_he: p.title.rendered, body_he: cleanHeb(p.content.rendered) })) };
     textCache[t.id] = d; return d;
+  }
+  let posts = null;
+  try { posts = await loadBook(t.id, "en"); } catch {}           // bundled with the app
+  if (!posts) posts = textGet(`en-${t.id}.json`);                 // fetched earlier
+  if (!posts) {
+    posts = (await getJSON(`https://ph.yhb.org.il/en/wp-json/wp/v2/posts?per_page=50&_fields=slug,title,content,link&slug=${slugList(t).join(",")}`))
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+    if (posts.length) textPut(`en-${t.id}.json`, posts);
   }
   textCache[t.id] = posts; return posts;
 }
@@ -671,7 +889,8 @@ function vChapter(id) {
         ${hasHe(t) || hasEn(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${wantsEnglish(t) ? "English" : "Hebrew"}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
-        <button class="btn ${isDone(t.id) ? "ghost" : "line"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button></div>
+        <button class="btn ${isDone(t.id) ? "ghost" : "line"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button>
+        ${dlButton(t)}</div>
       ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
         <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
         ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
@@ -745,20 +964,11 @@ const hebCache = {};
 async function hebrewFor(t, sec) {           // official English books: the Hebrew original from ph.yhb.org.il (CC BY 4.0)
   const slug = `${t.id}-${String(sec).padStart(2, "0")}`;
   if (hebCache[slug]) return hebCache[slug];
-  const res = await new Promise((ok, bad) => { const x = new XMLHttpRequest();
-    x.open("GET", net(`https://ph.yhb.org.il/wp-json/wp/v2/posts?slug=${slug}&_fields=slug,title,content,link`)); x.timeout = 20000;
-    x.onload = () => x.status === 200 ? ok(JSON.parse(x.responseText)) : bad(new Error("HTTP " + x.status)); x.onerror = () => bad(new Error("network")); x.ontimeout = () => bad(new Error("timeout")); x.send(); });
-  if (!res.length) throw new Error("not found");
-  return (hebCache[slug] = res[0]);
+  await hebrewPosts(t);                       // the whole chapter in one request, kept for offline
+  if (!hebCache[slug]) throw new Error("not found");
+  return hebCache[slug];
 }
-async function hebrewChapter(t) {             // all sections of a chapter in one request
-  const n = Math.max(t.sections || 0, 1), slugs = Array.from({ length: n }, (_, i) => `${t.id}-${String(i + 1).padStart(2, "0")}`);
-  if (slugs.every(s => hebCache[s])) return;
-  const res = await new Promise((ok, bad) => { const x = new XMLHttpRequest();
-    x.open("GET", net(`https://ph.yhb.org.il/wp-json/wp/v2/posts?per_page=50&_fields=slug,title,content,link&slug=${slugs.join(",")}`)); x.timeout = 25000;
-    x.onload = () => x.status === 200 ? ok(JSON.parse(x.responseText)) : bad(new Error("HTTP " + x.status)); x.onerror = () => bad(new Error("network")); x.ontimeout = () => bad(new Error("timeout")); x.send(); });
-  res.forEach(p => { hebCache[p.slug] = p; });
-}
+async function hebrewChapter(t) { await hebrewPosts(t); }   // all sections of a chapter in one request
 /* language pickers: segmented controls on the chapter page and in the player */
 function listenSeg(t, current) {
   const he = hasHe(t), en = hasEn(t); if (!he && !en) return "";
@@ -885,6 +1095,75 @@ function studyLog() {
     playlists: state.mine.map(p => ({ name: p.name, items: p.tracks.map(id => ({ id, ref: BYID[id] ? sefRef(BYID[id], null) : null })) })) };
 }
 
+/* ---------- Downloads & offline (Android app) ---------- */
+function dlSummary() {
+  dlRefresh();
+  const n = TRACKS.filter(isDownloaded).length, busy = TRACKS.filter(t => ["loading", "waiting"].includes(dlState(t).s)).length;
+  return `${n} chapter${n === 1 ? "" : "s"} on this phone${n ? ` · ${fmtMB(dlUsed())}` : ""}${busy ? ` · ${busy} downloading` : ""} · smart downloads ${DL.prefs.smart ? "on" : "off"}`;
+}
+function hebSaved() { if (!NATIVE) return []; try { return JSON.parse(NATIVE.textList()).filter(f => /^he-\d\d-\d\d\.json$/.test(f.n)); } catch { return []; } }
+const HEALL = { run: false, done: 0, total: 0, failed: 0 };
+async function downloadAllHebrew() {
+  if (HEALL.run) return;
+  const have = new Set(hebSaved().map(f => f.n.slice(3, 8))), todo = TRACKS.filter(t => !have.has(t.id));
+  Object.assign(HEALL, { run: true, done: 0, total: todo.length, failed: 0 }); dlPaint();
+  const worker = async () => { while (todo.length && HEALL.run) {
+    const t = todo.shift();
+    try { await hebrewPosts(t); } catch { HEALL.failed++; if (!online()) { HEALL.run = false; break; } }
+    HEALL.done++; if (HEALL.done % 5 === 0) dlPaint();
+  } };
+  await Promise.all([worker(), worker()]);
+  const stopped = !online(); HEALL.run = false; dlPaint();
+  toast(stopped ? "Stopped: you went offline. Tap again to carry on." : `Hebrew text saved${HEALL.failed ? ` (${HEALL.failed} chapters couldn't load)` : ""}`);
+}
+function offlineCard() {
+  if (online()) return "";
+  const n = NATIVE ? TRACKS.filter(isDownloaded).length : 0;
+  return `<button class="panel offline" data-go="${NATIVE ? "downloads" : "books"}"><span class="offdot"></span><span><b>You're offline</b><br><span class="note">
+    ${NATIVE ? `All English text reads offline${n ? `, and ${n} downloaded chapter${n > 1 ? "s" : ""} can play` : ". Download chapters to listen without a connection"}.` : "Chapters you've opened before may still read."}</span></span><span class="dur">›</span></button>`;
+}
+function vDownloads() {
+  setTop("Downloads"); setTab("library");
+  if (!NATIVE) { view.innerHTML = `<div class="view"><h1 class="hello">Downloads</h1><p class="note">Downloading audio for offline listening works in the Android app.</p></div>`; return; }
+  dlRefresh();
+  const p = DL.prefs, have = TRACKS.filter(isDownloaded), busy = TRACKS.filter(t => ["loading", "waiting"].includes(dlState(t).s));
+  const heb = hebSaved(), hebMB = heb.reduce((a, f) => a + f.s, 0), enN = TRACKS.filter(t => !t.vol.he).length, aiN = TRACKS.filter(t => t.vol.he && t.translated).length;
+  const sizeOf = t => { const e = DL.idx[t.id]; return e ? dlNames(t, e.lang).reduce((a, n) => a + (DL.files.get(n) || 0), 0) : 0; };
+  const tog = (k, title, note) => `<button class="opt" data-dlpref="${k}"><span class="radio ${p[k] ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${title}</b><br><span class="note">${note}</span></span></button>`;
+  view.innerHTML = `<div class="view">
+    <div><h1 class="hello">Downloads</h1>
+      <p class="sub">${have.length} chapter${have.length === 1 ? "" : "s"} · ${fmtMB(dlUsed())} of audio${DL.free ? ` · ${fmtMB(DL.free)} free` : ""} · ${online() ? "online" : "<b>offline</b>"}</p></div>
+    ${!DL.ok ? `<div class="panel note">This phone's storage isn't available right now, so audio can't be downloaded.</div>` : ""}
+    ${busy.length ? `<section><div class="sec-h"><h2>Downloading</h2><button class="more" data-act="dlcancel">Cancel all</button></div>
+      <div class="list">${busy.map(t => trackRow(t, { why: dlLabel(t).text, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Cancel">${I.x}</button>` })).join("")}</div>
+      ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi‑Fi. Turn off “Wi‑Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
+    <section class="panel dlset"><div class="eyebrow">Smart downloads</div>
+      ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the phone, plus chapters you're partway through, so they play without a connection.`)}
+      <div class="field"><label>Chapters ahead</label><div class="chips">${[1, 3, 5, 10].map(n => `<button class="chip ${p.ahead === n ? "on" : ""}" data-ahead="${n}">${n}</button>`).join("")}</div></div>
+      ${tog("autoDelete", "Delete after listening", "Removes chapters that smart downloads fetched once you've heard them. Chapters you download yourself stay until you remove them.")}
+      ${tog("wifiOnly", "Wi‑Fi only", "Downloads wait for Wi‑Fi instead of using mobile data.")}
+      <div class="field"><label>Storage limit for smart downloads</label><div class="chips">${[[500, "500 MB"], [1024, "1 GB"], [2048, "2 GB"], [5120, "5 GB"], [0, "No limit"]].map(([v, l]) => `<button class="chip ${p.limitMB === v ? "on" : ""}" data-limit="${v}">${l}</button>`).join("")}</div>
+        <span class="note">When it's full, the oldest smart downloads make room, heard ones first. About ${fmtMB(8000 * 3600)} per hour of Hebrew audio, ${fmtMB(16000 * 3600)} of English.</span></div>
+    </section>
+    <section class="panel dlset"><div class="eyebrow">Reading offline</div>
+      <p class="note" style="margin:0"><b>English:</b> all ${enN} chapters of the official translation and the ${aiN} AI-translated chapters are inside the app, so they read without a connection.</p>
+      <p class="note" style="margin:0"><b>Hebrew:</b> ${heb.length} of ${TRACKS.length} chapters saved on this phone${heb.length ? ` (${fmtMB(hebMB)})` : ""}. A chapter's Hebrew is saved the first time it loads, and when you download its audio.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${HEALL.run ? `<button class="btn line" data-act="dlhebstop">${DLI.wait}<span>Saving Hebrew ${HEALL.done}/${HEALL.total} · stop</span></button>`
+          : heb.length < TRACKS.length ? `<button class="btn line" data-act="dlheb" ${online() ? "" : "disabled"}>${DLI.get}<span>Save all the Hebrew (~${fmtMB(Math.max(0, TRACKS.length - heb.length) * 60e3)})</span></button>` : `<span class="note">${DLI.done} All the Hebrew is saved.</span>`}
+        ${heb.length ? `<button class="btn line" data-act="dlhebclear">Delete saved Hebrew</button>` : ""}</div>
+    </section>
+    <section><div class="sec-h"><h2>On this phone</h2>${have.length ? `<button class="more" data-act="playdl">Play all</button>` : ""}</div>
+      ${have.length ? `<div class="list">${have.map(t => trackRow(t, { why: `${fmtMB(sizeOf(t))}${DL.idx[t.id].auto ? " · smart" : ""}`, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Remove download">${I.x}</button>` })).join("")}</div>
+        <div style="display:flex;justify-content:flex-end"><button class="btn line" data-act="dlrmall">Delete all downloads</button></div>`
+        : `<div class="panel empty"><div class="em-orb"></div><span>Nothing downloaded yet. Tap <b>Download</b> on a chapter, or <b>Download all</b> on a book or playlist. With smart downloads on, what you're listening to downloads by itself.</span><button class="btn ghost" data-go="books">Browse the books</button></div>`}</section>
+  </div>`;
+  view.querySelectorAll("[data-dlpref]").forEach(b => b.onclick = () => { const k = b.dataset.dlpref; p[k] = !p[k]; saveDl(); b.querySelector(".radio").classList.toggle("on", p[k]);
+    if (k === "wifiOnly") toast(p[k] ? "New downloads wait for Wi‑Fi" : "Downloads may use mobile data"); smartSoon(300); });
+  view.querySelectorAll("[data-ahead]").forEach(b => b.onclick = () => { p.ahead = +b.dataset.ahead; saveDl(); view.querySelectorAll("[data-ahead]").forEach(x => x.classList.toggle("on", x === b)); smartSoon(300); });
+  view.querySelectorAll("[data-limit]").forEach(b => b.onclick = () => { p.limitMB = +b.dataset.limit; saveDl(); view.querySelectorAll("[data-limit]").forEach(x => x.classList.toggle("on", x === b)); smartSoon(300); });
+}
+
 /* ---------- Settings ---------- */
 function settingsDialog() {
   dialog(`<h3>Settings</h3>
@@ -894,7 +1173,7 @@ function settingsDialog() {
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
     <div class="field"><label>Read in</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${(state.prefs.read || "en") === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
-      <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il; it needs a connection.</span></div>
+      <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il. ${NATIVE ? "Once a chapter's Hebrew has loaded it stays on the phone for offline reading." : "It needs a connection."}</span></div>
     <div class="field"><label>Listen in</label><div class="chips">${[["auto", "Match my reading"], ["he", "Hebrew"], ["en", "English"]].map(([v, l]) => `<button class="chip ${audioLang === v ? "on" : ""}" data-alang="${v}">${l}</button>`).join("")}</div>
       <span class="note">"Match my reading" plays the English reading when you read in English and one exists, and the Hebrew otherwise. English readings exist for Shabbat, Prayer, Zemanim and Festivals, and parts of Pesach, Sukkot and Days of Awe; elsewhere the Hebrew plays.</span></div>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
@@ -902,8 +1181,9 @@ function settingsDialog() {
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
       <span class="note">Use {ref} for the Sefaria reference, e.g. “Peninei Halakhah, Berakhot 4:2”. Leave empty to hide the Meldar button.</span></div>
     <p class="foot" style="margin:0">S&amp;P house rules re-spell ${LEX.length} recurring terms (${LEX.filter(e => e.st === "a").length} as the Keter Shem Tob house rules spell them, the rest derived by the same rules). Book and rabbi names keep their published spelling.</p>
+    ${NATIVE ? `<a class="btn line" href="#downloads" data-credits>${DLI.get}Downloads &amp; offline</a>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><a class="btn line" href="#credits" data-credits>Credits &amp; licence</a><button class="btn gold" data-ok>Done</button></div>`, (s, close) => {
-    $("[data-credits]", s).onclick = () => close();
+    s.querySelectorAll("[data-credits]").forEach(a => a.onclick = () => close());
     s.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { setScheme(b.dataset.s); s.querySelectorAll("[data-s] .radio").forEach(r => r.classList.toggle("on", r.parentNode.dataset.s === scheme)); });
     s.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { state.prefs.skin = b.dataset.skin; if (b.dataset.skin === "daf" && !state.prefs.readSet) state.prefs.read = "both"; save.prefs(); applyPrefs(); s.querySelectorAll("[data-skin]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
     s.querySelectorAll("[data-hefont]").forEach(b => b.onclick = () => { state.prefs.hefont = b.dataset.hefont; save.prefs(); applyHebFont(); s.querySelectorAll("[data-hefont]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
@@ -919,6 +1199,7 @@ function vLibrary() {
   view.innerHTML = `<div class="view">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px"><h1 class="hello">Playlists</h1>
       <button class="btn gold" data-act="newpl">${I.plus}New</button></div>
+    ${NATIVE ? `<button class="panel progresslink" data-go="downloads"><span><b>Downloads</b><br><span class="note">${dlSummary()}</span></span><span class="dur">›</span></button>` : ""}
     <button class="panel progresslink" data-go="progress"><span><b>Progress</b><br><span class="note">${streak()}-day streak · ${TRACKS.filter(t => isDone(t.id)).length} chapters done · badges</span></span><span class="dur">›</span></button>
     <section><div class="sec-h"><h2>Saved passages</h2></div>
       ${state.saved.length ? `<div class="list">${state.saved.map((s, i) => { const t = BYID[s.ch]; return t ? `<div class="savedrow">
@@ -948,7 +1229,7 @@ function vPlaylist(id) {
     ${pl.blurb ? `<p class="sub" style="margin:0">${esc(pl.blurb)}</p>` : ""}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn gold" data-act="playpl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.play}Play</button>
-      <button class="btn ghost" data-act="shufflepl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.shuffle}Shuffle</button>
+      <button class="btn ghost" data-act="shufflepl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.shuffle}Shuffle</button>${dlManyButton(ts.map(t => t.id))}
       ${own ? `<button class="btn line" data-act="renamepl" data-id="${pl.id}">Rename</button><button class="btn line" data-act="delpl" data-id="${pl.id}">Delete</button>`
             : `<button class="btn line" data-act="copypl" data-id="${pl.id}">${I.plus}Save a copy</button>`}</div>
     ${ts.length ? `<div class="list">${ts.map((t, i) => trackRow(t, { end: own ? `
@@ -1110,6 +1391,7 @@ function trackMenu(id) {
     <button class="opt" data-a="like">${liked ? I.heartOn : I.heart}<b>${liked ? "Remove from liked" : "Like"}</b></button>
     <button class="opt" data-a="read">${I.read}<b>Read in English</b></button>
     <button class="opt" data-a="radio">${I.shuffle}<b>Start a mix from this chapter</b></button>
+    ${NATIVE && (hasHe(t) || hasEn(t)) ? (dlState(t).s === "none" ? `<button class="opt" data-a="dl">${DLI.get}<b>Download</b></button>` : `<button class="opt" data-a="undl">${I.x}<b>Remove download</b></button>`) : ""}
     ${(state.plays[id] || {}).done ? `<button class="opt" data-a="unheard">${I.x}<b>Mark as not heard</b></button>` : ""}`, (s, close) => {
     s.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
       close(); const a = b.dataset.a;
@@ -1118,6 +1400,8 @@ function trackMenu(id) {
       if (a === "like") like(id);
       if (a === "read") { closeNP(); go(`ch-${id}`); }
       if (a === "radio") { playQueue([id, ...similar(t, 9).map(r => r.t.id)], 0, `Mix from ${t.title}`); toast("Mix started"); }
+      if (a === "dl") { downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're online" : "Downloading"); }
+      if (a === "undl") { removeDownload(t); toast("Download removed"); }
       if (a === "unheard") { state.plays[id].done = false; state.plays[id].pos = 0; save.plays(); render(); }
     });
   });
@@ -1212,6 +1496,27 @@ document.addEventListener("click", e => {
       document.querySelectorAll('.chhead [data-act="audiolang"]').forEach(c => { if (BYID[c.dataset.id]) c.textContent = "Listen · " + (wantsEnglish(BYID[c.dataset.id]) ? "English" : "Hebrew"); });
       const pb = document.querySelector('[data-act="playch"] .plang'), pid = pb && pb.parentNode.dataset.id; if (pb && BYID[pid]) pb.textContent = ` · ${wantsEnglish(BYID[pid]) ? "English" : "Hebrew"}`;
       toast(audioLang === "en" ? "English reading where available; Hebrew otherwise" : "Hebrew reading"); break; }
+    case "dl": { const t = BYID[id], st = dlState(t);
+      if (st.s === "none") { if (!DL.ok) { toast("Storage isn't available for downloads"); break; }
+        downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're back online" : `Downloading in ${dlLang(t) === "en" ? "English" : "Hebrew"} · about ${fmtMB(dlBytes(t, dlLang(t)))}`); }
+      else dialog(`<h3>${esc(R(t.title))}</h3><p class="note" style="margin:0">${esc(dlLabel(t).text)}</p>
+        <button class="opt" data-a="rm">${I.x}<b>${st.s === "done" ? "Remove download" : "Cancel download"}</b></button>
+        ${st.s === "done" && hasHe(t) && hasEn(t) ? `<button class="opt" data-a="swap">${DLI.get}<b>Download the ${st.lang === "en" ? "Hebrew" : "English"} instead</b></button>` : ""}`, (s, close) => {
+        s.querySelectorAll("[data-a]").forEach(o => o.onclick = () => { close();
+          if (o.dataset.a === "rm") { removeDownload(t); toast("Download removed"); }
+          else { downloadTrack(t, { lang: st.lang === "en" ? "he" : "en" }); toast("Downloading the other language"); } }); });
+      break; }
+    case "dlmany": dlMany(b.dataset.ids.split(",")); break;
+    case "dlrm": removeDownload(BYID[id]); toast("Removed"); break;
+    case "dlrmall": dialog(`<h3>Delete all downloads?</h3><p class="note" style="margin:0">${fmtMB(dlUsed())} of audio. The text stays.</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Keep them</button><button class="btn gold" data-ok>Delete</button></div>`, (s, close) => {
+        $("[data-x]", s).onclick = close;
+        $("[data-ok]", s).onclick = () => { close(); try { NATIVE.cancelAll(); NATIVE.remove(JSON.stringify([...DL.files.keys()])); } catch {} DL.idx = {}; saveDl(); dlRefresh(); vDownloads(); toast("Downloads deleted"); }; }); break;
+    case "dlcancel": { try { NATIVE.cancelAll(); } catch {} for (const k in DL.idx) if (!isDownloaded(BYID[k] || {})) delete DL.idx[k]; saveDl(); dlRefresh(); vDownloads(); toast("Downloads cancelled"); break; }
+    case "dlheb": downloadAllHebrew(); break;
+    case "dlhebstop": HEALL.run = false; dlPaint(); break;
+    case "dlhebclear": { try { NATIVE.clearText(); } catch {} for (const k in hebPosts) delete hebPosts[k]; vDownloads(); toast("Saved Hebrew deleted"); break; }
+    case "playdl": { const ids = TRACKS.filter(isDownloaded).map(t => t.id); playQueue(ids, 0, "Downloads"); break; }
     case "like": like(id); break;
     case "toggle": toggle(); break;
     case "closeplayer": {   // stop, hide the bar; "Continue listening" on Home still remembers where you were
@@ -1254,6 +1559,7 @@ function render() {
   else if (h === "progress") vProgress();
   else if (h === "search") vSearch();
   else if (h === "credits") vCredits();
+  else if (h === "downloads") vDownloads();
   else vHome();
   window.scrollTo(0, 0); refreshPlaying();
 }
@@ -1261,15 +1567,22 @@ window.addEventListener("hashchange", render);
 window.addEventListener("popstate", () => { if (npEl && !(history.state && history.state.np)) closeNP(); });
 setInterval(() => { if (P.sleepAt) updateProgress(); }, 1000);
 
+dlRefresh();
+if (NATIVE) {   // finish downloads that completed while the app was closed; react to the connection coming and going
+  window.addEventListener("online", () => { toast("Back online"); dlPoll(); smartSoon(); if (!location.hash || location.hash === "#") render(); });
+  window.addEventListener("offline", () => { toast("Offline: downloaded chapters still play"); dlPaint(); if (!location.hash || location.hash === "#") render(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { dlPoll(); smartSoon(); } });
+  setTimeout(() => { dlPoll(); smartSoon(0); }, 3000);
+}
 /* restore the last queue (paused) so the mini player is ready */
 if (state.lastQueue && state.lastQueue.ids && state.lastQueue.ids.length && !state.lastQueue.closed) {
   P.queue = state.lastQueue.ids.filter(id => BYID[id]); P.idx = Math.min(state.lastQueue.idx || 0, P.queue.length - 1); P.ctx = state.lastQueue.ctx;
   if (cur()) { const p = state.plays[cur().id] || {}; P.part = !p.done && p.part != null ? Math.min(p.part, nSections(cur()) - 1) : 0;
-    P.lang = wantsEnglish(cur()) ? "en" : "he"; audio.src = partUrl(cur(), P.part, P.lang);
+    P.lang = playLang(cur()); audio.src = srcFor(cur(), P.part, P.lang);
     if (p.pos && !p.done) audio.addEventListener("loadedmetadata", () => { audio.currentTime = p.pos; }, { once: true }); mediaSession(cur()); }
 }
 applyPrefs();
 renderMini();
 render();
-window.PEARLS = { recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, renderHebrewChapter, loadBook };   // handy for debugging
+window.PEARLS = { recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
 })();

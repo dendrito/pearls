@@ -22,9 +22,28 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   Without the same key, Android refuses to install over the old app.
 - To release a new APK, bump `versionCode` and `versionName` in `android/AndroidManifest.xml`. Also bump
   `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `apple/Pearls.xcodeproj/project.pbxproj`.
-- The APK pipeline runs: aapt2 (`tools/`), then `dexgen` (Rust, smali to dex, stamped to version 035), then an aligned zip,
-  then `signer/sign.mjs` (signature schemes v1, v2 and v3).
-- Lite build (default): only translated chapters are bundled. Hebrew is fetched live from ph.yhb.org.il.
+- The APK pipeline runs: aapt2 (`tools/`), then javac against `tools/android.jar` and D8 (`tools/r8lib.jar`, R8 8.5.35 from
+  Google's r8-releases bucket), then an aligned zip, then `signer/sign.mjs` (signature schemes v1, v2 and v3).
+- Text: all official English is bundled (`www/en/`, from `fetch_en_text.py` -> `src/en/` -> `make_en_books.py`), and so are
+  the AI translations. Hebrew is fetched from ph.yhb.org.il and then kept on the phone.
+- `python3 test_offline.py` tests downloads and offline mode against a stand-in for the Android bridge. It must end
+  "24/24 checks passed".
+
+## Offline and downloads (Android)
+
+- `android/java/.../PearlsBridge.java` is `window.PearlsNative`:
+  - DownloadManager downloads into `<external app files>/dl/NAME.part`, which is renamed to NAME when finished, plus
+    `info`, `list` and `remove`;
+  - Hebrew text files in `<app files>/text/`;
+  - `setBars`, so the status and navigation bars follow the skin.
+- In `www/app.js`, the "downloads" section covers download state per chapter, `smartRun()` (smart downloads) and the
+  `#downloads` page. Audio plays from `file://` when a file is on the phone and streams otherwise.
+- Smart downloads keep the current chapter plus N ahead in the queue, along with the 2 most recent unfinished chapters.
+  - Smart downloads you've heard are deleted.
+  - There's a storage cap: the oldest smart downloads make room, heard ones first, and nothing is deleted if the new
+    chapter wouldn't fit anyway.
+  - Chapters the user downloads are never deleted automatically.
+- The Apple app and the web version have no bridge. They read the bundled English offline, but don't download audio.
 
 ## Where things are
 
@@ -35,7 +54,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 | `make_catalog.py`, `make_translit.py`, `make_he_books.py` | Build www data: the English catalogue, KTS transliteration, and the Hebrew-only books with AI translations. |
 | `work/he`, `work/en`, `work/TRANSLATE.md`, `work/check.py` | Hebrew sources, AI translations, the translation brief (fidelity rules plus licence evidence), and the validator. |
 | `src/` | Scraped source data: ph.yhb.org.il and Sefaria. |
-| `android/` | Manifest, res, smali, `build_apk.py`, `make_icons.py`. |
+| `android/` | Manifest, res, `java/` (activity and offline bridge), `build_apk.py`, `make_icons.py`. |
 | `apple/` | Xcode project. One multiplatform target. The `pearls://` scheme handler also proxies ph.yhb.org.il, which sends duplicate CORS headers. Run `apple/sync_www.sh` after changing www. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
 | `docs/` | S&P house rules (KTS) and the Pearls ⇄ Meldar integration notes. |

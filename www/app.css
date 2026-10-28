@@ -403,3 +403,22 @@ body.hc .seg button.on{background:#fff;color:#000}
 .hefont small{display:block;font-size:12px;color:var(--mist);line-height:1.35}
 /* Shofar and Keter YG run a touch smaller than Frank Ruhl at the same size */
 body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[data-hefont="keter"] .heb-orig,body[data-hefont="keter"] .hebslot{font-size:calc(21px * var(--read-scale,1))}
+
+/* ---------- downloads & offline ---------- */
+.dlbtn span{white-space:nowrap}
+.dlbtn.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 55%,transparent)}
+.dlbtn.busy,.dlbtn.wait{color:var(--gold)}
+.dlbtn.busy svg{animation:dlspin 1.6s linear infinite}
+@keyframes dlspin{to{transform:rotate(360deg)}}
+.dlb{display:inline-flex;vertical-align:-3px;margin-left:6px}
+.dlb svg{width:16px;height:16px}
+.dlb.done{color:var(--ok)}
+.dlb.loading,.dlb.waiting{color:var(--gold)}
+.dlb.none{display:none}
+.dlset{display:flex;flex-direction:column;gap:12px}
+.dlset .opt{padding-left:0;padding-right:0}
+.panel.offline{display:flex;align-items:center;gap:12px;text-align:left;width:100%;border-color:color-mix(in srgb,var(--gold) 50%,var(--line))}
+.panel.offline > span:nth-child(2){flex:1;min-width:0}
+.offdot{width:10px;height:10px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 22%,transparent);flex:none}
+.opt svg{width:20px;height:20px;flex:none}
+@media (prefers-reduced-motion:reduce){.dlbtn.busy svg{animation:none}}

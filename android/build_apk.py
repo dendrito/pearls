@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Builds Pearls.apk without the Android SDK/Gradle:
-aapt2 (resources+manifest) -> dexgen (smali->dex) -> aligned zip -> v1/v2/v3 signature."""
+aapt2 (resources+manifest) -> javac + d8 (Java -> dex) -> aligned zip -> v1/v2/v3 signature."""
 import os, shutil, subprocess, sys, zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -26,16 +26,13 @@ def main():
     run(aapt2, "link", "-I", jar, "--manifest", os.path.join(HERE, "AndroidManifest.xml"),
         "-A", assets, "-o", base, "--auto-add-overlay", "--no-compress-regex", r"\.(png|mp3)$",
         os.path.join(OUT, "res.zip"))
-    # 3. dex
-    dex = os.path.join(OUT, "classes.dex")
-    run(os.path.join(ROOT, "dexgen", "target", "release", "dexgen"), "build", os.path.join(HERE, "smali"), dex)
-    # stamp DEX version 035 (readable by every Android version) and recompute signature + checksum
-    import hashlib, zlib, struct
-    b = bytearray(open(dex, "rb").read())
-    b[0:8] = b"dex\n035\x00"
-    b[12:32] = hashlib.sha1(bytes(b[32:])).digest()
-    b[8:12] = struct.pack("<I", zlib.adler32(bytes(b[12:])) & 0xffffffff)
-    open(dex, "wb").write(bytes(b))
+    # 3. dex: Java sources (android/java) -> javac against android.jar -> d8
+    dex = os.path.join(OUT, "classes.dex"); cls = os.path.join(OUT, "classes"); os.makedirs(cls)
+    srcs = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(HERE, "java")) for f in fs if f.endswith(".java")]
+    run("javac", "-nowarn", "-Xlint:none", "-source", "8", "-target", "8", "-bootclasspath", jar, "-encoding", "UTF-8", "-d", cls, *srcs)
+    classes = [os.path.join(dp, f) for dp, _, fs in os.walk(cls) for f in fs if f.endswith(".class")]
+    run("java", "-cp", os.path.join(TOOLS, "r8lib.jar"), "com.android.tools.r8.D8", "--release", "--min-api", "24",
+        "--lib", jar, "--output", OUT, *classes)
     # 4. aligned zip: stored entries start on 4-byte boundaries (resources.arsc must be stored + aligned)
     unsigned = os.path.join(OUT, "unsigned.apk")
     with zipfile.ZipFile(base) as zin, open(unsigned, "wb") as raw:
