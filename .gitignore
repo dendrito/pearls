@@ -1,0 +1,15 @@
+# build outputs
+/build/
+/Pearls.apk
+/dist/Pearls-Apple.zip
+/apple/www/
+/apple/build/
+xcuserdata/
+/dexgen/target/
+/signer/node_modules/
+__pycache__/
+*.pyc
+/shots/
+# signing keys: keep them out of git (see README)
+/signer/*.pem
+.DS_Store

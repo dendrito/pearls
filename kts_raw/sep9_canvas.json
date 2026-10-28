@@ -1,0 +1,49 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 880,
+      "h": 900,
+      "title": "A · The apparatus"
+    },
+    {
+      "file": "Comparison.dc.html",
+      "x": 990,
+      "y": 0,
+      "w": 880,
+      "h": 660,
+      "title": "B · The comparison"
+    },
+    {
+      "file": "Deck.dc.html",
+      "x": 0,
+      "y": 1030,
+      "w": 880,
+      "h": 700,
+      "title": "C · The deck"
+    },
+    {
+      "file": "Quiet.dc.html",
+      "x": 990,
+      "y": 1030,
+      "w": 880,
+      "h": 760,
+      "title": "D · The quiet page"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": -330,
+      "y": 0,
+      "w": 270,
+      "text": "Four directions for the reader.\n\nThe live site's own tokens and real text from printed p18.\n\nPick one and I build it out."
+    }
+  ],
+  "launch": {
+    "view": "focused",
+    "file": "Main.dc.html"
+  }
+}

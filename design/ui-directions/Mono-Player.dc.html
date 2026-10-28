@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clear player</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Frank+Ruhl+Libre:wght@500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #000000; color: #ffffff; font-family: 'Atkinson Hyperlegible', sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 20px 18px 28px">
+  <button style="align-self: flex-start; height: 48px; padding: 0 16px; border: 2px solid #fff; border-radius: 12px; background: #000; color: #fff; font-size: 18px; font-weight: 700">↓ Close</button>
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <span style="font-size: 18px">Now playing · section 2 of 10</span>
+    <span style="font-size: 32px; font-weight: 700; line-height: 1.1">Laws of Kiddush</span>
+    <span style="font-size: 20px">Fulfilling the Mitzva of Zakhor</span>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="height: 14px; border-radius: 7px; background: #333; border: 2px solid #fff"><div style="width: 34%; height: 10px; border-radius: 5px; background: {{accent}}"></div></div>
+    <div style="display: flex; justify-content: space-between; font-size: 20px; font-weight: 700"><span>1:04</span><span>2:01 left</span></div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+    <button style="height: 72px; border: 2px solid #fff; border-radius: 16px; background: #000; color: #fff; font-size: 20px; font-weight: 700">Back 15s</button>
+    <button style="height: 72px; border: 0; border-radius: 16px; background: {{accent}}; color: #000; font-size: 22px; font-weight: 700">Pause</button>
+    <button style="height: 72px; border: 2px solid #fff; border-radius: 16px; background: #000; color: #fff; font-size: 20px; font-weight: 700">Ahead 30s</button>
+    <button style="height: 64px; border: 2px solid #fff; border-radius: 16px; background: #000; color: #fff; font-size: 18px; font-weight: 700">◀ Section</button>
+    <button style="height: 64px; border: 2px solid #fff; border-radius: 16px; background: #000; color: #fff; font-size: 18px; font-weight: 700">Speed 1×</button>
+    <button style="height: 64px; border: 2px solid #fff; border-radius: 16px; background: #000; color: #fff; font-size: 18px; font-weight: 700">Section ▶</button>
+  </div>
+  <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 10px">
+    <legend style="font-size: 20px; font-weight: 700; margin-bottom: 10px">Audio language</legend>
+    <label style="display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 16px; border: 3px solid {{accent}}; border-radius: 14px; font-size: 22px; font-weight: 700"><input type="radio" name="lang" checked style="width: 26px; height: 26px; accent-color: {{accent}}">English reading</label>
+    <label lang="he" style="display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 16px; border: 2px solid #fff; border-radius: 14px; font-family: 'Frank Ruhl Libre', serif; font-size: 24px"><input type="radio" name="lang" style="width: 26px; height: 26px; accent-color: {{accent}}">קריאה בעברית</label>
+  </fieldset>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#ffd400","options":["#ffd400","#5ce1e6","#ffffff"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#ffd400' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Parchment player</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;family=Frank+Ruhl+Libre:wght@400;500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #f6f0e4; color: #2a2118; font-family: Inter, sans-serif; display: flex; flex-direction: column; padding: 18px 24px 28px; gap: 18px">
+  <header style="display: flex; align-items: center; justify-content: space-between">
+    <button aria-label="Close player" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #e0d4bd; background: transparent; color: #2a2118; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <span style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #6e5e49">Now listening</span>
+    <button aria-label="Sleep timer" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #e0d4bd; background: transparent; color: #2a2118; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5Z"/></svg>
+    </button>
+  </header>
+  <div style="flex: 1; border-radius: 24px; background: #ebe1cd; padding: 26px 24px; display: flex; flex-direction: column; justify-content: space-between">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: {{accent}}; font-weight: 600">Section 2 of 10</div>
+      <div style="font-family: Newsreader, serif; font-size: 26px; line-height: 1.2">Fulfilling the Mitzva of Zakhor</div>
+    </div>
+    <p style="margin: 0; font-family: Newsreader, serif; font-size: 21px; line-height: 1.55; color: #3d3226">“…the mitzva of <i>Zakhor</i> is fulfilled by reciting <span style="background: #f3d9b8; border-radius: 4px; padding: 0 3px">Kiddush over a cup of wine</span> at the start of Shabbat…”</p>
+    <div style="font-size: 13px; color: #6e5e49">Text follows the reading</div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <div style="font-family: Newsreader, serif; font-size: 28px">Laws of Kiddush</div>
+    <div style="font-size: 14px; color: #6e5e49">Shabbat · Chapter 6 · Rav Eliezer Melamed</div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <div style="height: 6px; border-radius: 6px; background: #e0d4bd; position: relative"><div style="width: 34%; height: 6px; border-radius: 6px; background: {{accent}}"></div></div>
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6e5e49"><span>1:04</span><span>−2:01</span></div>
+  </div>
+  <div style="display: flex; align-items: center; justify-content: space-between">
+    <button aria-label="Previous section" style="width: 48px; height: 48px; border: 0; background: transparent; color: #2a2118"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.2v11.6a1 1 0 0 1-1.5.86L9 13.5V17a1 1 0 0 1-2 0V7a1 1 0 0 1 2 0v3.5l8.5-5.16A1 1 0 0 1 19 6.2Z"/></svg></button>
+    <button style="width: 48px; height: 48px; border: 0; background: transparent; color: #2a2118; font-weight: 600">−15</button>
+    <button aria-label="Pause" style="width: 76px; height: 76px; border-radius: 38px; border: 0; background: #2a2118; color: #f6f0e4; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg></button>
+    <button style="width: 48px; height: 48px; border: 0; background: transparent; color: #2a2118; font-weight: 600">+30</button>
+    <button aria-label="Next section" style="width: 48px; height: 48px; border: 0; background: transparent; color: #2a2118"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M5 6.2v11.6a1 1 0 0 0 1.5.86L15 13.5V17a1 1 0 0 0 2 0V7a1 1 0 0 0-2 0v3.5L6.5 5.34A1 1 0 0 0 5 6.2Z"/></svg></button>
+  </div>
+  <div style="display: flex; gap: 10px">
+    <div style="flex: 1; display: flex; padding: 3px; border-radius: 999px; background: #ebe1cd">
+      <button style="flex: 1; height: 40px; border: 0; border-radius: 999px; background: #2a2118; color: #f6f0e4; font-weight: 600; font-size: 14px">English</button>
+      <button lang="he" style="flex: 1; height: 40px; border: 0; border-radius: 999px; background: transparent; color: #5a4a36; font-family: 'Frank Ruhl Libre', serif; font-size: 16px">עברית</button>
+    </div>
+    <button style="height: 46px; padding: 0 16px; border-radius: 999px; border: 1px solid #e0d4bd; background: transparent; color: #2a2118; font-weight: 600">1.25×</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#b0622a","options":["#b0622a","#2f6b5e","#3b4f8a"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#b0622a' };
+  }
+}
+</script>
+</body>
+</html>

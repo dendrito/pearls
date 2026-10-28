@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Parchment chapter</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;family=Frank+Ruhl+Libre:wght@400;500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#7a4b1e}a:hover{color:#5a3412}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #f6f0e4; color: #2a2118; font-family: Inter, sans-serif; display: flex; flex-direction: column; overflow: hidden; position: relative">
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px">
+    <button aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #e0d4bd; background: transparent; color: #2a2118; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <span style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #6e5e49">Shabbat · Chapter 6</span>
+    <button aria-label="Reading settings" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #e0d4bd; background: transparent; color: #2a2118; font-family: Newsreader, serif; font-size: 18px">Aa</button>
+  </header>
+  <div style="padding: 10px 24px 0; display: flex; flex-direction: column; gap: 6px">
+    <h1 style="margin: 0; font-family: Newsreader, serif; font-weight: 400; font-size: 40px; line-height: 1.05">Laws of Kiddush</h1>
+    <div lang="he" dir="rtl" style="font-family: 'Frank Ruhl Libre', serif; font-size: 20px; color: #7a6a52; text-align: left">הלכות קידוש</div>
+  </div>
+  <div style="margin: 18px 24px 0; display: flex; padding: 3px; border-radius: 999px; background: #ebe1cd">
+    <button style="flex: 1; height: 38px; border: 0; border-radius: 999px; background: #2a2118; color: #f6f0e4; font-weight: 600; font-size: 14px">English</button>
+    <button lang="he" style="flex: 1; height: 38px; border: 0; border-radius: 999px; background: transparent; color: #5a4a36; font-family: 'Frank Ruhl Libre', serif; font-size: 16px">עברית</button>
+    <button style="flex: 1; height: 38px; border: 0; border-radius: 999px; background: transparent; color: #5a4a36; font-weight: 600; font-size: 14px">Both</button>
+  </div>
+  <article style="flex: 1; padding: 22px 24px 0; overflow: hidden">
+    <div style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: {{accent}}; font-weight: 600">Section 1 of 10</div>
+    <h2 style="margin: 6px 0 10px; font-family: Newsreader, serif; font-weight: 600; font-size: 24px">Zakhor and Shamor</h2>
+    <p style="margin: 0 0 14px; font-family: Newsreader, serif; font-size: 19px; line-height: 1.6">As we have seen above (1:8), there are two crucial <i>mitzvot</i> that form the backbone of Shabbat: <i>Zakhor</i> and <i>Shamor</i>.</p>
+    <p style="margin: 0; font-family: Newsreader, serif; font-size: 19px; line-height: 1.6; color: #3d3226"><i>Shamor</i> instructs us to refrain from all labor. In this way we clear space in our soul, which we are commanded to fill with positive content…</p>
+  </article>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 120px; background: linear-gradient(rgba(246,240,228,0), #f6f0e4 45%)"></div>
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 18px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 20px; background: #2a2118; color: #f6f0e4">
+    <button aria-label="Play" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: {{accent}}; color: #fff; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>
+    </button>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 600">Listen · 23 min</span><span style="color: #cdbfa6">English reading</span></div>
+      <div style="height: 4px; border-radius: 4px; background: #4a3d2e"><div style="width: 18%; height: 4px; border-radius: 4px; background: {{accent}}"></div></div>
+    </div>
+    <button style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #6e5e49; background: transparent; color: #f6f0e4; font-weight: 600; font-size: 13px">EN</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#b0622a","options":["#b0622a","#2f6b5e","#3b4f8a"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#b0622a' };
+  }
+}
+</script>
+</body>
+</html>

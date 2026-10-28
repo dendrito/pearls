@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daf chapter</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&amp;family=Frank+Ruhl+Libre:wght@400;500;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #fbfaf7; color: #1d1b18; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; overflow: hidden; position: relative">
+  <header style="display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid #e4e0d6">
+    <button aria-label="Back" style="width: 44px; height: 44px; border: 0; background: transparent; color: #1d1b18"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <div style="flex: 1; display: flex; flex-direction: column"><span style="font-family: 'EB Garamond', serif; font-size: 20px; font-weight: 600">Laws of Kiddush</span><span style="font-size: 12px; color: #6b665c">Shabbat 6 · §1 of 10</span></div>
+    <div style="display: flex; border: 1px solid #1d1b18; border-radius: 8px; overflow: hidden">
+      <button style="height: 36px; padding: 0 10px; border: 0; background: transparent; color: #1d1b18; font-size: 13px">EN</button>
+      <button style="height: 36px; padding: 0 10px; border: 0; background: #1d1b18; color: #fbfaf7; font-size: 13px; font-weight: 600">EN | עב</button>
+      <button lang="he" style="height: 36px; padding: 0 10px; border: 0; background: transparent; color: #1d1b18; font-family: 'Frank Ruhl Libre', serif; font-size: 15px">עב</button>
+    </div>
+  </header>
+  <div style="padding: 16px 16px 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+    <span style="font-family: 'EB Garamond', serif; font-size: 22px; font-weight: 600">1. Zakhor and Shamor</span>
+    <span lang="he" dir="rtl" style="font-family: 'Frank Ruhl Libre', serif; font-size: 20px; font-weight: 700">א. זכור ושמור</span>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 12px 16px 0; flex: 1">
+    <div style="display: flex; flex-direction: column; gap: 10px; font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.5">
+      <p style="margin: 0"><span style="background: {{highlight}}">As we have seen above (1:8), there are two crucial <i>mitzvot</i> that form the backbone of Shabbat: <i>Zakhor</i> and <i>Shamor</i>.</span></p>
+      <p style="margin: 0; color: #3f3b34"><i>Shamor</i> instructs us to refrain from all labor. In this way we clear space in our soul, which we are commanded to fill with positive content.</p>
+      <p style="margin: 0; color: #3f3b34">This positive content is included in <i>Zakhor</i>…</p>
+    </div>
+    <div lang="he" dir="rtl" style="display: flex; flex-direction: column; gap: 10px; font-family: 'Frank Ruhl Libre', serif; font-size: 17px; line-height: 1.6; border-right: 1px solid #e4e0d6; padding-right: 0; padding-left: 0">
+      <p style="margin: 0"><span style="background: {{highlight}}">כפי שלמדנו (לעיל א, ח), שתי מצוות יסודיות מעמידות את השבת, 'זכור' ו'שמור'.</span></p>
+      <p style="margin: 0; color: #3f3b34">מצוות 'שמור' מורה לנו להימנע מכל מלאכה, וכך אנו מפנים מקום בנפשנו…</p>
+    </div>
+  </div>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 20px; background: #fbfaf7; border-top: 1px solid #e4e0d6; display: flex; align-items: center; gap: 12px">
+    <button aria-label="Play" style="width: 48px; height: 48px; border-radius: 10px; border: 0; background: #1d1b18; color: #fbfaf7; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></button>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; font-weight: 600">Listen and follow the highlight</span><span style="font-size: 12px; color: #6b665c">Audio: Hebrew · tap to switch</span></div>
+    <button style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #1d1b18; background: transparent; color: #1d1b18; font-size: 13px; font-weight: 600">עב ▾</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"highlight":{"editor":"color","default":"#f5e6b8","options":["#f5e6b8","#d8ecd9","#dfe6f7"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { highlight: this.props.highlight ?? '#f5e6b8' };
+  }
+}
+</script>
+</body>
+</html>

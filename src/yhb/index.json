@@ -1,0 +1,50 @@
+{
+ "fetched": "2026-10-27T20:54:14Z",
+ "books": {
+  "06": {
+   "posts": 131,
+   "chapters": 11
+  },
+  "07": {
+   "posts": 50,
+   "chapters": 5
+  },
+  "08": {
+   "posts": 202,
+   "chapters": 17
+  },
+  "10": {
+   "posts": 230,
+   "chapters": 19
+  },
+  "11": {
+   "posts": 177,
+   "chapters": 11
+  },
+  "16": {
+   "posts": 120,
+   "chapters": 12
+  },
+  "17": {
+   "posts": 424,
+   "chapters": 39
+  },
+  "18": {
+   "posts": 120,
+   "chapters": 11
+  },
+  "19": {
+   "posts": 99,
+   "chapters": 9
+  },
+  "20": {
+   "posts": 359,
+   "chapters": 30
+  },
+  "21": {
+   "posts": 214,
+   "chapters": 16
+  }
+ },
+ "licence": "CC BY 4.0 per ph.yhb.org.il/terms; credit: פניני הלכה, הרב אליעזר מלמד, מכון הר ברכה"
+}

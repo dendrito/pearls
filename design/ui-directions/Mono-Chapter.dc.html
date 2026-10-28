@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clear chapter</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=Frank+Ruhl+Libre:wght@500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #ffffff; color: #000000; font-family: 'Atkinson Hyperlegible', sans-serif; display: flex; flex-direction: column; overflow: hidden; position: relative">
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 16px 16px; border-bottom: 3px solid #000">
+    <button style="height: 48px; padding: 0 14px; border: 2px solid #000; border-radius: 12px; background: #fff; color: #000; font-size: 18px; font-weight: 700">← Back</button>
+    <button style="height: 48px; padding: 0 14px; border: 2px solid #000; border-radius: 12px; background: #fff; color: #000; font-size: 18px; font-weight: 700">Text size</button>
+  </header>
+  <div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 6px">
+    <span style="font-size: 18px">Shabbat · Chapter 6</span>
+    <h1 style="margin: 0; font-size: 36px; line-height: 1.1">Laws of Kiddush</h1>
+  </div>
+  <fieldset style="margin: 18px 20px 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 10px">
+    <legend style="font-size: 18px; font-weight: 700; margin-bottom: 8px">I want to</legend>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <button style="height: 64px; border: 3px solid #000; border-radius: 14px; background: #000; color: #fff; font-size: 20px; font-weight: 700">Read English</button>
+      <button lang="he" style="height: 64px; border: 3px solid #000; border-radius: 14px; background: #fff; color: #000; font-family: 'Frank Ruhl Libre', serif; font-size: 22px">לקרוא בעברית</button>
+      <button style="height: 64px; border: 3px solid #000; border-radius: 14px; background: #fff; color: #000; font-size: 20px; font-weight: 700">Listen in English</button>
+      <button lang="he" style="height: 64px; border: 3px solid #000; border-radius: 14px; background: #fff; color: #000; font-family: 'Frank Ruhl Libre', serif; font-size: 22px">להאזין בעברית</button>
+    </div>
+  </fieldset>
+  <article style="padding: 20px 20px 0; flex: 1">
+    <h2 style="margin: 0 0 8px; font-size: 24px">1. Zakhor and Shamor</h2>
+    <p style="margin: 0; font-size: {{size}}px; line-height: 1.55">As we have seen above (1:8), there are two crucial mitzvot that form the backbone of Shabbat: <b>Zakhor</b> and <b>Shamor</b>.</p>
+  </article>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; background: #000; color: #fff; padding: 14px 16px 22px; display: flex; align-items: center; gap: 12px">
+    <button aria-label="Play" style="width: 64px; height: 64px; border-radius: 32px; border: 0; background: #ffd400; color: #000; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></button>
+    <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 20px; font-weight: 700">Play chapter</span><span style="font-size: 16px">English reading · 23 minutes</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"size":{"editor":"range","default":22,"min":18,"max":30,"step":1,"unit":"px"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { size: this.props.size ?? 22 };
+  }
+}
+</script>
+</body>
+</html>

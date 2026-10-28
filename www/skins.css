@@ -1,0 +1,152 @@
+/* Skins. Each skin only re-sets the design tokens defined at the top of app.css,
+   plus a few signature details. "Classic" is app.css itself (no data-skin). */
+
+/* ---------- Pearl Minimal family: no glow, hairlines, one accent ---------- */
+body[data-skin="pearl"],body[data-skin="pearl-dark"],body[data-skin="sand"],body[data-skin="ice"],body[data-skin="night"],body[data-skin="mint"]{
+  --f-display:"Geist","Figtree",system-ui,sans-serif; --f-body:"Geist","Figtree",system-ui,sans-serif; --f-label:"Geist Mono",ui-monospace,monospace; --f-read:var(--f-body);
+  --dw:300; --dls:-0.02em; --r:14px; --r-hero:18px;
+  --top-bg:var(--ink); --tabs-bg:var(--ink); --hero-bg:var(--ink-2); --hero-line:var(--line); --hero-shadow:none;
+  --shadow:none; --glow:none; --cover-filter:saturate(.45); --float-shadow:0 10px 30px rgba(0,0,0,.12);
+  --chip-on-bg:transparent; --chip-on-line:var(--gold);
+}
+body[data-skin="pearl"] .aura,body[data-skin="pearl-dark"] .aura,body[data-skin="sand"] .aura,body[data-skin="ice"] .aura,body[data-skin="night"] .aura,body[data-skin="mint"] .aura,
+body[data-skin="pearl"] .hero .orb,body[data-skin="pearl-dark"] .hero .orb,body[data-skin="sand"] .hero .orb,body[data-skin="ice"] .hero .orb,body[data-skin="night"] .hero .orb,body[data-skin="mint"] .hero .orb{display:none}
+
+body[data-skin="pearl"]{--scheme:light;--ink:#f5f5f2;--ink-2:#fbfbf9;--ink-3:#ebebe6;--line:#dcdcd6;--hair:#e4e4de;--pearl:#111;--mist:#4f4f4f;--dim:#6b6b6b;--gold:#ff4f00;--gold-2:#c43d00;--on-gold:#fff;--text:#1d1d1d;
+  --glass:rgba(251,251,249,.95);--glass-line:#dcdcd6;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.35);--ai-bg:rgba(91,79,214,.06);--ai-line:#cdc8f2;--ai-tag:#5b4fd6;--ai-fg:#fff}
+body[data-skin="pearl-dark"]{--ink:#0b0b0c;--ink-2:#111113;--ink-3:#1a1a1d;--line:#26262a;--hair:#1f1f23;--pearl:#ededea;--mist:#a6a6ac;--dim:#8d8d93;--gold:#ff4f00;--gold-2:#ff7a3d;--on-gold:#fff;--text:#dcdcd8;
+  --glass:rgba(17,17,19,.94);--glass-line:#26262a;--float-shadow:0 12px 40px rgba(0,0,0,.6)}
+body[data-skin="sand"]{--scheme:light;--ink:#efe9dd;--ink-2:#f5f0e6;--ink-3:#e6dfd0;--line:#d9d0bf;--hair:#e0d8c8;--pearl:#1f1b16;--mist:#4f473c;--dim:#6d6457;--gold:#c2410c;--gold-2:#a8370a;--on-gold:#fff;--text:#2a241d;
+  --f-display:"Instrument Serif",Georgia,serif;--dw:400;--dls:-0.01em;
+  --glass:rgba(245,240,230,.95);--glass-line:#d9d0bf;--track:rgba(0,0,0,.12);--scrim:rgba(40,30,20,.35);--ai-bg:rgba(91,79,214,.05);--ai-line:#cfc6e8;--ai-tag:#5b4fd6;--ai-fg:#fff}
+body[data-skin="ice"]{--scheme:light;--ink:#eef2f6;--ink-2:#f7f9fb;--ink-3:#e1e7ee;--line:#d3dbe4;--hair:#dde4ec;--pearl:#0b1726;--mist:#3e4d5e;--dim:#5b6b7d;--gold:#2b59ff;--gold-2:#1f46d6;--on-gold:#fff;--text:#13202f;
+  --dw:600;--dls:-0.03em;
+  --glass:rgba(247,249,251,.95);--glass-line:#d3dbe4;--track:rgba(0,0,0,.12);--scrim:rgba(10,20,40,.35);--ai-bg:rgba(91,79,214,.05);--ai-line:#cfd0f2;--ai-tag:#5b4fd6;--ai-fg:#fff}
+body[data-skin="night"]{--ink:#0a0a0a;--ink-2:#121211;--ink-3:#1b1a18;--line:#26241f;--hair:#1d1c19;--pearl:#f2efe8;--mist:#b5afa4;--dim:#8f8a80;--gold:#e2b65c;--gold-2:#f0cf86;--on-gold:#1a1408;--text:#e6e1d6;
+  --f-display:"Instrument Serif",Georgia,serif;--dw:400;--dls:-0.01em;
+  --glass:rgba(18,18,17,.95);--glass-line:#26241f;--float-shadow:0 12px 40px rgba(0,0,0,.6)}
+body[data-skin="mint"]{--ink:#0b1210;--ink-2:#0f1915;--ink-3:#16231e;--line:#1f2c27;--hair:#18241f;--pearl:#e3f1ea;--mist:#a9c2b6;--dim:#7f9a8e;--gold:#3ddc97;--gold-2:#6fe8b3;--on-gold:#06231a;--text:#d3e6dc;
+  --f-display:"Geist Mono",ui-monospace,monospace;--f-body:"Geist Mono",ui-monospace,monospace;--f-read:"Geist",system-ui,sans-serif;--dw:500;--dls:-0.01em;
+  --glass:rgba(15,25,21,.95);--glass-line:#1f2c27;--float-shadow:0 12px 40px rgba(0,0,0,.6)}
+
+/* ---------- Illuminated: vellum, lapis and vermilion, a manuscript ---------- */
+body[data-skin="illuminated"]{--scheme:light;--ink:#f3ead6;--ink-2:#f8f1e1;--ink-3:#ebdfc4;--line:#cdb88c;--hair:#e0d1ae;--pearl:#2b1d12;--mist:#53412e;--dim:#735e44;--gold:#1f3a93;--gold-2:#1a3180;--on-gold:#f8f1e1;--text:#2b1d12;--rubric:#a8261c;
+  --f-display:"Cormorant Garamond","EB Garamond",Georgia,serif;--f-body:"EB Garamond",Georgia,serif;--f-label:"Cormorant Garamond",Georgia,serif;--f-read:"EB Garamond",Georgia,serif;--dw:600;--dls:0;
+  --r:4px;--r-hero:4px;--r-pill:6px;--bstyle:double;--bw:3px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--ink-2);--hero-line:var(--line);--hero-shadow:none;--shadow:0 1px 0 var(--line);--glow:none;--cover-filter:sepia(.45) saturate(.8);
+  --chip-on-bg:transparent;--chip-on-line:var(--gold);--glass:rgba(248,241,225,.96);--glass-line:var(--line);--float-shadow:0 8px 24px rgba(60,40,10,.15);--track:rgba(43,29,18,.15);--scrim:rgba(43,29,18,.35);
+  --ai-bg:rgba(31,58,147,.06);--ai-line:#b9c3e6;--ai-tag:#1f3a93;--ai-fg:#f8f1e1}
+body[data-skin="illuminated"] .aura,body[data-skin="illuminated"] .hero .orb{display:none}
+body[data-skin="illuminated"] .eyebrow,body[data-skin="illuminated"] .seglabel,body[data-skin="illuminated"] .field label{font-variant:small-caps;text-transform:lowercase;letter-spacing:.12em;font-size:14px;color:var(--rubric)}
+body[data-skin="illuminated"] .reader section>p:first-of-type::first-letter,body[data-skin="illuminated"] .ai-sec>p:first-of-type::first-letter{float:left;font-family:var(--f-display);font-size:3.4em;line-height:.82;padding:6px 8px 0 0;color:var(--rubric);font-weight:700}
+body[data-skin="illuminated"] .reader h3{color:var(--rubric)}
+body[data-skin="illuminated"] .hero{border-width:3px;border-style:double}
+body[data-skin="illuminated"] .mini,body[data-skin="illuminated"] .langbar{border-width:3px;border-style:double;border-color:var(--line)}
+body[data-skin="illuminated"] .brand b{font-style:italic}
+
+/* ---------- Tekhelet: deep sea night, threads of blue light ---------- */
+body[data-skin="tekhelet"]{--ink:#04121f;--ink-2:#071c2e;--ink-3:#0c2740;--line:#143654;--hair:#0f2c45;--pearl:#e6f3ff;--mist:#a3bed6;--dim:#7c98b3;--gold:#3fa9ff;--gold-2:#86c9ff;--on-gold:#021220;--text:#d7e8f7;
+  --f-display:"Syne","Geist",system-ui,sans-serif;--f-body:"Geist","Figtree",system-ui,sans-serif;--f-label:"Geist Mono",ui-monospace,monospace;--f-read:var(--f-body);--dw:700;--dls:-0.02em;
+  --r:20px;--r-hero:28px;
+  --top-bg:linear-gradient(var(--ink) 70%,rgba(4,18,31,0));--tabs-bg:linear-gradient(rgba(4,18,31,.7),var(--ink) 40%);
+  --hero-bg:radial-gradient(120% 90% at 100% 0%,#0f4c80 0%,#082440 45%,#061a2c 100%);--hero-line:#1a4d78;--hero-shadow:0 2px 18px rgba(2,10,20,.7);
+  --glow:0 0 44px rgba(63,169,255,.5);--chip-on-bg:rgba(63,169,255,.12);--chip-on-line:rgba(63,169,255,.55);
+  --glass:rgba(7,28,46,.93);--glass-line:#1a4d78;--float-shadow:0 12px 40px rgba(0,0,0,.6),0 0 0 1px rgba(63,169,255,.08);
+  --ai-bg:rgba(63,169,255,.07);--ai-line:#1f5a8c;--ai-tag:#1f6fd6;--ai-fg:#fff}
+body[data-skin="tekhelet"] .aura{background:repeating-linear-gradient(90deg,rgba(63,169,255,.055) 0 1px,transparent 1px 22px),radial-gradient(55% 50% at 50% 0%,rgba(63,169,255,.28),transparent 70%);
+  -webkit-mask-image:linear-gradient(#000 20%,transparent);mask-image:linear-gradient(#000 20%,transparent)}
+body[data-skin="tekhelet"] .hero .orb{background:radial-gradient(circle at 34% 30%,#ffffff 0 8%,#bfe3ff 26%,#3fa9ff 62%,rgba(63,169,255,0) 72%)}
+body[data-skin="tekhelet"] .hero .orb::after{border-color:rgba(63,169,255,.4)}
+body[data-skin="tekhelet"] .brand .dot{background:radial-gradient(circle at 34% 30%,#fff 0 12%,#bfe3ff 30%,#3fa9ff 78%);box-shadow:0 0 18px rgba(63,169,255,.6)}
+
+/* ---------- Brutal: paper, black ink, hard shadows, acid yellow ---------- */
+body[data-skin="brutal"]{--scheme:light;--ink:#f4f1ea;--ink-2:#ffffff;--ink-3:#ffffff;--line:#111;--hair:#111;--pearl:#111;--mist:#2e2e2e;--dim:#4a4a4a;--gold:#e6ff00;--gold-2:#111;--on-gold:#111;--text:#111;
+  --f-display:"Space Grotesk",system-ui,sans-serif;--f-body:"Space Grotesk",system-ui,sans-serif;--f-label:"JetBrains Mono",ui-monospace,monospace;--f-read:var(--f-body);--dw:700;--dls:-0.03em;
+  --r:0px;--r-hero:0px;--r-pill:0px;--bw:2px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--gold);--hero-line:#111;--hero-shadow:none;
+  --shadow:4px 4px 0 #111;--card-shadow:4px 4px 0 #111;--glow:4px 4px 0 #111;--cover-filter:grayscale(1) contrast(1.2);
+  --chip-on-bg:var(--gold);--chip-on-line:#111;--glass:#fff;--glass-line:#111;--float-shadow:5px 5px 0 #111;--track:rgba(0,0,0,.18);--scrim:rgba(0,0,0,.4);
+  --ai-bg:#fff;--ai-line:#111;--ai-tag:#111;--ai-fg:#e6ff00}
+body[data-skin="brutal"] .aura,body[data-skin="brutal"] .hero .orb{display:none}
+body[data-skin="brutal"] .chip,body[data-skin="brutal"] .tool,body[data-skin="brutal"] .pill,body[data-skin="brutal"] .btn.ghost,body[data-skin="brutal"] .btn.line,body[data-skin="brutal"] .iconbtn,body[data-skin="brutal"] .top .act,body[data-skin="brutal"] .top .back,body[data-skin="brutal"] .seg,body[data-skin="brutal"] .search{border:2px solid #111}
+body[data-skin="brutal"] .btn.gold,body[data-skin="brutal"] .ctrls .play,body[data-skin="brutal"] .mini .mctl .iconbtn.big{border:2px solid #111;box-shadow:3px 3px 0 #111}
+body[data-skin="brutal"] .mini .mctl .iconbtn{border:0}
+body[data-skin="brutal"] .mini .mctl .iconbtn.big{border:2px solid #111}
+body[data-skin="brutal"] .hero .why{color:#111}
+body[data-skin="brutal"] .reader a,body[data-skin="brutal"] .linkbtn{text-decoration:underline;text-decoration-thickness:2px}
+body[data-skin="brutal"] .tabs button.on{color:#111;background:var(--gold);border:2px solid #111}
+body[data-skin="brutal"] .langbar{border-width:2px;box-shadow:4px 4px 0 #111}
+
+/* ---------- light skins: darker letter tints so they stay readable on paper ---------- */
+body.light.tint .t0a{color:#a84a00}body.light.tint .t0b{color:#00639b}
+body.light.tint .t1a{color:#b0004f}body.light.tint .t1b{color:#2a7a14}
+body.light.tint .t2a{color:#7a6000}body.light.tint .t2b{color:#5b3fd0}
+body.light.tint .t3a{color:#b8401a}body.light.tint .t3b{color:#00796b}
+body.light.tint .t4a{color:#9b2fb0}body.light.tint .t4b{color:#2a5cb8}
+body.light.tint .t5a{color:#8a5a00}body.light.tint .t5b{color:#157a3c}
+body.light .cover .cap,body.light .plart .badge{color:#fff}
+
+/* ---------- Parchment: warm paper, a book typeface, reading first ---------- */
+body[data-skin="parchment"]{--scheme:light;--ink:#f6f0e4;--ink-2:#fbf7ee;--ink-3:#ebe1cd;--line:#e0d4bd;--hair:#e7dcc7;--pearl:#2a2118;--mist:#55473a;--dim:#6e5e49;--gold:#b0622a;--gold-2:#8f4c1c;--on-gold:#fff;--text:#2f2519;
+  --f-display:"Newsreader",Georgia,serif;--f-body:"Inter","Figtree",system-ui,sans-serif;--f-read:"Newsreader",Georgia,serif;--f-label:var(--f-body);--dw:400;--dls:-0.01em;
+  --r:20px;--r-hero:24px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--ink-3);--hero-line:var(--line);--hero-shadow:none;--shadow:0 6px 20px rgba(80,50,20,.12);--glow:none;--cover-filter:sepia(.25);
+  --chip-on-bg:rgba(176,98,42,.1);--chip-on-line:rgba(176,98,42,.5);--glass:#2a2118;--glass-line:#2a2118;--float-shadow:0 12px 30px rgba(42,33,24,.3);--track:rgba(0,0,0,.12);--scrim:rgba(42,33,24,.35);
+  --ai-bg:rgba(91,79,214,.05);--ai-line:#d4cdea;--ai-tag:#5b4fd6;--ai-fg:#fff}
+body[data-skin="parchment"] .aura,body[data-skin="parchment"] .hero .orb{display:none}
+body[data-skin="parchment"] .reader{font-size:calc(19px * var(--read-scale,1));line-height:1.65}
+/* the player bar is ink on paper, as in the mockup */
+body[data-skin="parchment"] .mini{color:#f6f0e4;--pearl:#f6f0e4;--mist:#cdbfa6;--line:#5a4a36;--track:rgba(255,255,255,.2)}
+
+/* ---------- Studio: dark, audio-first, lime ---------- */
+body[data-skin="studio"]{--ink:#0e0e10;--ink-2:#18181c;--ink-3:#1c1c20;--line:#2a2a31;--hair:#202026;--pearl:#f2f2f2;--mist:#b3b3ba;--dim:#9a9aa2;--gold:#c6f36b;--gold-2:#d6f78f;--on-gold:#0e0e10;--text:#e6e6e8;
+  --f-display:"Space Grotesk",system-ui,sans-serif;--f-body:"Space Grotesk",system-ui,sans-serif;--f-label:var(--f-body);--f-read:"Geist",system-ui,sans-serif;--dw:700;--dls:-0.02em;
+  --r:22px;--r-hero:22px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--gold);--hero-line:var(--gold);--hero-shadow:none;--shadow:none;--glow:0 0 36px rgba(198,243,107,.35);--cover-filter:none;
+  --chip-on-bg:rgba(198,243,107,.12);--chip-on-line:rgba(198,243,107,.6);--glass:#23232a;--glass-line:#2f2f37;--float-shadow:0 12px 40px rgba(0,0,0,.6);
+  --ai-bg:rgba(198,243,107,.06);--ai-line:#3a4a22;--ai-tag:#c6f36b;--ai-fg:#0e0e10}
+body[data-skin="studio"] .aura,body[data-skin="studio"] .hero .orb{display:none}
+/* the lime hero card carries dark text */
+body[data-skin="studio"] .hero{color:#0e0e10;--pearl:#0e0e10;--mist:#2b3a12;--dim:#2b3a12;--gold-2:#0e0e10}
+body[data-skin="studio"] .hero .btn.gold{background:#0e0e10;color:#f2f2f2}
+body[data-skin="studio"] .hero .btn.ghost{background:rgba(14,14,16,.12);color:#0e0e10}
+
+/* ---------- Daf: a printed page ---------- */
+body[data-skin="daf"]{--scheme:light;--ink:#fbfaf7;--ink-2:#ffffff;--ink-3:#f3f1ea;--line:#d6d1c4;--hair:#e4e0d6;--pearl:#1d1b18;--mist:#46423a;--dim:#6b665c;--gold:#1d1b18;--gold-2:#1d1b18;--on-gold:#fbfaf7;--text:#1d1b18;--mark:#f5e6b8;
+  --f-display:"EB Garamond",Georgia,serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-read:"EB Garamond",Georgia,serif;--f-label:"IBM Plex Sans",system-ui,sans-serif;--dw:600;--dls:0;
+  --r:10px;--r-hero:10px;--r-pill:10px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--ink-3);--hero-line:var(--line);--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:grayscale(.6);
+  --chip-on-bg:var(--mark);--chip-on-line:#1d1b18;--glass:#f3f1ea;--glass-line:#d6d1c4;--float-shadow:0 -1px 0 #d6d1c4;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.3);
+  --ai-bg:#fff;--ai-line:#d6d1c4;--ai-tag:#1d1b18;--ai-fg:#fbfaf7}
+body[data-skin="daf"] .aura,body[data-skin="daf"] .hero .orb{display:none}
+body[data-skin="daf"] .reader{font-size:calc(18px * var(--read-scale,1))}
+/* side by side: English left, Hebrew right, on wide-enough screens */
+body[data-skin="daf"] .reader.read-both section{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px;align-items:start}
+body[data-skin="daf"] .reader.read-both section>*{grid-column:1/-1}
+body[data-skin="daf"] .reader.read-both section>.en-body,body[data-skin="daf"] .reader.read-both section>.ai-sec{grid-column:1;grid-row:1;font-size:.88em}
+body[data-skin="daf"] .reader.read-both section>.hebslot,body[data-skin="daf"] .reader.read-both section>.heb-orig{grid-column:2;grid-row:1;margin:0;padding:0 12px 0 0;background:none;border:0;border-right:1px solid var(--line);border-radius:0;font-size:.95em}
+body[data-skin="daf"] .reader h3{font-weight:600}
+body[data-skin="daf"] .seg button.on{background:#1d1b18;color:#fbfaf7}
+
+/* ---------- Clear: black on white, big type, big targets ---------- */
+body[data-skin="clear"]{--scheme:light;--ink:#ffffff;--ink-2:#ffffff;--ink-3:#ffffff;--line:#000;--hair:#000;--pearl:#000;--mist:#1a1a1a;--dim:#333;--gold:#000;--gold-2:#000;--on-gold:#ffd400;--text:#000;
+  --f-display:"Atkinson Hyperlegible",system-ui,sans-serif;--f-body:"Atkinson Hyperlegible",system-ui,sans-serif;--f-read:var(--f-body);--f-label:var(--f-body);--dw:700;--dls:0;
+  --r:14px;--r-hero:14px;--r-pill:14px;--bw:2px;
+  --top-bg:#fff;--tabs-bg:#fff;--hero-bg:#fff;--hero-line:#000;--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:none;
+  --chip-on-bg:#000;--chip-on-line:#000;--glass:#000;--glass-line:#000;--float-shadow:none;--track:rgba(255,255,255,.35);--scrim:rgba(0,0,0,.5);
+  --ai-bg:#fff;--ai-line:#000;--ai-tag:#000;--ai-fg:#ffd400;--read-boost:1.15}
+body[data-skin="clear"] .aura,body[data-skin="clear"] .hero .orb{display:none}
+body[data-skin="clear"]{font-size:18px}
+body[data-skin="clear"] .reader{font-size:calc(21px * var(--read-scale,1));line-height:1.6}
+body[data-skin="clear"] .btn,body[data-skin="clear"] .chip,body[data-skin="clear"] .tool,body[data-skin="clear"] .pill{min-height:48px;font-size:16px;border:2px solid #000}
+body[data-skin="clear"] .chip.on{color:#ffd400}
+body[data-skin="clear"] .eyebrow,body[data-skin="clear"] .seglabel,body[data-skin="clear"] .field label{font-size:14px;color:#000;font-weight:700}
+body[data-skin="clear"] .note,body[data-skin="clear"] .trk .m{font-size:15px}
+body[data-skin="clear"] .seg{border:2px solid #000}
+body[data-skin="clear"] .seg button{min-height:48px;font-size:16px;color:#000}
+body[data-skin="clear"] .seg button.on{background:#000;color:#ffd400}
+/* the player is black with a yellow play button */
+body[data-skin="clear"] .mini{color:#fff;--pearl:#fff;--mist:#e6e6e6;--line:#fff;--gold:#ffd400;--gold-2:#ffd400;--on-gold:#000}
+body[data-skin="clear"] .tabs button{font-size:13px;color:#333}
+body[data-skin="clear"] .tabs button.on{color:#000;font-weight:700}
+body[data-skin="clear"] .btn.gold,body[data-skin="clear"] .ctrls .play{background:#000;color:#ffd400}

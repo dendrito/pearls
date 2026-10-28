@@ -1,0 +1,2197 @@
+{
+ "kw": [
+  {
+   "term": "shabbath",
+   "kind": "ritual",
+   "n": 252
+  },
+  {
+   "term": "blessing",
+   "kind": "concept",
+   "n": 161
+  },
+  {
+   "term": "minhag",
+   "kind": "concept",
+   "n": 157
+  },
+  {
+   "term": "hazan",
+   "kind": "person",
+   "n": 157
+  },
+  {
+   "term": "mitsvah",
+   "kind": "concept",
+   "n": 136
+  },
+  {
+   "term": "berahah",
+   "kind": "ritual",
+   "n": 108
+  },
+  {
+   "term": "sepher torah",
+   "kind": "object",
+   "n": 94
+  },
+  {
+   "term": "kipur",
+   "kind": "ritual",
+   "n": 71
+  },
+  {
+   "term": "rosh hashanah",
+   "kind": "ritual",
+   "n": 56
+  },
+  {
+   "term": "haphtarah",
+   "kind": "ritual",
+   "n": 45
+  },
+  {
+   "term": "succóth",
+   "kind": "ritual",
+   "n": 34
+  },
+  {
+   "term": "succáh",
+   "kind": "ritual",
+   "n": 33
+  },
+  {
+   "term": "ashcabah",
+   "kind": "ritual",
+   "n": 23
+  },
+  {
+   "term": "kidush",
+   "kind": "ritual",
+   "n": 21
+  },
+  {
+   "term": "aliyah",
+   "kind": "ritual",
+   "n": 21
+  },
+  {
+   "term": "tsedaca",
+   "kind": "concept",
+   "n": 20
+  },
+  {
+   "term": "orphan",
+   "kind": "concept",
+   "n": 19
+  },
+  {
+   "term": "punishment",
+   "kind": "concept",
+   "n": 18
+  },
+  {
+   "term": "reward",
+   "kind": "concept",
+   "n": 17
+  },
+  {
+   "term": "shophar",
+   "kind": "object",
+   "n": 15
+  }
+ ],
+ "topics": {
+  "sukkot": "Sucoth",
+  "sukkah-build": "Building the sucah",
+  "sukkah-adorn": "Adorning the sucah",
+  "sukkah-dwell": "Dwelling in the sucah",
+  "lulav": "Lulab and the four species",
+  "hoshana": "Hosanoth and Hosanah Rabbah",
+  "shmini-atzeret": "Shemini Asereth",
+  "simchat-torah": "Simhath Torah",
+  "elul-selichot": "Elul and Selihoth",
+  "rosh-hashanah": "Rosh Hashanah",
+  "yom-kippur": "Yom Kipur",
+  "shofar": "Shophar",
+  "prayer": "Prayer and liturgy",
+  "torah-reading": "Torah reading and aliyoth",
+  "piyyut": "Piyyutim and their tunes",
+  "blessings": "Blessings",
+  "shehecheyanu": "Shehehiyanu",
+  "charity": "Sedaca and communal funds",
+  "mezuzah": "Mezuzah",
+  "tefillin": "Tephillin",
+  "tzitzit": "Sisith",
+  "shabbat": "Shabbath",
+  "mourning": "Mourning and memorial",
+  "synagogue": "Synagogue practice and office",
+  "reward-punishment": "Reward and punishment"
+ },
+ "rites": [
+  {
+   "slug": "london",
+   "label": "London",
+   "family": "western-sephardi",
+   "sigla": "לונדון"
+  },
+  {
+   "slug": "amsterdam",
+   "label": "Amsterdam",
+   "family": "western-sephardi",
+   "sigla": "אמ\"ד"
+  },
+  {
+   "slug": "livorno",
+   "label": "Livorno",
+   "family": "western-sephardi",
+   "sigla": "לו'"
+  },
+  {
+   "slug": "eretz-israel",
+   "label": "Ereç Yisrael",
+   "family": "eastern-sephardi",
+   "sigla": "א\"י"
+  },
+  {
+   "slug": "syria-turkey-egypt",
+   "label": "Syria–Turkey–Egypt",
+   "family": "eastern-sephardi",
+   "sigla": "סת\"ם"
+  }
+ ],
+ "variants": [
+  {
+   "id": 245,
+   "vol": 7,
+   "page": 117,
+   "seq": 1,
+   "work": "vol 7 p.117",
+   "work_he": null,
+   "lemma_he": "El yish'aha samathi",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "weya'alsu"
+    ],
+    "london": [
+     "weya'alsu"
+    ]
+   }
+  },
+  {
+   "id": 246,
+   "vol": 7,
+   "page": 118,
+   "seq": 1,
+   "work": "Hoshanoth for the second day.",
+   "work_he": null,
+   "lemma_he": "u-bizhutho",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "bizhutho"
+    ],
+    "london": [
+     "bizhutho"
+    ]
+   }
+  },
+  {
+   "id": 247,
+   "vol": 7,
+   "page": 118,
+   "seq": 2,
+   "work": "Hoshanoth for the second day.",
+   "work_he": null,
+   "lemma_he": "Ana yased",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "padah"
+    ],
+    "london": [
+     "padah"
+    ]
+   }
+  },
+  {
+   "id": 248,
+   "vol": 7,
+   "page": 118,
+   "seq": 3,
+   "work": "Hoshanoth for the second day.",
+   "work_he": null,
+   "lemma_he": "Meyahadim shem ha-El",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "te'oth"
+    ],
+    "london": [
+     "te'oth"
+    ]
+   }
+  },
+  {
+   "id": 249,
+   "vol": 7,
+   "page": 119,
+   "seq": 1,
+   "work": "Hoshanoth for the Sixth Day.",
+   "work_he": null,
+   "lemma_he": "lehalel leshimha mathmedeth bashabbath",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "mehamedeth"
+    ],
+    "london": [
+     "mehamedeth"
+    ]
+   }
+  },
+  {
+   "id": 250,
+   "vol": 7,
+   "page": 119,
+   "seq": 2,
+   "work": "Hoshanoth for the Sixth Day.",
+   "work_he": null,
+   "lemma_he": "ki sar ahalanu",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "Shabbath Kodesh"
+    ],
+    "london": [
+     "Shabbath Kodesh"
+    ]
+   }
+  },
+  {
+   "id": 251,
+   "vol": 7,
+   "page": 119,
+   "seq": 3,
+   "work": "Hoshanoth for the Sixth Day.",
+   "work_he": null,
+   "lemma_he": "Kehosha'ta",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "venothen"
+    ],
+    "london": [
+     "venothen"
+    ]
+   }
+  },
+  {
+   "id": 252,
+   "vol": 7,
+   "page": 120,
+   "seq": 1,
+   "work": "Hoshanoth for the First Hacaphah",
+   "work_he": null,
+   "lemma_he": "imak",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "emak"
+    ],
+    "london": [
+     "emak"
+    ]
+   }
+  },
+  {
+   "id": 253,
+   "vol": 7,
+   "page": 120,
+   "seq": 2,
+   "work": "Hoshanoth for the First Hacaphah",
+   "work_he": null,
+   "lemma_he": "bi-zekhuth Aharon be-misnepheth na'eh leshamesh bi-khehunah",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "be-misnepheth hod"
+    ],
+    "london": [
+     "be-misnepheth hod"
+    ]
+   }
+  },
+  {
+   "id": 254,
+   "vol": 7,
+   "page": 121,
+   "seq": 1,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "hayim we'elom",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "we'eilom"
+    ],
+    "london": [
+     "we'eilom"
+    ]
+   }
+  },
+  {
+   "id": 255,
+   "vol": 7,
+   "page": 121,
+   "seq": 2,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "lishu'ath mekudashekha",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "lishu'ath 'am mekadeshekha"
+    ],
+    "london": [
+     "lishu'ath 'am mekadeshekha"
+    ]
+   }
+  },
+  {
+   "id": 256,
+   "vol": 7,
+   "page": 121,
+   "seq": 3,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "haleph corbani le'ishekha",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "corbani lahmi le'ishai"
+    ],
+    "london": [
+     "corbani lahmi le'ishai"
+    ]
+   }
+  },
+  {
+   "id": 257,
+   "vol": 7,
+   "page": 121,
+   "seq": 4,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "wekabesam lemigrashekha",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "lemigrashkha"
+    ],
+    "london": [
+     "lemigrashkha"
+    ]
+   }
+  },
+  {
+   "id": 258,
+   "vol": 7,
+   "page": 121,
+   "seq": 5,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "Ana hamakdim laresheth arsoth 'amamim",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "'amim"
+    ],
+    "london": [
+     "'amim"
+    ]
+   }
+  },
+  {
+   "id": 259,
+   "vol": 7,
+   "page": 121,
+   "seq": 6,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "carath berith",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "wecharath"
+    ],
+    "london": [
+     "wecharath"
+    ]
+   }
+  },
+  {
+   "id": 260,
+   "vol": 7,
+   "page": 121,
+   "seq": 7,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "besaro lekes yamim shib'ah",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "lekes nisim shib'ah"
+    ],
+    "london": [
+     "lekes nisim shib'ah"
+    ]
+   }
+  },
+  {
+   "id": 261,
+   "vol": 7,
+   "page": 121,
+   "seq": 8,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "bishne shaba'",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "sheba'"
+    ],
+    "london": [
+     "sheba'"
+    ]
+   }
+  },
+  {
+   "id": 262,
+   "vol": 7,
+   "page": 121,
+   "seq": 9,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "zeman heruthenu",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "herutheinu"
+    ],
+    "london": [
+     "herutheinu"
+    ]
+   }
+  },
+  {
+   "id": 263,
+   "vol": 7,
+   "page": 121,
+   "seq": 10,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "Ana yashar 'am ba hish na phidyom",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "wehish"
+    ],
+    "london": [
+     "wehish"
+    ]
+   }
+  },
+  {
+   "id": 264,
+   "vol": 7,
+   "page": 121,
+   "seq": 11,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "ubirushalem kehayom",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "ubirushalayim"
+    ],
+    "london": [
+     "ubirushalayim"
+    ]
+   }
+  },
+  {
+   "id": 265,
+   "vol": 7,
+   "page": 121,
+   "seq": 12,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "le'am nikh'ah",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "hanikh'ah"
+    ],
+    "london": [
+     "hanikh'ah"
+    ]
+   }
+  },
+  {
+   "id": 266,
+   "vol": 7,
+   "page": 121,
+   "seq": 13,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "wetubekha ahaweh",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "tubekha"
+    ],
+    "london": [
+     "tubekha"
+    ]
+   }
+  },
+  {
+   "id": 267,
+   "vol": 7,
+   "page": 121,
+   "seq": 14,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "Kehosha'ta yedidim",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "azor"
+    ],
+    "london": [
+     "azor"
+    ]
+   }
+  },
+  {
+   "id": 268,
+   "vol": 7,
+   "page": 121,
+   "seq": 15,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "El na wephanitha",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "uphanitha"
+    ],
+    "london": [
+     "uphanitha"
+    ]
+   }
+  },
+  {
+   "id": 269,
+   "vol": 7,
+   "page": 121,
+   "seq": 16,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "lamah parasta gedereha",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "parasta gedereha"
+    ],
+    "london": [
+     "parasta gedereha"
+    ]
+   }
+  },
+  {
+   "id": 270,
+   "vol": 7,
+   "page": 121,
+   "seq": 17,
+   "work": "Seventh Hakaphah",
+   "work_he": null,
+   "lemma_he": "El na kadosh rab 'azuzoth",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "Kadosh"
+    ],
+    "london": [
+     "Kadosh"
+    ]
+   }
+  },
+  {
+   "id": 271,
+   "vol": 7,
+   "page": 122,
+   "seq": 1,
+   "work": "Why it became the custom to say in the order of the Hosha'noth, day by day, \"Ani vaho hoshi'a na\", and why the word \"vaho\" comes lacking the aleph",
+   "work_he": null,
+   "lemma_he": "Lema'an ab niphkad, barechu el Ro'i",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "berechu el Ro'i"
+    ],
+    "london": [
+     "berechu el Ro'i"
+    ]
+   }
+  },
+  {
+   "id": 272,
+   "vol": 7,
+   "page": 122,
+   "seq": 2,
+   "work": "Why it became the custom to say in the order of the Hosha'noth, day by day, \"Ani vaho hoshi'a na\", and why the word \"vaho\" comes lacking the aleph",
+   "work_he": null,
+   "lemma_he": "Lema'an yashen betabur ha'olam",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "yashan"
+    ],
+    "london": [
+     "yashan"
+    ]
+   }
+  },
+  {
+   "id": 273,
+   "vol": 7,
+   "page": 122,
+   "seq": 3,
+   "work": "Why it became the custom to say in the order of the Hosha'noth, day by day, \"Ani vaho hoshi'a na\", and why the word \"vaho\" comes lacking the aleph",
+   "work_he": null,
+   "lemma_he": "Tiphtah eres, raveh le'umeha",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "le'umeiha"
+    ],
+    "london": [
+     "le'umeiha"
+    ]
+   }
+  },
+  {
+   "id": 274,
+   "vol": 7,
+   "page": 122,
+   "seq": 4,
+   "work": "Why it became the custom to say in the order of the Hosha'noth, day by day, \"Ani vaho hoshi'a na\", and why the word \"vaho\" comes lacking the aleph",
+   "work_he": null,
+   "lemma_he": "Leshav'i himsa Sur oseh pele",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "leshav'o"
+    ],
+    "london": [
+     "leshav'o"
+    ]
+   }
+  },
+  {
+   "id": 275,
+   "vol": 7,
+   "page": 122,
+   "seq": 5,
+   "work": "Why it became the custom to say in the order of the Hosha'noth, day by day, \"Ani vaho hoshi'a na\", and why the word \"vaho\" comes lacking the aleph",
+   "work_he": null,
+   "lemma_he": "they say Col mebaser seven times",
+   "lemma_en": null,
+   "note": null,
+   "source": "extracted",
+   "readings": {
+    "amsterdam": [
+     "two times"
+    ],
+    "london": [
+     "two times"
+    ]
+   }
+  },
+  {
+   "id": 183,
+   "vol": 6,
+   "page": 339,
+   "seq": 1,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "אתה אחד",
+   "lemma_en": "Thou art One",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "לא יחסר"
+    ],
+    "eretz-israel": [
+     "ולא יחסר ולא יעדיף"
+    ],
+    "livorno": [
+     "לא יחסר"
+    ],
+    "syria-turkey-egypt": [
+     "ולא יחסר ולא יעדיף"
+    ]
+   }
+  },
+  {
+   "id": 184,
+   "vol": 6,
+   "page": 339,
+   "seq": 2,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ולא תואר",
+   "lemma_en": "and no form",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "לא תואר"
+    ],
+    "london": [
+     "לא תואר"
+    ]
+   }
+  },
+  {
+   "id": 185,
+   "vol": 6,
+   "page": 339,
+   "seq": 3,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "אתה גדול",
+   "lemma_en": "Thou art great",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "מכל"
+    ],
+    "eretz-israel": [
+     "ומכל מחשבה"
+    ],
+    "livorno": [
+     "מכל"
+    ],
+    "syria-turkey-egypt": [
+     "ומכל מחשבה"
+    ]
+   }
+  },
+  {
+   "id": 186,
+   "vol": 6,
+   "page": 339,
+   "seq": 4,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "אתה נמצא וסודך הנעלם",
+   "lemma_en": "Thou art found, and Thy hidden secret",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "נעלם"
+    ],
+    "livorno": [
+     "נעלם"
+    ]
+   }
+  },
+  {
+   "id": 187,
+   "vol": 6,
+   "page": 339,
+   "seq": 5,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ומרוב גאותך תמחול בעת זעם אפך",
+   "lemma_en": "and in the abundance of Thy majesty Thou pardonest in the hour of Thine anger",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ומרוב גבורתך"
+    ],
+    "london": [
+     "ומרוב גבורתך"
+    ]
+   }
+  },
+  {
+   "id": 188,
+   "vol": 6,
+   "page": 339,
+   "seq": 6,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי ימלל גבורותיך",
+   "lemma_en": "who can utter Thy mighty acts",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "גבורתך"
+    ],
+    "eretz-israel": [
+     "גבורותיך"
+    ],
+    "livorno": [
+     "גבורותיך"
+    ],
+    "syria-turkey-egypt": [
+     "גבורותיך"
+    ]
+   }
+  },
+  {
+   "id": 189,
+   "vol": 6,
+   "page": 339,
+   "seq": 7,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יחוה גדולתך כרצון הבורא אותו",
+   "lemma_en": "who can declare Thy greatness, by the will of Him who created it",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ברצון … לבני האדם"
+    ],
+    "eretz-israel": [
+     "כרצון … לבני אדם"
+    ],
+    "livorno": [
+     "ברצון … לבני האדם"
+    ],
+    "syria-turkey-egypt": [
+     "כרצון … לבני אדם"
+    ]
+   }
+  },
+  {
+   "id": 190,
+   "vol": 6,
+   "page": 339,
+   "seq": 8,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יספר צדקותיך",
+   "lemma_en": "who can recount Thy righteous deeds",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "רקיע"
+    ],
+    "eretz-israel": [
+     "על רקיעי הירח"
+    ],
+    "livorno": [
+     "רקיע"
+    ],
+    "syria-turkey-egypt": [
+     "על רקיעי הירח"
+    ]
+   }
+  },
+  {
+   "id": 191,
+   "vol": 6,
+   "page": 339,
+   "seq": 9,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ומשנים ועשרים אלף",
+   "lemma_en": "and of twenty-two thousand",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "משנים"
+    ],
+    "livorno": [
+     "משנים"
+    ]
+   }
+  },
+  {
+   "id": 192,
+   "vol": 6,
+   "page": 339,
+   "seq": 10,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ימים",
+   "lemma_en": "days",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "בעשרה חדשים"
+    ],
+    "eretz-israel": [
+     "ימים"
+    ],
+    "livorno": [
+     "בעשרה חדשים"
+    ],
+    "syria-turkey-egypt": [
+     "ימים"
+    ]
+   }
+  },
+  {
+   "id": 193,
+   "vol": 6,
+   "page": 339,
+   "seq": 11,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יבין סודותיך",
+   "lemma_en": "who can understand Thy mysteries",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ברצון בוראה · השקט ושלוה"
+    ],
+    "eretz-israel": [
+     "כרצון בוראה · והשקט ושלוה"
+    ],
+    "livorno": [
+     "ברצון בוראה · השקט ושלוה"
+    ],
+    "syria-turkey-egypt": [
+     "כרצון בוראה · והשקט ושלוה"
+    ]
+   }
+  },
+  {
+   "id": 210,
+   "vol": 6,
+   "page": 340,
+   "seq": 28,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי ישכיל סודך",
+   "lemma_en": "who can grasp Thy counsel",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ואם"
+    ],
+    "eretz-israel": [
+     "אם למלחמה"
+    ],
+    "livorno": [
+     "ואם"
+    ],
+    "syria-turkey-egypt": [
+     "אם למלחמה"
+    ]
+   }
+  },
+  {
+   "id": 211,
+   "vol": 6,
+   "page": 340,
+   "seq": 29,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יכיל גדולתך",
+   "lemma_en": "who can contain Thy greatness",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ולהצמיח"
+    ],
+    "eretz-israel": [
+     "להצמיח בה"
+    ],
+    "livorno": [
+     "ולהצמיח"
+    ],
+    "syria-turkey-egypt": [
+     "להצמיח בה"
+    ]
+   }
+  },
+  {
+   "id": 212,
+   "vol": 6,
+   "page": 340,
+   "seq": 30,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "במעגלים",
+   "lemma_en": "in the circuits",
+   "note": "Difference is the vocalization, not the consonants.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "במעגלים — ננקדה"
+    ],
+    "livorno": [
+     "בְּמַעְגָּלִים"
+    ]
+   }
+  },
+  {
+   "id": 213,
+   "vol": 6,
+   "page": 340,
+   "seq": 31,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "קצת דרכי בוראה",
+   "lemma_en": "some of the ways of its Creator",
+   "note": "Gaguine marks the base text here as a printer's error (ט\"ס).",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "דרכי בוראה"
+    ],
+    "livorno": [
+     "דרכי בוראה"
+    ]
+   }
+  },
+  {
+   "id": 214,
+   "vol": 6,
+   "page": 340,
+   "seq": 32,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "וכפי אשר ירחק ממנה הירח",
+   "lemma_en": "and as the moon grows distant from her",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ירחק לעמוד נכחה … והאיר אל עבר פניה"
+    ],
+    "eretz-israel": [
+     "ירחק ממנה הירח, מזיוה לוקח"
+    ],
+    "livorno": [
+     "ירחק לעמוד נכחה … והאיר אל עבר פניה"
+    ],
+    "syria-turkey-egypt": [
+     "ירחק ממנה הירח, מזיוה לוקח"
+    ]
+   }
+  },
+  {
+   "id": 215,
+   "vol": 6,
+   "page": 340,
+   "seq": 33,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "הוא נוטה מעליה",
+   "lemma_en": "it inclines away from her",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "והוא"
+    ],
+    "eretz-israel": [
+     "הוא"
+    ],
+    "london": [
+     "והוא"
+    ],
+    "syria-turkey-egypt": [
+     "הוא"
+    ]
+   }
+  },
+  {
+   "id": 216,
+   "vol": 6,
+   "page": 340,
+   "seq": 34,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ולחמי רשף",
+   "lemma_en": "and the bolts of fire",
+   "note": "Gaguine calls the London reading a printer's error.",
+   "source": "hand",
+   "readings": {
+    "eretz-israel": [
+     "ולחמי רשף"
+    ],
+    "london": [
+     "ולהוטי"
+    ],
+    "syria-turkey-egypt": [
+     "ולחמי רשף"
+    ]
+   }
+  },
+  {
+   "id": 217,
+   "vol": 6,
+   "page": 340,
+   "seq": 35,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "לחרב לשדם",
+   "lemma_en": "to the sword, to their destruction",
+   "note": "Vocalization.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "לַחֶרֶב"
+    ],
+    "livorno": [
+     "לַחֶרֶב"
+    ]
+   }
+  },
+  {
+   "id": 218,
+   "vol": 6,
+   "page": 340,
+   "seq": 36,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "והרג ואבדן",
+   "lemma_en": "and slaughter and destruction",
+   "note": "London and Amsterdam read the bet as raphe.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ואבדן — בבי\"ת רפויה"
+    ],
+    "london": [
+     "ואבדן — בבי\"ת רפויה"
+    ]
+   }
+  },
+  {
+   "id": 219,
+   "vol": 6,
+   "page": 340,
+   "seq": 37,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ומרבה כל תבואה",
+   "lemma_en": "and multiplying all produce",
+   "note": "Gaguine corrects the base text to ותנובה with Livorno and Amsterdam.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ותנובה"
+    ],
+    "eretz-israel": [
+     "ותבונה"
+    ],
+    "livorno": [
+     "ותנובה"
+    ],
+    "syria-turkey-egypt": [
+     "ותבונה"
+    ]
+   }
+  },
+  {
+   "id": 220,
+   "vol": 6,
+   "page": 340,
+   "seq": 38,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "שבתי בתקופתו",
+   "lemma_en": "Saturn in its circuit",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "שבתי"
+    ],
+    "eretz-israel": [
+     "שבתי"
+    ],
+    "london": [
+     "שבתאי"
+    ],
+    "syria-turkey-egypt": [
+     "שבתי"
+    ]
+   }
+  },
+  {
+   "id": 221,
+   "vol": 6,
+   "page": 340,
+   "seq": 39,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "אחד ותשעים פעם",
+   "lemma_en": "ninety-one times",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "במדתו"
+    ],
+    "livorno": [
+     "כמדתו"
+    ]
+   }
+  },
+  {
+   "id": 222,
+   "vol": 6,
+   "page": 340,
+   "seq": 40,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ועוקי מלכיות",
+   "lemma_en": "and the bonds of kingdoms",
+   "note": "Both recorded; Gaguine's distinction here is the vocalization.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "מלכיות"
+    ],
+    "london": [
+     "מלכיות"
+    ]
+   }
+  },
+  {
+   "id": 194,
+   "vol": 6,
+   "page": 341,
+   "seq": 12,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יגיע לרוממותיך",
+   "lemma_en": "who can attain to Thy exaltedness",
+   "note": "Gaguine marks the difference as the omission of the plural yod.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "בחסרון יו\"ד הריבוי"
+    ],
+    "livorno": [
+     "בחסרון יו\"ד הריבוי"
+    ]
+   }
+  },
+  {
+   "id": 195,
+   "vol": 6,
+   "page": 341,
+   "seq": 13,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "על גלגל שבתי",
+   "lemma_en": "upon the sphere of Saturn",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "על גלגל שבתי"
+    ],
+    "livorno": [
+     "שבתאי"
+    ]
+   }
+  },
+  {
+   "id": 196,
+   "vol": 6,
+   "page": 341,
+   "seq": 14,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "חשב אגודתו",
+   "lemma_en": "He devised its binding",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "גורסים אפודתו"
+    ],
+    "eretz-israel": [
+     "וליתא אגודתו"
+    ],
+    "livorno": [
+     "גורסים אפודתו"
+    ],
+    "syria-turkey-egypt": [
+     "וליתא אגודתו"
+    ]
+   }
+  },
+  {
+   "id": 197,
+   "vol": 6,
+   "page": 341,
+   "seq": 15,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "איש על עבודתו ועל משאו",
+   "lemma_en": "each man to his service and to his burden",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "על עבודתו ועל משאו"
+    ],
+    "london": [
+     "ואל משאו"
+    ]
+   }
+  },
+  {
+   "id": 198,
+   "vol": 6,
+   "page": 341,
+   "seq": 16,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יודע הליכותיך",
+   "lemma_en": "who knows Thy ways",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "בהתאחדם"
+    ],
+    "eretz-israel": [
+     "כשני אחים והתאחדם"
+    ],
+    "livorno": [
+     "בהתאחדם"
+    ],
+    "syria-turkey-egypt": [
+     "כשני אחים והתאחדם"
+    ]
+   }
+  },
+  {
+   "id": 199,
+   "vol": 6,
+   "page": 341,
+   "seq": 17,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יחקור תעלומותיך",
+   "lemma_en": "who can search out Thy hidden things",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ומלכו"
+    ],
+    "eretz-israel": [
+     "לגדולת בוראו ומלכותו"
+    ],
+    "london": [
+     "ומלכו"
+    ]
+   }
+  },
+  {
+   "id": 200,
+   "vol": 6,
+   "page": 341,
+   "seq": 18,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יבין סודות נוראותיך הוא ההיכל",
+   "lemma_en": "who can grasp the secrets of Thy awesome deeds — it is the sanctuary",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "לפני העשירי יהיה קודש לאדני"
+    ],
+    "livorno": [
+     "לפני העשירי יהיה קו' לה'"
+    ]
+   }
+  },
+  {
+   "id": 201,
+   "vol": 6,
+   "page": 341,
+   "seq": 19,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יעמיק למחשבותיך כולם גזרות",
+   "lemma_en": "who can fathom Thy thoughts — all of them decrees",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "פניניות"
+    ],
+    "eretz-israel": [
+     "גזרות"
+    ],
+    "livorno": [
+     "פניניות"
+    ],
+    "syria-turkey-egypt": [
+     "גזרות"
+    ]
+   }
+  },
+  {
+   "id": 202,
+   "vol": 6,
+   "page": 341,
+   "seq": 20,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "שאתה אלהינו",
+   "lemma_en": "that Thou art our God",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "שאתה הוא י\"י אלהינו"
+    ],
+    "livorno": [
+     "שאתה הוא י\"י אלהינו"
+    ]
+   }
+  },
+  {
+   "id": 203,
+   "vol": 6,
+   "page": 341,
+   "seq": 21,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ואתה עשיתנו",
+   "lemma_en": "and Thou hast made us",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "אדונינו",
+     "אתה · וכי אתה אדוננו"
+    ],
+    "livorno": [
+     "אדונינו",
+     "אתה · וכי אתה אדוננו"
+    ]
+   }
+  },
+  {
+   "id": 204,
+   "vol": 6,
+   "page": 341,
+   "seq": 22,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יעשה כמעשיך",
+   "lemma_en": "who can do as Thy deeds",
+   "note": "A structural difference, not a word: whether each stanza opens with the Divine Name.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "בכל אלו הפיסקאות קורא ומתחיל בשם י\"י"
+    ],
+    "eretz-israel": [
+     "אינו מתחיל בכל פיסקא בשם י\"י"
+    ],
+    "livorno": [
+     "בכל אלו הפיסקאות קורא ומתחיל בשם י\"י"
+    ],
+    "syria-turkey-egypt": [
+     "אינו מתחיל בכל פיסקא בשם י\"י"
+    ]
+   }
+  },
+  {
+   "id": 205,
+   "vol": 6,
+   "page": 341,
+   "seq": 23,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "אם לחסד",
+   "lemma_en": "whether for kindness",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "חשכת"
+    ],
+    "london": [
+     "חשכת"
+    ]
+   }
+  },
+  {
+   "id": 206,
+   "vol": 6,
+   "page": 341,
+   "seq": 24,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יכיל עצמתך מלהבות אש",
+   "lemma_en": "who can contain Thy might, from flames of fire",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ולא תשרפהו",
+     "עשיתה"
+    ],
+    "livorno": [
+     "ולא תשרפהו",
+     "עשיתה"
+    ]
+   }
+  },
+  {
+   "id": 207,
+   "vol": 6,
+   "page": 341,
+   "seq": 25,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יגיע לחכמתך בפי קיום יסודה",
+   "lemma_en": "who can attain to Thy wisdom, by the establishment of its foundation",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "כפי"
+    ],
+    "livorno": [
+     "בפי"
+    ]
+   }
+  },
+  {
+   "id": 208,
+   "vol": 6,
+   "page": 341,
+   "seq": 26,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יגמול על טובותיך",
+   "lemma_en": "who can requite Thy goodness",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "eretz-israel": [
+     "מי יגמול"
+    ],
+    "livorno": [
+     "כתוב שם זה בשורה חדשה בנוסח זה"
+    ]
+   }
+  },
+  {
+   "id": 209,
+   "vol": 6,
+   "page": 341,
+   "seq": 27,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מי יודע",
+   "lemma_en": "who knows",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "צרכי פעולותיו"
+    ],
+    "livorno": [
+     "הגי פעולותיך"
+    ]
+   }
+  },
+  {
+   "id": 223,
+   "vol": 6,
+   "page": 342,
+   "seq": 41,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "וכפי שלמותך",
+   "lemma_en": "and according to Thy perfection",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "שלמותך"
+    ],
+    "london": [
+     "שלימותך"
+    ]
+   }
+  },
+  {
+   "id": 224,
+   "vol": 6,
+   "page": 342,
+   "seq": 42,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ומה צדקותי",
+   "lemma_en": "and what are my righteous deeds",
+   "note": "Gaguine prefers the base reading against Livorno and Amsterdam.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "צדקתי"
+    ],
+    "eretz-israel": [
+     "צדקותי"
+    ],
+    "livorno": [
+     "צדקתי"
+    ],
+    "syria-turkey-egypt": [
+     "צדקותי"
+    ]
+   }
+  },
+  {
+   "id": 225,
+   "vol": 6,
+   "page": 342,
+   "seq": 43,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ומאין מוצאי",
+   "lemma_en": "and whence my origin",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ולאין"
+    ],
+    "eretz-israel": [
+     "ומאין מוצאי"
+    ],
+    "livorno": [
+     "ולאין"
+    ],
+    "syria-turkey-egypt": [
+     "ומאין מוצאי"
+    ]
+   }
+  },
+  {
+   "id": 226,
+   "vol": 6,
+   "page": 342,
+   "seq": 44,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "געלתי בלבי ובמו פי",
+   "lemma_en": "I loathed, in my heart and in my mouth",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ובמו פי"
+    ],
+    "eretz-israel": [
+     "ובמופי"
+    ],
+    "livorno": [
+     "ובמו פי"
+    ],
+    "syria-turkey-egypt": [
+     "ובמופי"
+    ]
+   }
+  },
+  {
+   "id": 227,
+   "vol": 6,
+   "page": 342,
+   "seq": 45,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "וכאומן את היונק",
+   "lemma_en": "and as a nurse carries the suckling",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "יכאומן"
+    ],
+    "livorno": [
+     "יכאומן"
+    ]
+   }
+  },
+  {
+   "id": 228,
+   "vol": 6,
+   "page": 342,
+   "seq": 46,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ובטרם בא התלאה",
+   "lemma_en": "and before the trouble came",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "בא"
+    ],
+    "livorno": [
+     "בא"
+    ]
+   }
+  },
+  {
+   "id": 229,
+   "vol": 6,
+   "page": 342,
+   "seq": 47,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ועם נבל",
+   "lemma_en": "and with a base people",
+   "note": "Vocalization.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ועם"
+    ],
+    "london": [
+     "ועם"
+    ]
+   }
+  },
+  {
+   "id": 230,
+   "vol": 6,
+   "page": 342,
+   "seq": 48,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ותורתך אמת ונביאיך אמת",
+   "lemma_en": "and Thy Torah is truth and Thy prophets are truth",
+   "note": "London and Amsterdam omit the two words; Gaguine says he does not know why.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ליתא ותורתך אמת"
+    ],
+    "eretz-israel": [
+     "ותורתך אמת ונביאיך אמת"
+    ],
+    "london": [
+     "ליתא ותורתך אמת"
+    ],
+    "syria-turkey-egypt": [
+     "ותורתך אמת ונביאיך אמת"
+    ]
+   }
+  },
+  {
+   "id": 231,
+   "vol": 6,
+   "page": 342,
+   "seq": 49,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ובמעשי טמאתיה",
+   "lemma_en": "and by my deeds I defiled it",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ננקדה העין בשוא קמץ"
+    ],
+    "london": [
+     "ובמעשי"
+    ]
+   }
+  },
+  {
+   "id": 232,
+   "vol": 6,
+   "page": 342,
+   "seq": 50,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ותחתיה תעמוד הבהרת",
+   "lemma_en": "and beneath it the bright spot stands",
+   "note": "Gaguine corrects to the spelling of the Biblical verse.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ותחתיה"
+    ],
+    "livorno": [
+     "ותחתיה"
+    ]
+   }
+  },
+  {
+   "id": 233,
+   "vol": 6,
+   "page": 342,
+   "seq": 51,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "וביצר הרע חללתיה וגאלתיה",
+   "lemma_en": "and with the evil inclination I profaned and defiled it",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "וגאלתיה"
+    ],
+    "livorno": [
+     "וגאלתיה"
+    ]
+   }
+  },
+  {
+   "id": 234,
+   "vol": 6,
+   "page": 342,
+   "seq": 52,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "מצאתי להגדיל ולהרבות אשם",
+   "lemma_en": "I found, to magnify and multiply guilt",
+   "note": "Vocalization.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "מצאתי — ננקדה"
+    ],
+    "livorno": [
+     "מצאתי — ננקדה"
+    ]
+   }
+  },
+  {
+   "id": 235,
+   "vol": 6,
+   "page": 342,
+   "seq": 53,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "כעשב נשדף",
+   "lemma_en": "as grass blasted by the wind",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "נשדף"
+    ],
+    "london": [
+     "נשדף"
+    ]
+   }
+  },
+  {
+   "id": 236,
+   "vol": 6,
+   "page": 342,
+   "seq": 54,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "המוץ ידפנו",
+   "lemma_en": "the chaff which the wind drives",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ידפנו"
+    ],
+    "london": [
+     "ידפנו"
+    ]
+   }
+  },
+  {
+   "id": 237,
+   "vol": 6,
+   "page": 342,
+   "seq": 55,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "לא יעצרנו גדר",
+   "lemma_en": "no fence restrains him",
+   "note": "Vocalization.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "גדר"
+    ],
+    "livorno": [
+     "גדר"
+    ]
+   }
+  },
+  {
+   "id": 238,
+   "vol": 6,
+   "page": 342,
+   "seq": 56,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ולא ידע כמה",
+   "lemma_en": "and he knows not how much",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "למה"
+    ],
+    "eretz-israel": [
+     "כמה"
+    ],
+    "livorno": [
+     "למה"
+    ],
+    "syria-turkey-egypt": [
+     "כמה"
+    ]
+   }
+  },
+  {
+   "id": 239,
+   "vol": 6,
+   "page": 342,
+   "seq": 57,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ולרדוף בציות",
+   "lemma_en": "and to pursue in the wastelands",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ולדרוך"
+    ],
+    "eretz-israel": [
+     "ולרדוף"
+    ],
+    "livorno": [
+     "ולדרוך"
+    ],
+    "syria-turkey-egypt": [
+     "ולרדוף"
+    ]
+   }
+  },
+  {
+   "id": 240,
+   "vol": 6,
+   "page": 342,
+   "seq": 58,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "פתע תבואהו",
+   "lemma_en": "suddenly it comes upon him",
+   "note": "Gaguine calls the base reading a serious error and follows London/Amsterdam.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "הווה"
+    ],
+    "eretz-israel": [
+     "יהו\"ה"
+    ],
+    "london": [
+     "הווה"
+    ],
+    "syria-turkey-egypt": [
+     "יהו\"ה"
+    ]
+   }
+  },
+  {
+   "id": 241,
+   "vol": 6,
+   "page": 342,
+   "seq": 59,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "או במלחמה",
+   "lemma_en": "or in war",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "במלחמה"
+    ],
+    "eretz-israel": [
+     "או במלחמה"
+    ],
+    "livorno": [
+     "במלחמה"
+    ],
+    "syria-turkey-egypt": [
+     "או במלחמה"
+    ]
+   }
+  },
+  {
+   "id": 242,
+   "vol": 6,
+   "page": 342,
+   "seq": 60,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "וימצא מרורת פתנים",
+   "lemma_en": "and he finds the gall of asps",
+   "note": "Vocalization.",
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "מרורת"
+    ],
+    "livorno": [
+     "מרורת"
+    ]
+   }
+  },
+  {
+   "id": 243,
+   "vol": 6,
+   "page": 342,
+   "seq": 61,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "אכלו יקל",
+   "lemma_en": "his food is made light",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "שכלו ידליו"
+    ],
+    "eretz-israel": [
+     "אכלו יקל"
+    ],
+    "livorno": [
+     "שכלו ידליו"
+    ],
+    "syria-turkey-egypt": [
+     "אכלו יקל"
+    ]
+   }
+  },
+  {
+   "id": 244,
+   "vol": 6,
+   "page": 342,
+   "seq": 62,
+   "work": "Keter Malchuth",
+   "work_he": "כתר מלכות",
+   "lemma_he": "ובעפר ישכב",
+   "lemma_en": "and in the dust he lies",
+   "note": null,
+   "source": "hand",
+   "readings": {
+    "amsterdam": [
+     "ולעפר"
+    ],
+    "eretz-israel": [
+     "ובעפר"
+    ],
+    "livorno": [
+     "ולעפר"
+    ],
+    "syria-turkey-egypt": [
+     "ובעפר"
+    ]
+   }
+  }
+ ]
+}

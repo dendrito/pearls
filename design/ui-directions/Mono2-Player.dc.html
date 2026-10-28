@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pearl Minimal player</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&amp;family=Instrument+Serif&amp;family=Geist+Mono:wght@400;500&amp;family=Frank+Ruhl+Libre:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: {{bg}}; color: {{fg}}; font-family: {{body}}; display: flex; flex-direction: column; padding: 14px 24px 30px; gap: 22px">
+  <header style="display: flex; align-items: center; justify-content: space-between">
+    <button aria-label="Close player" style="width: 44px; height: 44px; margin-left: -10px; border: 0; background: transparent; color: {{fg}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+    <span style="font-family: 'Geist Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: {{muted}}">NOW PLAYING</span>
+    <button aria-label="Queue" style="width: 44px; height: 44px; margin-right: -10px; border: 0; background: transparent; color: {{fg}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+  </header>
+  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 18px">
+    <div style="display: flex; align-items: flex-end; gap: 6px; height: 120px">
+      <div style="flex: 1; height: 50%; background: {{fg}}"></div>
+      <div style="flex: 1; height: 80%; background: {{accent}}"></div>
+      <div style="flex: 1; height: 35%; background: {{line}}"></div>
+      <div style="flex: 1; height: 62%; background: {{line}}"></div>
+      <div style="flex: 1; height: 100%; background: {{line}}"></div>
+      <div style="flex: 1; height: 44%; background: {{line}}"></div>
+      <div style="flex: 1; height: 58%; background: {{line}}"></div>
+      <div style="flex: 1; height: 30%; background: {{line}}"></div>
+      <div style="flex: 1; height: 72%; background: {{line}}"></div>
+      <div style="flex: 1; height: 48%; background: {{line}}"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-family: 'Geist Mono', monospace; font-size: 11px; color: {{muted}}"><span>§01</span><span style="color: {{accent}}">§02</span><span>§03</span><span>§04</span><span>§05</span><span>§06</span><span>§07</span><span>§08</span><span>§09</span><span>§10</span></div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <span style="font-family: {{display}}; font-weight: {{dw}}; font-size: 36px; line-height: 1.02; letter-spacing: -0.03em">Fulfilling the<br>Mitzva of Zakhor</span>
+    <span style="font-size: 15px; color: {{muted}}">Laws of Kiddush · Shabbat 6</span>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="height: 2px; background: {{line}}; position: relative"><div style="width: 34%; height: 2px; background: {{fg}}"></div><div style="position: absolute; left: 34%; top: -5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 6px; background: {{accent}}"></div></div>
+    <div style="display: flex; justify-content: space-between; font-family: 'Geist Mono', monospace; font-size: 12px; color: {{muted}}"><span>01:04</span><span>−02:01</span></div>
+  </div>
+  <div style="display: flex; align-items: center; justify-content: space-between">
+    <button aria-label="Back 15 seconds" style="width: 48px; height: 48px; border: 0; background: transparent; color: {{fg}}; font-family: 'Geist Mono', monospace; font-size: 13px">−15</button>
+    <button aria-label="Previous section" style="width: 48px; height: 48px; border: 0; background: transparent; color: {{fg}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.2v11.6a1 1 0 0 1-1.5.86L9 13.5V17a1 1 0 0 1-2 0V7a1 1 0 0 1 2 0v3.5l8.5-5.16A1 1 0 0 1 19 6.2Z"/></svg></button>
+    <button aria-label="Pause" style="width: 76px; height: 76px; border-radius: 38px; border: 0; background: {{accent}}; color: {{onAccent}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg></button>
+    <button aria-label="Next section" style="width: 48px; height: 48px; border: 0; background: transparent; color: {{fg}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5 6.2v11.6a1 1 0 0 0 1.5.86L15 13.5V17a1 1 0 0 0 2 0V7a1 1 0 0 0-2 0v3.5L6.5 5.34A1 1 0 0 0 5 6.2Z"/></svg></button>
+    <button aria-label="Forward 30 seconds" style="width: 48px; height: 48px; border: 0; background: transparent; color: {{fg}}; font-family: 'Geist Mono', monospace; font-size: 13px">+30</button>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid {{line}}; padding-top: 14px; font-family: 'Geist Mono', monospace; font-size: 12px">
+    <button style="height: 44px; border: 0; background: transparent; color: {{fg}}; font-family: inherit; font-size: 12px; text-align: left">1.25×</button>
+    <div style="display: flex; justify-content: center; gap: 4px">
+      <button style="height: 44px; padding: 0 10px; border: 0; background: transparent; color: {{fg}}; font-family: inherit; font-size: 12px; border-bottom: 2px solid {{accent}}">EN</button>
+      <button lang="he" style="height: 44px; padding: 0 10px; border: 0; background: transparent; color: {{muted}}; font-family: 'Frank Ruhl Libre', serif; font-size: 15px">עב</button>
+    </div>
+    <button style="height: 44px; border: 0; background: transparent; color: {{fg}}; font-family: inherit; font-size: 12px; text-align: right">SLEEP</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"enum","options":["original","sand","ice","night","mint"],"default":"original"},"dark":{"editor":"boolean","default":true},"accent":{"editor":"color","default":"#ff4f00","options":["#ff4f00","#2b59ff","#00a67e","#111111"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const V = {
+      sand: { bg: '#efe9dd', fg: '#1f1b16', muted: '#6d6457', line: '#d9d0bf', accent: '#c2410c', onAccent: '#ffffff', display: "'Instrument Serif', serif", dw: '400', body: 'Geist, sans-serif' },
+      ice: { bg: '#eef2f6', fg: '#0b1726', muted: '#5b6b7d', line: '#d3dbe4', accent: '#2b59ff', onAccent: '#ffffff', display: 'Geist, sans-serif', dw: '600', body: 'Geist, sans-serif' },
+      night: { bg: '#0a0a0a', fg: '#f2efe8', muted: '#8f8a80', line: '#26241f', accent: '#e2b65c', onAccent: '#1a1408', display: "'Instrument Serif', serif", dw: '400', body: 'Geist, sans-serif' },
+      mint: { bg: '#0b1210', fg: '#e3f1ea', muted: '#7f9a8e', line: '#1f2c27', accent: '#3ddc97', onAccent: '#06231a', display: "'Geist Mono', monospace", dw: '500', body: "'Geist Mono', monospace" }
+    };
+    const v = V[this.props.variant ?? 'original'];
+    if (v) return v;
+    const dark = this.props.dark ?? true;
+    const base = dark
+      ? { bg: '#0b0b0c', fg: '#ededea', muted: '#8d8d93', line: '#2c2c31' }
+      : { bg: '#f5f5f2', fg: '#111111', muted: '#6b6b6b', line: '#dcdcd6' };
+    return Object.assign(base, { accent: this.props.accent ?? '#ff4f00', onAccent: '#ffffff', display: 'Geist, sans-serif', dw: '300', body: 'Geist, sans-serif' });
+  }
+}
+</script>
+</body>
+</html>
