@@ -281,6 +281,14 @@ public class PearlsBridge {
         return n;
     }
 
+    /* ---------- player state for the MediaSession (earbuds, headphone buttons) ---------- */
+    @JavascriptInterface
+    public void mediaState(final String json) {
+        act.runOnUiThread(new Runnable() {
+            @Override public void run() { if (act instanceof MainActivity) ((MainActivity) act).mediaState(json); }
+        });
+    }
+
     /* ---------- system bars follow the skin: "#RRGGBB", light = dark icons ---------- */
     @JavascriptInterface
     public void setBars(final String hex, final boolean light) {

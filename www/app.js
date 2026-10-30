@@ -371,7 +371,7 @@ function load(autoplay, fresh) {
     audio.playbackRate = state.speed;
   });
   if (autoplay) audio.play().catch(() => {});
-  mediaSession(t); renderMini(); refreshPlaying(); syncNP();
+  mediaSession(t); renderMini(); refreshPlaying(); syncNP(); pushMedia();
 }
 function playLang(t) {                        // the language a chapter plays in; offline, whatever was downloaded
   const want = wantsEnglish(t) ? "en" : "he", e = DL.idx[t.id];
@@ -407,8 +407,25 @@ audio.addEventListener("timeupdate", () => {
   if (P.sleepAt && now >= P.sleepAt) { P.sleepAt = null; audio.pause(); toast("Sleep timer: paused"); }
   updateProgress();
 });
-audio.addEventListener("play", () => { if (cur()) { const p = state.plays[cur().id]; if (p) p._t = Date.now(); } renderMini(); refreshPlaying(); syncNP(); });
-audio.addEventListener("pause", () => { renderMini(); refreshPlaying(); syncNP(); save.plays(); });
+audio.addEventListener("play", () => { if (cur()) { const p = state.plays[cur().id]; if (p) p._t = Date.now(); } renderMini(); refreshPlaying(); syncNP(); pushMedia(); });
+audio.addEventListener("pause", () => { renderMini(); refreshPlaying(); syncNP(); save.plays(); pushMedia(); });
+/* Headphones (Android app). The shell calls PEARLS_MEDIA("noisy") when the audio output is about to switch to the
+   phone's speaker (Bluetooth earbuds disconnected, wired headphones unplugged), and "play"/"pause"/"next"/"prev" for
+   earbud buttons and in-ear detection. Pausing on disconnect is a setting (Settings → Pause when headphones disconnect). */
+window.PEARLS_MEDIA = cmd => {
+  if (cmd === "noisy") {
+    if (state.prefs.unplugPause !== false && !audio.paused) { audio.pause(); toast("Paused: headphones disconnected"); }
+  } else if (cmd === "pause") audio.pause();
+  else if (cmd === "play") { if (cur()) audio.play().catch(() => {}); }
+  else if (cmd === "next") { if (cur()) next(true); }
+  else if (cmd === "prev") { if (cur()) prev(); }
+};
+function pushMedia() {                         // tell Android what's playing, so earbud buttons come to Pearls
+  const N = window.PearlsNative; if (!N || typeof N.mediaState !== "function") return;
+  const t = cur();
+  try { N.mediaState(JSON.stringify(t ? { playing: !audio.paused, title: R(t.title), artist: `Peninei Halakha · ${t.vol.short}`,
+    pos: Math.round((audio.currentTime || 0) * 1000), speed: state.speed || 1 } : { playing: false })); } catch {}
+}
 audio.addEventListener("ended", () => {
   const t = cur(); if (!t) return;
   if (P.sleepEnd && P.part >= nSections(t) - 1) { P.sleepEnd = false; toast("Sleep timer: stopped after the chapter"); return; }
@@ -1176,6 +1193,7 @@ function settingsDialog() {
       <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il. ${NATIVE ? "Once a chapter's Hebrew has loaded it stays on the phone for offline reading." : "It needs a connection."}</span></div>
     <div class="field"><label>Listen in</label><div class="chips">${[["auto", "Match my reading"], ["he", "Hebrew"], ["en", "English"]].map(([v, l]) => `<button class="chip ${audioLang === v ? "on" : ""}" data-alang="${v}">${l}</button>`).join("")}</div>
       <span class="note">"Match my reading" plays the English reading when you read in English and one exists, and the Hebrew otherwise. English readings exist for Shabbat, Prayer, Zemanim and Festivals, and parts of Pesach, Sukkot and Days of Awe; elsewhere the Hebrew plays.</span></div>
+    <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the phone's speaker.${window.PearlsNative ? "" : " Works in the Android app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
@@ -1190,6 +1208,8 @@ function settingsDialog() {
     s.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { state.prefs.read = b.dataset.read; save.prefs(); s.querySelectorAll("[data-read]").forEach(x => x.classList.toggle("on", x === b)); });
     s.querySelectorAll("[data-alang]").forEach(b => b.onclick = () => { audioLang = b.dataset.alang; store.set("audioLang", audioLang); s.querySelectorAll("[data-alang]").forEach(x => x.classList.toggle("on", x === b)); if (P.queue && P.queue.length) load(!audio.paused); });
     s.querySelectorAll("[data-size]").forEach(b => b.onclick = () => { state.prefs.size = +b.dataset.size; save.prefs(); applyPrefs(); s.querySelectorAll("[data-size]").forEach(x => x.classList.toggle("on", x === b)); });
+    $("[data-unplug]", s).onclick = () => { state.prefs.unplugPause = state.prefs.unplugPause === false; save.prefs();
+      $("[data-unplug] .radio", s).classList.toggle("on", state.prefs.unplugPause); toast(state.prefs.unplugPause ? "Pauses when headphones disconnect" : "Keeps playing when headphones disconnect"); };
     s.querySelectorAll("[data-pref]").forEach(b => b.onclick = () => { const k = b.dataset.pref; state.prefs[k] = !state.prefs[k]; save.prefs(); applyPrefs(); b.querySelector(".radio").classList.toggle("on", state.prefs[k]); });
     $("[data-ok]", s).onclick = () => { state.prefs.meldar = $("#meldarTpl", s).value.trim(); save.prefs(); close(); renderMini(); render(); };
   });
@@ -1525,7 +1545,7 @@ document.addEventListener("click", e => {
       P.queue = []; P.idx = -1; P.sleepAt = null; P.sleepEnd = false;
       if ("mediaSession" in navigator) { try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = "none"; } catch {} }
       audio.removeAttribute("src"); audio.load();
-      closeNP(); renderMini(); refreshPlaying(); break; }
+      closeNP(); renderMini(); refreshPlaying(); pushMedia(); break; }
     case "next": next(true); break;
     case "prev": prev(); break;
     case "b15": audio.currentTime = Math.max(0, audio.currentTime - 15); break;

@@ -27,7 +27,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 - Text: all official English is bundled (`www/en/`, from `fetch_en_text.py` -> `src/en/` -> `make_en_books.py`), and so are
   the AI translations. Hebrew is fetched from ph.yhb.org.il and then kept on the phone.
 - `python3 test_offline.py` tests downloads and offline mode against a stand-in for the Android bridge. It must end
-  "24/24 checks passed".
+  "32/32 checks passed".
 
 ## Offline and downloads (Android)
 
@@ -43,6 +43,10 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - There's a storage cap: the oldest smart downloads make room, heard ones first, and nothing is deleted if the new
     chapter wouldn't fit anyway.
   - Chapters the user downloads are never deleted automatically.
+- Headphones: MainActivity listens for Android's "audio becoming noisy" warning (Bluetooth earbuds disconnect, wired
+  headphones unplugged). It also runs a MediaSession, so earbud buttons and in-ear detection reach the player. Both call
+  `window.PEARLS_MEDIA(cmd)`, and the page reports playback back through `PearlsNative.mediaState`. Whether a disconnect
+  pauses is the user's setting, `prefs.unplugPause` (on by default; Settings → Pause when headphones disconnect).
 - The Apple app and the web version have no bridge. They read the bundled English offline, but don't download audio.
 
 ## Where things are

@@ -38,7 +38,8 @@ MOCK = """(() => {
     cancelAll() { S.active = {}; save(); },
     readText: k => S.text[k] || null, writeText(k, v) { S.text[k] = v; save(); return true; },
     textList: () => JSON.stringify(Object.entries(S.text).map(([n, s]) => ({ n, s: s.length }))), clearText() { const n = Object.keys(S.text).length; S.text = {}; save(); return n; },
-    setBars(c, light) { window.__bars = [c, light]; }
+    setBars(c, light) { window.__bars = [c, light]; },
+    mediaState(j) { (window.__media = window.__media || []).push(JSON.parse(j)); }
   };
 })();""" % (json.dumps("file://" + mock + "/"), json.dumps(avail))
 
@@ -139,7 +140,29 @@ with sync_playwright() as p:
     check("nothing deleted when the new chapter wouldn't fit anyway", all(i in pg.evaluate("Object.keys(PEARLS.DL.idx)") for i in ["01-03", "01-04", "01-05"]))
     pg.evaluate("PEARLS.DL.prefs.limitMB = 2048")
 
-    # 7. Downloads page and the skin -> status bar bridge
+    # 7. headphones: a disconnect pauses (setting on by default); with it off, playback carries on; earbud commands work
+    pg.goto(url + "#ch-01-03"); pg.wait_for_timeout(500)
+    pg.click('[data-act="playch"]'); pg.wait_for_timeout(1200)
+    check("Android told it's playing", (pg.evaluate("(window.__media||[]).slice(-1)[0]") or {}).get("playing") is True, pg.evaluate("(window.__media||[]).slice(-1)[0]"))
+    pg.evaluate("PEARLS_MEDIA('noisy')"); pg.wait_for_timeout(300)
+    check("headphones disconnect -> paused", pg.evaluate("PEARLS.audio.paused"))
+    check("says why it paused", "headphones" in pg.inner_text(".toast").lower(), pg.inner_text(".toast"))
+    check("Android told it's paused", pg.evaluate("(window.__media||[]).slice(-1)[0].playing") is False)
+    pg.evaluate("PEARLS_MEDIA('play')"); pg.wait_for_timeout(500)
+    check("earbud play resumes", not pg.evaluate("PEARLS.audio.paused"))
+    pg.click('header [data-act="spelling"], [aria-label="Reading settings"]'); pg.wait_for_timeout(300)
+    pg.click("[data-unplug]"); pg.wait_for_timeout(200)
+    pg.screenshot(path=f"{shots}/off-5-settings-headphones.png")
+    pg.click("[data-ok]"); pg.wait_for_timeout(300)
+    check("toggle saved off", pg.evaluate("PEARLS.state.prefs.unplugPause") is False)
+    if pg.evaluate("PEARLS.audio.paused"): pg.evaluate("PEARLS.audio.play()"); pg.wait_for_timeout(300)
+    pg.evaluate("PEARLS_MEDIA('noisy')"); pg.wait_for_timeout(300)
+    check("toggle off -> keeps playing", not pg.evaluate("PEARLS.audio.paused"))
+    pg.evaluate("PEARLS_MEDIA('pause')"); pg.wait_for_timeout(300)
+    check("earbud pause (in-ear detection) pauses", pg.evaluate("PEARLS.audio.paused"))
+    pg.evaluate("PEARLS.state.prefs.unplugPause = true")
+
+    # 8. Downloads page and the skin -> status bar bridge
     pg.goto(url + "#downloads"); pg.wait_for_timeout(500)
     check("Downloads page lists chapters", pg.query_selector_all(".view .list .trk").__len__() >= 4, len(pg.query_selector_all(".view .list .trk")))
     pg.screenshot(path=f"{shots}/off-4-downloads.png", full_page=True)
