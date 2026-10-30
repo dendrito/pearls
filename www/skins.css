@@ -150,3 +150,123 @@ body[data-skin="clear"] .mini{color:#fff;--pearl:#fff;--mist:#e6e6e6;--line:#fff
 body[data-skin="clear"] .tabs button{font-size:13px;color:#333}
 body[data-skin="clear"] .tabs button.on{color:#000;font-weight:700}
 body[data-skin="clear"] .btn.gold,body[data-skin="clear"] .ctrls .play{background:#000;color:#ffd400}
+
+/* =====================================================================================
+   2.1 skins from the design canvas "Pearls · Nacre": Nacre, Folio, Sunlit, Ner
+   ===================================================================================== */
+
+/* ---------- Nacre: warm ink, bone type, pearl sheen only on what's live ---------- */
+body[data-skin="nacre"]{--ink:#12110F;--ink-2:#1B1916;--ink-3:#24211D;--line:#2C2925;--hair:rgba(239,231,216,.10);--pearl:#EFE7D8;--text:#EFE7D8;--mist:#A9A193;--dim:#9A9284;
+  --gold:#E9E4EC;--gold-2:#EFE7D8;--on-gold:#12110F;--ok:#BFD9C7;
+  --f-display:"Bellefair","Frank Ruhl Libre",Georgia,serif;--f-body:"Instrument Sans",system-ui,sans-serif;--f-label:"Instrument Sans",system-ui,sans-serif;--f-read:"Frank Ruhl Libre",Georgia,serif;--dw:400;--dls:.005em;
+  --r:20px;--r-hero:24px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:#1B1916;--hero-line:rgba(239,231,216,.12);--hero-shadow:none;--shadow:none;--glow:0 0 36px rgba(240,226,214,.25);--cover-filter:grayscale(.85) brightness(.7);
+  --chip-on-bg:rgba(239,231,216,.08);--chip-on-line:rgba(239,231,216,.55);--glass:#24211D;--glass-line:#33302A;--float-shadow:0 14px 40px rgba(0,0,0,.55);--track:rgba(239,231,216,.14);
+  --ai-bg:rgba(239,231,216,.05);--ai-line:#3a352e;--ai-tag:#EFE7D8;--ai-fg:#12110F}
+body[data-skin="nacre"] .aura{display:none}
+body[data-skin="nacre"] .btn.gold,body[data-skin="nacre"] .mini .iconbtn.big,body[data-skin="nacre"] .np .play{background:linear-gradient(120deg,#F7F1E8 0%,#E8E5F1 45%,#E3EFE9 72%,#F5EAE2 100%);color:#12110F}
+body[data-skin="nacre"] .brand .dot,body[data-skin="nacre"] .hero .orb{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.95) 0 7%,rgba(255,255,255,0) 28%),radial-gradient(circle at 72% 80%,rgba(140,110,170,.38),rgba(0,0,0,0) 58%),conic-gradient(from 210deg,#f5ece3,#e2e5f0,#e4efe6,#f0e2ea,#f5ece3);box-shadow:inset -6px -9px 16px rgba(60,42,30,.38),0 0 30px rgba(240,226,214,.22)}
+body[data-skin="nacre"] .hero .orb{width:120px;height:120px;right:-24px;top:-24px}
+body[data-skin="nacre"] .hero .orb::after{border-color:rgba(239,231,216,.18)}
+body[data-skin="nacre"] .hero h3{font-size:34px}
+body[data-skin="nacre"] .hello{font-size:44px}
+body[data-skin="nacre"] .trk .bar i,body[data-skin="nacre"] .mini .prog i{background:linear-gradient(90deg,#F7F1E8,#E3EFE9)}
+body[data-skin="nacre"] .cover .glyph{font-family:"Bellefair",var(--f-heb);color:rgba(239,231,216,.88);font-size:10em}
+body[data-skin="nacre"] .cover .ring{display:none}
+body[data-skin="nacre"] .eyebrow,body[data-skin="nacre"] .seglabel{letter-spacing:.14em}
+
+/* ---------- Folio: paper, black type, one vermilion; square and editorial ---------- */
+body[data-skin="folio"]{--scheme:light;--ink:#F7F4EE;--ink-2:#FBF9F5;--ink-3:#EFEAE0;--line:#D8D2C6;--hair:#E2DCD0;--pearl:#111111;--text:#111111;--mist:#3A3732;--dim:#5F5A52;
+  --gold:#111111;--gold-2:#C2311A;--on-gold:#F7F4EE;--ok:#1F6B45;
+  --f-display:"Newsreader",Georgia,serif;--f-body:"Inter Tight",system-ui,sans-serif;--f-label:"Inter Tight",system-ui,sans-serif;--f-read:"Newsreader",Georgia,serif;--dw:400;--dls:-.01em;
+  --r:0px;--r-hero:0px;--r-pill:0px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:transparent;--hero-line:transparent;--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:grayscale(1) contrast(1.15);
+  --chip-on-bg:#111111;--chip-on-line:#111111;--glass:#111111;--glass-line:#111111;--float-shadow:none;--track:rgba(247,244,238,.3);--scrim:rgba(0,0,0,.35);
+  --ai-bg:#FBF9F5;--ai-line:#111111;--ai-tag:#111111;--ai-fg:#F7F4EE}
+body[data-skin="folio"] .aura,body[data-skin="folio"] .hero .orb{display:none}
+body[data-skin="folio"] .hello,body[data-skin="folio"] .hero h3,body[data-skin="folio"] .chhead h1,body[data-skin="folio"] .vhead h1{font-style:italic}
+body[data-skin="folio"] .hello em{color:#C2311A}
+body[data-skin="folio"] .hero{border-top:2px solid #111;padding:18px 0 4px;min-height:0}
+body[data-skin="folio"] .hero h3{font-size:40px;max-width:none}
+body[data-skin="folio"] .brand b{font-family:"Inter Tight",sans-serif;font-weight:800;letter-spacing:.18em;text-transform:uppercase;font-size:17px}
+body[data-skin="folio"] .brand .dot{border-radius:0;background:#C2311A;width:12px;height:12px;box-shadow:none}
+body[data-skin="folio"] .sec-h{border-bottom:1px solid #111;padding-bottom:6px}
+body[data-skin="folio"] .sec-h h2{font-style:italic}
+body[data-skin="folio"] .chip.on{color:#F7F4EE}
+body[data-skin="folio"] .panel{background:transparent;border:0;border-top:2px solid #111;padding:16px 0}
+body[data-skin="folio"] .mini{--pearl:#F7F4EE;--mist:#C9C3B8;--dim:#C9C3B8;--gold:#F7F4EE;--on-gold:#111;--ink-3:#2a2a2a;color:#F7F4EE}
+body[data-skin="folio"] .trk .bar i{background:#C2311A}
+body[data-skin="folio"] .tabs button.on{color:#111;font-weight:800}
+
+/* ---------- Sunlit: warm cream, terracotta, rounded and friendly ---------- */
+body[data-skin="sunlit"]{--scheme:light;--ink:#FFF6E9;--ink-2:#FFFFFF;--ink-3:#F6E8D3;--line:#EADFCF;--hair:#F0E4D2;--pearl:#1A1A1A;--text:#1A1A1A;--mist:#4A433A;--dim:#5C554C;
+  --gold:#C8461F;--gold-2:#A93A16;--on-gold:#FFFFFF;--ok:#2F7A4A;
+  --f-display:"Bricolage Grotesque","Rubik",system-ui,sans-serif;--f-body:"Rubik",system-ui,sans-serif;--f-label:"Rubik",system-ui,sans-serif;--f-read:"Rubik",system-ui,sans-serif;--dw:800;--dls:-.02em;
+  --r:26px;--r-hero:30px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:#C8461F;--hero-line:#C8461F;--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:saturate(1.15);
+  --chip-on-bg:#1A1A1A;--chip-on-line:#1A1A1A;--glass:#1A1A1A;--glass-line:#1A1A1A;--float-shadow:0 12px 30px rgba(26,26,26,.25);--track:rgba(255,246,233,.3);--scrim:rgba(26,20,10,.4);
+  --ai-bg:#FFFFFF;--ai-line:#EADFCF;--ai-tag:#1A1A1A;--ai-fg:#FFF6E9}
+body[data-skin="sunlit"] .aura,body[data-skin="sunlit"] .hero .orb{display:none}
+body[data-skin="sunlit"] .hero{color:#fff;--pearl:#fff;--mist:#FFE3D6;--dim:#FFE3D6;--gold-2:#fff}
+body[data-skin="sunlit"] .hero .btn.gold{background:#fff;color:#C8461F}
+body[data-skin="sunlit"] .hero .btn.ghost{background:rgba(255,255,255,.18);color:#fff}
+body[data-skin="sunlit"] .hello em{color:#C8461F;font-style:normal}
+body[data-skin="sunlit"] .brand .dot{background:#C8461F;box-shadow:none;border-radius:10px}
+body[data-skin="sunlit"] .brand b{text-transform:lowercase}
+body[data-skin="sunlit"] .chip.on{color:#FFF6E9}
+body[data-skin="sunlit"] .panel{border:0}
+body[data-skin="sunlit"] .mini{--pearl:#FFF6E9;--mist:#BDB5A8;--dim:#BDB5A8;--gold:#FFF6E9;--on-gold:#1A1A1A;--ink-3:#2b2b2b;color:#FFF6E9;border-radius:32px}
+body[data-skin="sunlit"] .art,body[data-skin="sunlit"] .trk .art{border-radius:16px}
+body[data-skin="sunlit"] .reader{font-weight:400;--dw:600}
+
+/* ---------- Ner: Jerusalem stone, olive, candle gold; arches ---------- */
+body[data-skin="ner"]{--scheme:light;--ink:#E8DDC8;--ink-2:#F1E9DA;--ink-3:#DED1B8;--line:#CDBF9F;--hair:#D9CCB2;--pearl:#2A2620;--text:#2A2620;--mist:#4A4335;--dim:#5E5646;
+  --gold:#3D4A2C;--gold-2:#3D4A2C;--on-gold:#F3ECDD;--ok:#3D4A2C;
+  --f-display:"Suez One","Frank Ruhl Libre",Georgia,serif;--f-body:"Assistant",system-ui,sans-serif;--f-label:"Assistant",system-ui,sans-serif;--f-read:"Frank Ruhl Libre",Georgia,serif;--dw:400;--dls:0;
+  --r:18px;--r-hero:22px;
+  --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:#3D4A2C;--hero-line:#3D4A2C;--hero-shadow:none;--shadow:none;--glow:0 0 34px rgba(230,180,90,.4);--cover-filter:sepia(.35) saturate(.8);
+  --chip-on-bg:#3D4A2C;--chip-on-line:#3D4A2C;--glass:#2E3822;--glass-line:#2E3822;--float-shadow:0 12px 30px rgba(46,56,34,.3);--track:rgba(243,236,221,.25);--scrim:rgba(30,26,18,.45);
+  --ai-bg:#F1E9DA;--ai-line:#CDBF9F;--ai-tag:#3D4A2C;--ai-fg:#F3ECDD}
+body[data-skin="ner"] .aura{display:none}
+body[data-skin="ner"] .hero{color:#F3ECDD;--pearl:#F3ECDD;--mist:#D7CDB5;--dim:#D7CDB5;--gold-2:#F3ECDD;border-radius:180px 180px 22px 22px;padding-top:130px;text-align:center;align-items:center}
+body[data-skin="ner"] .hero h3{max-width:none}
+body[data-skin="ner"] .hero .row{justify-content:center}
+body[data-skin="ner"] .hero .btn.gold{background:#E6B45A;color:#2A2620}
+body[data-skin="ner"] .hero .btn.ghost{background:transparent;border:1px solid rgba(243,236,221,.5);color:#F3ECDD}
+body[data-skin="ner"] .hero .orb{right:auto;left:50%;top:44px;margin-left:-10px;width:20px;height:32px;border-radius:50% 50% 45% 45%/62% 62% 38% 38%;background:#E6B45A;box-shadow:0 0 34px 10px rgba(230,180,90,.35)}
+body[data-skin="ner"] .hero .orb::after{display:none}
+body[data-skin="ner"] .cover{border-radius:999px 999px 14px 14px}
+body[data-skin="ner"] .art,body[data-skin="ner"] .trk .art{border-radius:24px 24px 6px 6px}
+body[data-skin="ner"] .brand .dot{background:#3D4A2C;border-radius:14px 14px 4px 4px;box-shadow:none}
+body[data-skin="ner"] .chip.on{color:#F3ECDD}
+body[data-skin="ner"] .mini{--pearl:#F3ECDD;--mist:#C9BFA6;--dim:#C9BFA6;--gold:#E6B45A;--on-gold:#2A2620;--ink-3:#3D4A2C;color:#F3ECDD}
+/* the volume artwork (covers, track art, playlist tiles) takes each skin's palette instead of the volume colours */
+body[data-skin="nacre"] :is(.cover,.art){--c1:#24211D!important;--c2:#34302A!important;--c3:#1B1916!important}
+body[data-skin="nacre"] .art{color:rgba(239,231,216,.9)}
+body[data-skin="nacre"] .plart>i{background:#24211D!important}
+body[data-skin="nacre"] .cover{filter:none}
+body[data-skin="folio"] :is(.cover,.art){--c1:#111111!important;--c2:#2A2A2A!important;--c3:#111111!important}
+body[data-skin="folio"] .art{color:#F7F4EE;border-radius:0}
+body[data-skin="folio"] .cover{border-radius:0;filter:none}
+body[data-skin="folio"] .cover .ring{display:none}
+body[data-skin="folio"] .cover .glyph{color:rgba(247,244,238,.9);font-family:"Frank Ruhl Libre",var(--f-heb);font-weight:900}
+body[data-skin="folio"] .plart>i{background:#111111!important}
+body[data-skin="folio"] .plart>i:nth-child(2){background:#C2311A!important}
+body[data-skin="sunlit"] :is(.cover,.art){--c1:#C8461F!important;--c2:#E8794F!important;--c3:#A93A16!important}
+body[data-skin="sunlit"] .cover{filter:none;border-radius:26px}
+body[data-skin="sunlit"] .cover .ring{display:none}
+body[data-skin="sunlit"] .cover .glyph{color:rgba(255,255,255,.32);font-family:"Rubik",var(--f-heb);font-weight:800}
+body[data-skin="sunlit"] .plart>i:nth-child(1){background:#C8461F!important}
+body[data-skin="sunlit"] .plart>i:nth-child(2){background:#9FD3F2!important}
+body[data-skin="sunlit"] .plart>i:nth-child(3){background:#FFC93C!important}
+body[data-skin="sunlit"] .plart>i:nth-child(4){background:#BFE6C9!important}
+body[data-skin="sunlit"] .mini{--gold-2:#FFB596}
+body[data-skin="ner"] :is(.cover,.art){--c1:#3D4A2C!important;--c2:#566744!important;--c3:#2E3822!important}
+body[data-skin="ner"] .art{color:#E8DDC8}
+body[data-skin="ner"] .cover{filter:none}
+body[data-skin="ner"] .cover .ring{display:none}
+body[data-skin="ner"] .cover .glyph{color:rgba(232,221,200,.38);font-family:"Suez One",var(--f-heb)}
+body[data-skin="ner"] .plart>i{background:#3D4A2C!important}
+body[data-skin="ner"] .plart>i:nth-child(2),body[data-skin="ner"] .plart>i:nth-child(3){background:#B57F1F!important}
+body[data-skin="ner"] .mini{--gold-2:#E6B45A}
+body[data-skin="ner"] .mini .langpill{border-color:#E6B45A;color:#E6B45A}

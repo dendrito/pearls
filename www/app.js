@@ -154,7 +154,11 @@ const SKINS = [
   { id: "parchment", name: "Parchment", note: "warm paper and a book typeface; reading first", bg: "#f6f0e4", acc: "#b0622a", light: true },
   { id: "studio", name: "Studio", note: "dark and audio-first, lime accent", bg: "#0e0e10", acc: "#c6f36b" },
   { id: "daf", name: "Daf", note: "a printed page: black ink, Garamond, Hebrew and English side by side", bg: "#fbfaf7", acc: "#1d1b18", light: true },
-  { id: "clear", name: "Clear", note: "black and white, very large type and buttons", bg: "#ffffff", acc: "#ffd400", light: true }
+  { id: "clear", name: "Clear", note: "black and white, very large type and buttons", bg: "#ffffff", acc: "#ffd400", light: true },
+  { id: "nacre", name: "Nacre", note: "warm ink and bone, a pearl's sheen on what's playing", bg: "#12110F", acc: "#E9E4EC" },
+  { id: "folio", name: "Folio", note: "paper, black type and one vermilion; square and editorial", bg: "#F7F4EE", acc: "#C2311A", light: true },
+  { id: "sunlit", name: "Sunlit", note: "warm cream and terracotta, rounded and friendly", bg: "#FFF6E9", acc: "#C8461F", light: true },
+  { id: "ner", name: "Ner", note: "Jerusalem stone, olive and candle gold, with arches", bg: "#E8DDC8", acc: "#3D4A2C", light: true }
 ];
 const darkMQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 function resolvedSkin() {

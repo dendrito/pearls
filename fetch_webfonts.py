@@ -17,6 +17,14 @@ FONTS = [  # (npm package, css files, family name used in app.css)
     ("@fontsource-variable/newsreader", ["standard.css", "standard-italic.css"], "Newsreader"),
     ("@fontsource-variable/ibm-plex-sans", ["wght.css"], "IBM Plex Sans"),
     ("@fontsource/atkinson-hyperlegible", ["400.css", "700.css", "400-italic.css"], "Atkinson Hyperlegible"),
+    # skins added in 2.1: Nacre, Folio, Sunlit, Ner
+    ("@fontsource/bellefair", ["400.css"], "Bellefair"),
+    ("@fontsource-variable/instrument-sans", ["wght.css", "index.css"], "Instrument Sans"),
+    ("@fontsource-variable/inter-tight", ["wght.css", "index.css"], "Inter Tight"),
+    ("@fontsource-variable/rubik", ["wght.css", "index.css"], "Rubik"),
+    ("@fontsource-variable/bricolage-grotesque", ["wght.css", "index.css"], "Bricolage Grotesque"),
+    ("@fontsource/suez-one", ["400.css"], "Suez One"),
+    ("@fontsource-variable/assistant", ["wght.css", "index.css"], "Assistant"),
 ]
 KEEP = re.compile(r"-(latin|latin-ext|hebrew)-")
 shutil.rmtree(OUT, ignore_errors=True); os.makedirs(OUT)
@@ -25,6 +33,8 @@ with tempfile.TemporaryDirectory() as tmp:
     for pkg, files, family in FONTS:
         tgz = subprocess.run(["npm", "pack", pkg, "--silent"], cwd=tmp, capture_output=True, text=True, check=True).stdout.strip().splitlines()[-1]
         d = os.path.join(tmp, tgz[:-4]); tarfile.open(os.path.join(tmp, tgz)).extractall(d, filter="data")
+        if "index.css" in files:                      # variable packages: use the first CSS that exists
+            files = [next(f for f in files if os.path.exists(os.path.join(d, "package", f)))]
         for cf in files:
             css = open(os.path.join(d, "package", cf)).read()
             for block in re.findall(r"@font-face\s*\{[^}]*\}", css):
