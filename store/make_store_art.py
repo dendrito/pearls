@@ -101,7 +101,8 @@ with sync_playwright() as p:
         <div style="display:flex;align-items:center;gap:22px"><div style="width:74px;height:74px;border-radius:50%;
           background:radial-gradient(circle at 35% 30%,#fff 0%,#f3e7cf 25%,#c9a96a 60%,#6b5326 100%);box-shadow:0 0 50px rgba(226,182,92,.45)"></div>
           <div style="font-size:96px;line-height:1">Pearls</div></div>
-        <div style="font-size:46px;line-height:1.15;margin-top:26px">Peninei Halakha <i style="color:#e2b65c">in English</i></div>
+        <div style="font-family:'Figtree',sans-serif;font-size:17px;letter-spacing:4px;text-transform:uppercase;color:#c9bfae;margin-top:22px">Powered by Peninei Halakha</div>
+        <div style="font-size:44px;line-height:1.15;margin-top:12px">Halakha <i style="color:#e2b65c">in English</i></div>
         <div style="font-family:'Figtree',sans-serif;font-size:23px;color:#c9bfae;margin-top:16px">Read and listen, one pearl at a time.<br>Works offline.</div></div>
       <div style="position:absolute;right:70px;top:46px;width:236px;height:420px;border-radius:30px;overflow:hidden;transform:rotate(4deg);
         box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 2px rgba(226,182,92,.35)"><img src="file://{RAW}/player.png" style="width:100%"></div>

@@ -10,11 +10,11 @@ Everything below is what Play Console asks for, in the order it asks. Replace `C
 - `Pearls: Halakha in English` (26)
 
 **Short description** (80 max)
-> Read and listen to Rabbi Melamed's Peninei Halakha in English, even offline. (75)
+> Powered by Peninei Halakha: read and listen to Rabbi Melamed's halakha, offline. (80)
 
 **Full description** (4,000 max)
 
-> Pearls brings Rabbi Eliezer Melamed's Peninei Halakha to your phone: clear, practical Jewish law, chapter by
+> Pearls, powered by Peninei Halakha, brings Rabbi Eliezer Melamed's halakha series to your phone: clear, practical Jewish law, chapter by
 > chapter, to read and to listen to.
 >
 > LISTEN
