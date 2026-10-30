@@ -77,13 +77,13 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 
 | Path | What |
 |---|---|
-| `www/app.js`, `app.css`, `skins.css`, `data.js` | The app. 19 skins (2.1 adds Nacre, Folio, Sunlit, Ner). 3 Hebrew typefaces (Frank Ruhl Libre, Shofar, Keter YG v0.103). Read/listen language pickers. Audio control bar. Credits page (`#credits`). |
+| `www/app.js`, `app.css`, `skins.css`, `modes.css`, `data.js` | The app. 17 skins, each in light and dark (2.3): `skins.css` draws each skin in its own mode (`light` in SKINS), `modes.css` holds the counterpart palette under `body[data-alt]`; Settings → Appearance (`prefs.mode`: design, light, dark, auto) picks. Pearl Minimal's three entries became one skin (old prefs migrate). Check with `python3 tools_skinshots.py home|read|settings` (contact sheets in `build/skinshots/`). 3 Hebrew typefaces (Frank Ruhl Libre, Shofar, Keter YG v0.103). Read/listen language pickers. Audio control bar. Credits page (`#credits`). |
 | `www/fonts/` | Shofar and Keter YG (Culmus, GPL+FE). Every Hebrew font must have GPOS `mark` and `mkmk`. |
 | `make_catalog.py`, `make_translit.py`, `make_he_books.py` | Build www data: the English catalogue, KTS transliteration, and the Hebrew-only books with AI translations. |
 | `work/he`, `work/en`, `work/TRANSLATE.md`, `work/check.py` | Hebrew sources, AI translations, the translation brief (fidelity rules plus licence evidence), and the validator. |
 | `src/` | Scraped source data: ph.yhb.org.il and Sefaria. |
 | `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
-| Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape. |
+| Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
 | `apple/` | Xcode project. One multiplatform target. The `pearls://` scheme handler also proxies ph.yhb.org.il, which sends duplicate CORS headers. Run `apple/sync_www.sh` after changing www. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
 | `docs/` | S&P house rules (KTS) and the Pearls ⇄ Meldar integration notes. |

@@ -138,42 +138,50 @@ function copyText(text) {
   function fallback() { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
     try { document.execCommand("copy"); done(); } catch { toast("Couldn't copy on this device"); } ta.remove(); }
 }
-/* skins: Classic is app.css itself; the rest re-set its tokens in skins.css */
+/* skins: Classic is app.css itself; the rest re-set its tokens in skins.css. `light` is the skin's own (designed) mode;
+   modes.css holds each skin's counterpart palette, switched on by body[data-alt] when Appearance asks for the other mode. */
 const SKINS = [
-  { id: "classic", name: "Classic", bg: "#0b0f1a", acc: "#e2b65c" },
-  { id: "pearl-auto", name: "Pearl Minimal", note: "light by day, dark at night (follows your phone)", bg: "linear-gradient(90deg,#f5f5f2 50%,#0b0b0c 50%)", acc: "#ff4f00" },
-  { id: "pearl", name: "Pearl Minimal · light", bg: "#f5f5f2", acc: "#ff4f00", light: true },
-  { id: "pearl-dark", name: "Pearl Minimal · dark", bg: "#0b0b0c", acc: "#ff4f00" },
-  { id: "sand", name: "Sand", bg: "#efe9dd", acc: "#c2410c", light: true },
-  { id: "ice", name: "Ice", bg: "#eef2f6", acc: "#2b59ff", light: true },
-  { id: "night", name: "Night Gold", bg: "#0a0a0a", acc: "#e2b65c" },
-  { id: "mint", name: "Terminal Mint", bg: "#0b1210", acc: "#3ddc97" },
-  { id: "illuminated", name: "Illuminated", note: "vellum, lapis and vermilion, like a manuscript", bg: "#f3ead6", acc: "#1f3a93", light: true },
-  { id: "tekhelet", name: "Tekhelet", note: "deep sea blue with threads of light", bg: "#04121f", acc: "#3fa9ff" },
-  { id: "brutal", name: "Brutal", note: "paper, black ink, hard shadows, acid yellow", bg: "#f4f1ea", acc: "#e6ff00", light: true },
-  { id: "parchment", name: "Parchment", note: "warm paper and a book typeface; reading first", bg: "#f6f0e4", acc: "#b0622a", light: true },
-  { id: "studio", name: "Studio", note: "dark and audio-first, lime accent", bg: "#0e0e10", acc: "#c6f36b" },
-  { id: "daf", name: "Daf", note: "a printed page: black ink, Garamond, Hebrew and English side by side", bg: "#fbfaf7", acc: "#1d1b18", light: true },
-  { id: "clear", name: "Clear", note: "black and white, very large type and buttons", bg: "#ffffff", acc: "#ffd400", light: true },
-  { id: "nacre", name: "Nacre", note: "warm ink and bone, a pearl's sheen on what's playing", bg: "#12110F", acc: "#E9E4EC" },
-  { id: "folio", name: "Folio", note: "paper, black type and one vermilion; square and editorial", bg: "#F7F4EE", acc: "#C2311A", light: true },
-  { id: "sunlit", name: "Sunlit", note: "warm cream and terracotta, rounded and friendly", bg: "#FFF6E9", acc: "#C8461F", light: true },
-  { id: "ner", name: "Ner", note: "Jerusalem stone, olive and candle gold, with arches", bg: "#E8DDC8", acc: "#3D4A2C", light: true }
+  { id: "classic", name: "Classic", bg: "#0b0f1a", acc: "#e2b65c", alt: "#f6f3ec" },
+  { id: "pearl", name: "Pearl Minimal", bg: "#f5f5f2", acc: "#ff4f00", light: true, alt: "#0b0b0c" },
+  { id: "sand", name: "Sand", bg: "#efe9dd", acc: "#c2410c", light: true, alt: "#15120e" },
+  { id: "ice", name: "Ice", bg: "#eef2f6", acc: "#2b59ff", light: true, alt: "#0b1018" },
+  { id: "night", name: "Night Gold", bg: "#0a0a0a", acc: "#e2b65c", alt: "#f7f5f0" },
+  { id: "mint", name: "Terminal Mint", bg: "#0b1210", acc: "#3ddc97", alt: "#eef6f2" },
+  { id: "illuminated", name: "Illuminated", note: "vellum, lapis and vermilion, like a manuscript", bg: "#f3ead6", acc: "#1f3a93", light: true, alt: "#1a140d" },
+  { id: "tekhelet", name: "Tekhelet", note: "deep sea blue with threads of light", bg: "#04121f", acc: "#3fa9ff", alt: "#eef5fb" },
+  { id: "brutal", name: "Brutal", note: "paper, black ink, hard shadows, acid yellow", bg: "#f4f1ea", acc: "#e6ff00", light: true, alt: "#111111" },
+  { id: "parchment", name: "Parchment", note: "warm paper and a book typeface; reading first", bg: "#f6f0e4", acc: "#b0622a", light: true, alt: "#17130e" },
+  { id: "studio", name: "Studio", note: "dark and audio-first, lime accent", bg: "#0e0e10", acc: "#c6f36b", alt: "#f4f4f2" },
+  { id: "daf", name: "Daf", note: "a printed page: black ink, Garamond, Hebrew and English side by side", bg: "#fbfaf7", acc: "#1d1b18", light: true, alt: "#121110" },
+  { id: "clear", name: "Clear", note: "black and white, very large type and buttons", bg: "#ffffff", acc: "#ffd400", light: true, alt: "#000000" },
+  { id: "nacre", name: "Nacre", note: "warm ink and bone, a pearl's sheen on what's playing", bg: "#12110F", acc: "#E9E4EC", alt: "#F6F1E7" },
+  { id: "folio", name: "Folio", note: "paper, black type and one vermilion; square and editorial", bg: "#F7F4EE", acc: "#C2311A", light: true, alt: "#111111" },
+  { id: "sunlit", name: "Sunlit", note: "warm cream and terracotta, rounded and friendly", bg: "#FFF6E9", acc: "#C8461F", light: true, alt: "#1A1512" },
+  { id: "ner", name: "Ner", note: "Jerusalem stone, olive and candle gold, with arches", bg: "#E8DDC8", acc: "#3D4A2C", light: true, alt: "#1C1A15" }
 ];
+const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match phone"]];
+/* 2.3: the three Pearl Minimal entries became one skin with modes */
+if (state.prefs.skin === "pearl-dark") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "dark"; save.prefs(); }
+if (state.prefs.skin === "pearl-auto") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "auto"; save.prefs(); }
 const darkMQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-function resolvedSkin() {
-  const s = state.prefs.skin || "classic";
-  return s === "pearl-auto" ? (darkMQ && darkMQ.matches ? "pearl-dark" : "pearl") : s;
+function wantLight(sk) {   // the effective mode: the skin's own unless Appearance says otherwise
+  const m = state.prefs.mode || "design";
+  if (m === "light") return true;
+  if (m === "dark") return false;
+  if (m === "auto") return !(darkMQ && darkMQ.matches);
+  return !!sk.light;
 }
 function applySkin() {
-  const id = state.prefs.hc ? "classic" : resolvedSkin(), sk = SKINS.find(x => x.id === id) || SKINS[0];
-  if (id === "classic") delete document.body.dataset.skin; else document.body.dataset.skin = id;
-  document.body.classList.toggle("light", !!sk.light);
-  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.body).getPropertyValue("--ink").trim() || sk.bg;
-  const bar = (m && /^#[0-9a-f]{6}$/i.test(m.content)) ? m.content : sk.bg;   // Android: status and navigation bars follow the skin
-  if (window.PearlsNative && window.PearlsNative.setBars) try { window.PearlsNative.setBars(bar, !!sk.light); } catch {}
+  const id = state.prefs.hc ? "classic" : (state.prefs.skin || "classic"), sk = SKINS.find(x => x.id === id) || SKINS[0];
+  const light = state.prefs.hc ? false : wantLight(sk), alt = light !== !!sk.light;
+  if (sk.id === "classic") delete document.body.dataset.skin; else document.body.dataset.skin = sk.id;
+  if (alt) document.body.dataset.alt = light ? "light" : "dark"; else delete document.body.dataset.alt;
+  document.body.classList.toggle("light", light);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = getComputedStyle(document.body).getPropertyValue("--ink").trim() || (alt ? sk.alt : sk.bg);
+  const bar = (m && /^#[0-9a-f]{6}$/i.test(m.content)) ? m.content : (alt ? sk.alt : sk.bg);   // Android: status and navigation bars follow the skin
+  if (window.PearlsNative && window.PearlsNative.setBars) try { window.PearlsNative.setBars(bar, light); } catch {}
 }
-if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener("change", () => { if (state.prefs.skin === "pearl-auto") applySkin(); });
+if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener("change", () => { if (state.prefs.mode === "auto") applySkin(); });
 const HEB_FONTS = [
   { id: "frank", name: "Frank Ruhl Libre", note: "the default; a classic Israeli book face", css: '"Frank Ruhl Libre","Noto Serif Hebrew","David",serif' },
   { id: "shofar", name: "Shofar", note: "in the style of Koren, as in the Koren siddur and Tanakh", css: '"Shofar","Frank Ruhl Libre",serif' },
@@ -1188,7 +1196,9 @@ function vDownloads() {
 /* ---------- Settings ---------- */
 function settingsDialog() {
   dialog(`<h3>Settings</h3>
-    <div class="field"><label>Skin</label><div class="skins">${SKINS.map(k => `<button class="skinbtn ${(state.prefs.skin || "classic") === k.id ? "on" : ""}" data-skin="${k.id}" aria-pressed="${(state.prefs.skin || "classic") === k.id}"><i style="background:${k.bg}"><b style="background:${k.acc}"></b></i><span>${k.name}${k.note ? `<small>${k.note}</small>` : ""}</span></button>`).join("")}</div></div>
+    <div class="field"><label>Skin</label><div class="skins">${SKINS.map(k => `<button class="skinbtn ${(state.prefs.skin || "classic") === k.id ? "on" : ""}" data-skin="${k.id}" aria-pressed="${(state.prefs.skin || "classic") === k.id}"><i style="background:linear-gradient(135deg,${k.bg} 50%,${k.alt} 50%)"><b style="background:${k.acc}"></b></i><span>${k.name}${k.note ? `<small>${k.note}</small>` : ""}</span></button>`).join("")}</div></div>
+    <div class="field"><label>Appearance</label><div class="chips">${MODES.map(([v, l]) => `<button class="chip ${(state.prefs.mode || "design") === v ? "on" : ""}" data-mode="${v}">${l}</button>`).join("")}</div>
+      <span class="note">Every skin has a light and a dark version. "As designed" uses the one it was drawn in.</span></div>
     <div class="field"><label>Spelling of Hebrew words</label>
       ${Object.entries(SCHEMES).map(([k, s]) => `<button class="opt" data-s="${k}"><span class="radio ${k === scheme ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${s.name}</b><br><span class="note">${esc(s.sub)}</span></span></button>`).join("")}</div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
@@ -1208,6 +1218,7 @@ function settingsDialog() {
     s.querySelectorAll("[data-credits]").forEach(a => a.onclick = () => close());
     s.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { setScheme(b.dataset.s); s.querySelectorAll("[data-s] .radio").forEach(r => r.classList.toggle("on", r.parentNode.dataset.s === scheme)); });
     s.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { state.prefs.skin = b.dataset.skin; if (b.dataset.skin === "daf" && !state.prefs.readSet) state.prefs.read = "both"; save.prefs(); applyPrefs(); s.querySelectorAll("[data-skin]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
+    s.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { state.prefs.mode = b.dataset.mode; save.prefs(); applyPrefs(); s.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b)); });
     s.querySelectorAll("[data-hefont]").forEach(b => b.onclick = () => { state.prefs.hefont = b.dataset.hefont; save.prefs(); applyHebFont(); s.querySelectorAll("[data-hefont]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
     s.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { state.prefs.read = b.dataset.read; save.prefs(); s.querySelectorAll("[data-read]").forEach(x => x.classList.toggle("on", x === b)); });
     s.querySelectorAll("[data-alang]").forEach(b => b.onclick = () => { audioLang = b.dataset.alang; store.set("audioLang", audioLang); s.querySelectorAll("[data-alang]").forEach(x => x.classList.toggle("on", x === b)); if (P.queue && P.queue.length) load(!audio.paused); });

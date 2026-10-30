@@ -2,20 +2,18 @@
    plus a few signature details. "Classic" is app.css itself (no data-skin). */
 
 /* ---------- Pearl Minimal family: no glow, hairlines, one accent ---------- */
-body[data-skin="pearl"],body[data-skin="pearl-dark"],body[data-skin="sand"],body[data-skin="ice"],body[data-skin="night"],body[data-skin="mint"]{
+body[data-skin="pearl"],body[data-skin="sand"],body[data-skin="ice"],body[data-skin="night"],body[data-skin="mint"]{
   --f-display:"Geist","Figtree",system-ui,sans-serif; --f-body:"Geist","Figtree",system-ui,sans-serif; --f-label:"Geist Mono",ui-monospace,monospace; --f-read:var(--f-body);
   --dw:300; --dls:-0.02em; --r:14px; --r-hero:18px;
   --top-bg:var(--ink); --tabs-bg:var(--ink); --hero-bg:var(--ink-2); --hero-line:var(--line); --hero-shadow:none;
   --shadow:none; --glow:none; --cover-filter:saturate(.45); --float-shadow:0 10px 30px rgba(0,0,0,.12);
   --chip-on-bg:transparent; --chip-on-line:var(--gold);
 }
-body[data-skin="pearl"] .aura,body[data-skin="pearl-dark"] .aura,body[data-skin="sand"] .aura,body[data-skin="ice"] .aura,body[data-skin="night"] .aura,body[data-skin="mint"] .aura,
-body[data-skin="pearl"] .hero .orb,body[data-skin="pearl-dark"] .hero .orb,body[data-skin="sand"] .hero .orb,body[data-skin="ice"] .hero .orb,body[data-skin="night"] .hero .orb,body[data-skin="mint"] .hero .orb{display:none}
+body[data-skin="pearl"] .aura,body[data-skin="sand"] .aura,body[data-skin="ice"] .aura,body[data-skin="night"] .aura,body[data-skin="mint"] .aura,
+body[data-skin="pearl"] .hero .orb,body[data-skin="sand"] .hero .orb,body[data-skin="ice"] .hero .orb,body[data-skin="night"] .hero .orb,body[data-skin="mint"] .hero .orb{display:none}
 
 body[data-skin="pearl"]{--scheme:light;--ink:#f5f5f2;--ink-2:#fbfbf9;--ink-3:#ebebe6;--line:#dcdcd6;--hair:#e4e4de;--pearl:#111;--mist:#4f4f4f;--dim:#6b6b6b;--gold:#ff4f00;--gold-2:#c43d00;--on-gold:#fff;--text:#1d1d1d;
   --glass:rgba(251,251,249,.95);--glass-line:#dcdcd6;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.35);--ai-bg:rgba(91,79,214,.06);--ai-line:#cdc8f2;--ai-tag:#5b4fd6;--ai-fg:#fff}
-body[data-skin="pearl-dark"]{--ink:#0b0b0c;--ink-2:#111113;--ink-3:#1a1a1d;--line:#26262a;--hair:#1f1f23;--pearl:#ededea;--mist:#a6a6ac;--dim:#8d8d93;--gold:#ff4f00;--gold-2:#ff7a3d;--on-gold:#fff;--text:#dcdcd8;
-  --glass:rgba(17,17,19,.94);--glass-line:#26262a;--float-shadow:0 12px 40px rgba(0,0,0,.6)}
 body[data-skin="sand"]{--scheme:light;--ink:#efe9dd;--ink-2:#f5f0e6;--ink-3:#e6dfd0;--line:#d9d0bf;--hair:#e0d8c8;--pearl:#1f1b16;--mist:#4f473c;--dim:#6d6457;--gold:#c2410c;--gold-2:#a8370a;--on-gold:#fff;--text:#2a241d;
   --f-display:"Instrument Serif",Georgia,serif;--dw:400;--dls:-0.01em;
   --glass:rgba(245,240,230,.95);--glass-line:#d9d0bf;--track:rgba(0,0,0,.12);--scrim:rgba(40,30,20,.35);--ai-bg:rgba(91,79,214,.05);--ai-line:#cfc6e8;--ai-tag:#5b4fd6;--ai-fg:#fff}
@@ -57,7 +55,6 @@ body[data-skin="tekhelet"] .aura{background:repeating-linear-gradient(90deg,rgba
   -webkit-mask-image:linear-gradient(#000 20%,transparent);mask-image:linear-gradient(#000 20%,transparent)}
 body[data-skin="tekhelet"] .hero .orb{background:radial-gradient(circle at 34% 30%,#ffffff 0 8%,#bfe3ff 26%,#3fa9ff 62%,rgba(63,169,255,0) 72%)}
 body[data-skin="tekhelet"] .hero .orb::after{border-color:rgba(63,169,255,.4)}
-body[data-skin="tekhelet"] .brand .dot{background:radial-gradient(circle at 34% 30%,#fff 0 12%,#bfe3ff 30%,#3fa9ff 78%);box-shadow:0 0 18px rgba(63,169,255,.6)}
 
 /* ---------- Brutal: paper, black ink, hard shadows, acid yellow ---------- */
 body[data-skin="brutal"]{--scheme:light;--ink:#f4f1ea;--ink-2:#ffffff;--ink-3:#ffffff;--line:#111;--hair:#111;--pearl:#111;--mist:#2e2e2e;--dim:#4a4a4a;--gold:#e6ff00;--gold-2:#111;--on-gold:#111;--text:#111;
@@ -189,7 +186,6 @@ body[data-skin="folio"] .hello em{color:#C2311A}
 body[data-skin="folio"] .hero{border-top:2px solid #111;padding:18px 0 4px;min-height:0}
 body[data-skin="folio"] .hero h3{font-size:40px;max-width:none}
 body[data-skin="folio"] .brand b{font-family:"Inter Tight",sans-serif;font-weight:800;letter-spacing:.18em;text-transform:uppercase;font-size:17px}
-body[data-skin="folio"] .brand .dot{border-radius:0;background:#C2311A;width:12px;height:12px;box-shadow:none}
 body[data-skin="folio"] .sec-h{border-bottom:1px solid #111;padding-bottom:6px}
 body[data-skin="folio"] .sec-h h2{font-style:italic}
 body[data-skin="folio"] .chip.on{color:#F7F4EE}
@@ -211,7 +207,6 @@ body[data-skin="sunlit"] .hero{color:#fff;--pearl:#fff;--mist:#FFE3D6;--dim:#FFE
 body[data-skin="sunlit"] .hero .btn.gold{background:#fff;color:#C8461F}
 body[data-skin="sunlit"] .hero .btn.ghost{background:rgba(255,255,255,.18);color:#fff}
 body[data-skin="sunlit"] .hello em{color:#C8461F;font-style:normal}
-body[data-skin="sunlit"] .brand .dot{background:#C8461F;box-shadow:none;border-radius:10px}
 body[data-skin="sunlit"] .brand b{text-transform:lowercase}
 body[data-skin="sunlit"] .chip.on{color:#FFF6E9}
 body[data-skin="sunlit"] .panel{border:0}
@@ -237,7 +232,6 @@ body[data-skin="ner"] .hero .orb{right:auto;left:50%;top:44px;margin-left:-10px;
 body[data-skin="ner"] .hero .orb::after{display:none}
 body[data-skin="ner"] .cover{border-radius:999px 999px 14px 14px}
 body[data-skin="ner"] .art,body[data-skin="ner"] .trk .art{border-radius:24px 24px 6px 6px}
-body[data-skin="ner"] .brand .dot{background:#3D4A2C;border-radius:14px 14px 4px 4px;box-shadow:none}
 body[data-skin="ner"] .chip.on{color:#F3ECDD}
 body[data-skin="ner"] .mini{--pearl:#F3ECDD;--mist:#C9BFA6;--dim:#C9BFA6;--gold:#E6B45A;--on-gold:#2A2620;--ink-3:#3D4A2C;color:#F3ECDD}
 /* the volume artwork (covers, track art, playlist tiles) takes each skin's palette instead of the volume colours */
@@ -271,5 +265,8 @@ body[data-skin="ner"] .plart>i:nth-child(2),body[data-skin="ner"] .plart>i:nth-c
 body[data-skin="ner"] .mini{--gold-2:#E6B45A}
 body[data-skin="ner"] .mini .langpill{border-color:#E6B45A;color:#E6B45A}
 
-/* skins with a mark of their own drop the glint */
-body[data-skin="tekhelet"] .brand .dot::after,body[data-skin="folio"] .brand .dot::after,body[data-skin="sunlit"] .brand .dot::after,body[data-skin="ner"] .brand .dot::after{display:none}
+/* the logo (glint A) in every skin: the pearl in --logo (default: the text colour), the glint cut in the page colour */
+body[data-skin="tekhelet"]{--logo:#3fa9ff}
+body[data-skin="folio"]{--logo:#C2311A}
+body[data-skin="sunlit"]{--logo:#C8461F}
+body[data-skin="ner"]{--logo:#3D4A2C}

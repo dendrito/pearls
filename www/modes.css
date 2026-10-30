@@ -1,0 +1,154 @@
+/* Light and dark for every skin. Each skin in skins.css is drawn in one mode (its "designed" mode, `light` in
+   app.js SKINS). When Settings → Appearance asks for the other one, app.js sets body[data-alt="light"|"dark"] and the
+   counterpart palette below re-sets the same tokens. Loaded after skins.css, so equal-specificity rules here win. */
+
+/* ---------- shared defaults ---------- */
+body[data-alt="dark"]{--scheme:dark;--track:rgba(255,255,255,.14);--scrim:rgba(0,0,0,.55);--float-shadow:0 12px 40px rgba(0,0,0,.6);
+  --ai-bg:rgba(122,108,240,.08);--ai-line:#3a3470;--ai-tag:#7a6cf0;--ai-fg:#fff}
+body[data-alt="light"]{--scheme:light;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.35);--float-shadow:0 10px 30px rgba(0,0,0,.12);
+  --ai-bg:rgba(91,79,214,.06);--ai-line:#cdc8f2;--ai-tag:#5b4fd6;--ai-fg:#fff}
+
+/* =================== dark skins, light version =================== */
+
+/* Classic: the study hall by day */
+body:not([data-skin])[data-alt]{--ink:#f6f3ec;--ink-2:#fffdf8;--ink-3:#ece7dc;--line:#dcd5c6;--hair:rgba(220,213,198,.7);--pearl:#141a2e;--mist:#4a5170;--dim:#5e6585;
+  --gold:#d9a641;--gold-2:#8a5f12;--on-gold:#1a1406;--text:#1d2236;
+  --top-bg:linear-gradient(var(--ink) 70%,rgba(246,243,236,0));--tabs-bg:linear-gradient(rgba(246,243,236,.75),var(--ink) 40%);
+  --hero-bg:linear-gradient(160deg,#fbf1d9 0%,#f6ecd8 55%,#f0e8d8 100%);--hero-line:#e6d6b0;--hero-shadow:none;
+  --shadow:0 10px 30px rgba(20,26,46,.1);--chip-on-bg:rgba(217,166,65,.16);--chip-on-line:rgba(160,110,20,.55);
+  --glass:rgba(255,253,248,.95);--glass-line:#dcd5c6;--float-shadow:0 12px 30px rgba(20,26,46,.15);--track:rgba(20,26,46,.14);
+  --glow:0 0 34px rgba(217,166,65,.35);--scrim:rgba(20,26,46,.35);--ai-bg:rgba(122,108,240,.07);--ai-line:#cfc9f0}
+body:not([data-skin])[data-alt] .aura{opacity:.6}
+
+/* Night Gold */
+body[data-skin="night"][data-alt]{--ink:#f7f5f0;--ink-2:#fffefb;--ink-3:#ece9e2;--line:#dedad1;--hair:#e6e2da;--pearl:#141210;--mist:#4a463f;--dim:#67625a;
+  --gold:#d9a641;--gold-2:#8a5f12;--on-gold:#1a1408;--text:#1f1c18;--glass:rgba(255,254,251,.95);--glass-line:#dedad1}
+
+/* Terminal Mint */
+body[data-skin="mint"][data-alt]{--ink:#eef6f2;--ink-2:#f8fcfa;--ink-3:#e0ece6;--line:#cfe0d7;--hair:#dbe8e1;--pearl:#0b1f17;--mist:#3a5247;--dim:#557064;
+  --gold:#0f8a59;--gold-2:#0b6e47;--on-gold:#fff;--text:#12271e;--glass:rgba(248,252,250,.95);--glass-line:#cfe0d7}
+
+/* Tekhelet: sea light */
+body[data-skin="tekhelet"][data-alt]{--ink:#eef5fb;--ink-2:#f7fbfe;--ink-3:#dde9f4;--line:#c3d6e8;--hair:#d3e2ef;--pearl:#06213a;--mist:#2f4b66;--dim:#4d6883;
+  --gold:#1f74c4;--gold-2:#155a9c;--on-gold:#fff;--text:#0b2540;--logo:#1f74c4;
+  --top-bg:linear-gradient(var(--ink) 70%,rgba(238,245,251,0));--tabs-bg:linear-gradient(rgba(238,245,251,.7),var(--ink) 40%);
+  --hero-bg:radial-gradient(120% 90% at 100% 0%,#bfe0fb 0%,#dcecf9 45%,#eef5fb 100%);--hero-line:#b5d0ea;--hero-shadow:none;
+  --glow:0 0 40px rgba(31,116,196,.25);--chip-on-bg:rgba(31,116,196,.1);--chip-on-line:rgba(31,116,196,.5);
+  --glass:rgba(247,251,254,.95);--glass-line:#c3d6e8;--float-shadow:0 10px 30px rgba(6,33,58,.15);--track:rgba(6,33,58,.12);--scrim:rgba(6,20,40,.35);
+  --ai-bg:rgba(31,116,196,.06);--ai-line:#b5d0ea;--ai-tag:#1f6fd6}
+
+/* Studio */
+body[data-skin="studio"][data-alt]{--ink:#f4f4f2;--ink-2:#ffffff;--ink-3:#e9e9e6;--line:#d8d8d3;--hair:#e2e2dd;--pearl:#0e0e10;--mist:#45454c;--dim:#5f5f67;
+  --gold:#c6f36b;--gold-2:#3d5a00;--on-gold:#0e0e10;--text:#1a1a1d;--glow:0 0 30px rgba(120,170,20,.25);
+  --chip-on-bg:rgba(198,243,107,.35);--chip-on-line:#3d5a00;--glass:#ffffff;--glass-line:#d8d8d3;
+  --ai-bg:rgba(120,170,20,.07);--ai-line:#c7dba0;--ai-tag:#3d5a00}
+
+/* Nacre: bone paper, ink type; the sheen stays on what's live */
+body[data-skin="nacre"][data-alt]{--ink:#F6F1E7;--ink-2:#FFFDF8;--ink-3:#ECE5D8;--line:#DDD4C4;--hair:rgba(29,27,24,.10);--pearl:#1D1B18;--text:#1D1B18;--mist:#4E483F;--dim:#6A6357;
+  --gold:#1D1B18;--gold-2:#5C5070;--on-gold:#F6F1E7;--ok:#2F6B4A;
+  --hero-bg:#FFFDF8;--hero-line:rgba(29,27,24,.12);--glow:0 0 30px rgba(120,100,150,.18);
+  --chip-on-bg:rgba(29,27,24,.06);--chip-on-line:rgba(29,27,24,.5);--glass:#FFFDF8;--glass-line:#DDD4C4;--float-shadow:0 12px 30px rgba(29,27,24,.15);
+  --track:rgba(29,27,24,.12);--scrim:rgba(29,27,24,.35);--ai-bg:rgba(29,27,24,.04);--ai-line:#DDD4C4;--ai-tag:#1D1B18;--ai-fg:#F6F1E7}
+body[data-skin="nacre"][data-alt] .btn.gold,body[data-skin="nacre"][data-alt] .mini .iconbtn.big,body[data-skin="nacre"][data-alt] .np .play{background:#1D1B18;color:#F6F1E7}
+body[data-skin="nacre"][data-alt] .trk .bar i,body[data-skin="nacre"][data-alt] .mini .prog i{background:#1D1B18}
+body[data-skin="nacre"][data-alt] .hero .orb::after{border-color:rgba(29,27,24,.15)}
+body[data-skin="nacre"][data-alt] :is(.cover,.art){--c1:#E6DED0!important;--c2:#D8CFBF!important;--c3:#EFE9DE!important}
+body[data-skin="nacre"][data-alt] .art{color:#1D1B18}
+body[data-skin="nacre"][data-alt] .cover .glyph{color:rgba(29,27,24,.7)}
+body[data-skin="nacre"][data-alt] .plart>i{background:#E6DED0!important}
+
+/* =================== light skins, dark version =================== */
+
+/* Pearl Minimal (was "Pearl Minimal · dark") */
+body[data-skin="pearl"][data-alt]{--ink:#0b0b0c;--ink-2:#111113;--ink-3:#1a1a1d;--line:#26262a;--hair:#1f1f23;--pearl:#ededea;--mist:#a6a6ac;--dim:#8d8d93;--gold:#ff4f00;--gold-2:#ff7a3d;--on-gold:#fff;--text:#dcdcd8;
+  --glass:rgba(17,17,19,.94);--glass-line:#26262a}
+
+/* Sand */
+body[data-skin="sand"][data-alt]{--ink:#15120e;--ink-2:#1d1914;--ink-3:#26211a;--line:#352e25;--hair:#2a241d;--pearl:#efe6d6;--mist:#c9bda9;--dim:#a39784;
+  --gold:#e0662a;--gold-2:#f08a55;--on-gold:#1a0d05;--text:#e8dfcf;--glass:rgba(29,25,20,.95);--glass-line:#352e25}
+
+/* Ice */
+body[data-skin="ice"][data-alt]{--ink:#0b1018;--ink-2:#111824;--ink-3:#182131;--line:#222d40;--hair:#1a2333;--pearl:#e8eef6;--mist:#a9b6c6;--dim:#8494a7;
+  --gold:#5b82ff;--gold-2:#8ea8ff;--on-gold:#06102a;--text:#d9e2ee;--glass:rgba(17,24,36,.95);--glass-line:#222d40}
+
+/* Illuminated: the manuscript by candlelight */
+body[data-skin="illuminated"][data-alt]{--ink:#1a140d;--ink-2:#221a11;--ink-3:#2c2216;--line:#5a4527;--hair:#3a2d1c;--pearl:#f1e6cf;--mist:#cdbb9c;--dim:#a8957a;
+  --gold:#6d8fe8;--gold-2:#9fb5f2;--on-gold:#10182e;--text:#ecdfc5;--rubric:#e06a5c;
+  --glass:rgba(34,26,17,.96);--float-shadow:0 8px 24px rgba(0,0,0,.5);--cover-filter:sepia(.45) saturate(.8) brightness(.85);
+  --ai-bg:rgba(109,143,232,.08);--ai-line:#3a4a7a;--ai-tag:#6d8fe8;--ai-fg:#10182e}
+
+/* Brutal: black paper, white ink, the same acid yellow */
+body[data-skin="brutal"][data-alt]{--ink:#111111;--ink-2:#1b1b1b;--ink-3:#1b1b1b;--line:#f4f1ea;--hair:#f4f1ea;--pearl:#f4f1ea;--mist:#d6d3cc;--dim:#b5b2ab;
+  --gold:#e6ff00;--gold-2:#e6ff00;--on-gold:#111;--text:#f4f1ea;--hero-line:#f4f1ea;
+  --shadow:4px 4px 0 #f4f1ea;--card-shadow:4px 4px 0 #f4f1ea;--glow:4px 4px 0 #f4f1ea;
+  --chip-on-line:#f4f1ea;--glass:#1b1b1b;--glass-line:#f4f1ea;--float-shadow:5px 5px 0 #e6ff00;--track:rgba(255,255,255,.2);
+  --ai-bg:#1b1b1b;--ai-line:#f4f1ea;--ai-tag:#e6ff00;--ai-fg:#111}
+body[data-skin="brutal"][data-alt] :is(.chip,.tool,.pill,.btn.ghost,.btn.line,.iconbtn,.top .act,.top .back,.seg,.search){border-color:#f4f1ea}
+body[data-skin="brutal"][data-alt] :is(.btn.gold,.ctrls .play,.mini .mctl .iconbtn.big){border-color:#111;box-shadow:3px 3px 0 #f4f1ea}
+body[data-skin="brutal"][data-alt] .mini .mctl .iconbtn{border:0}
+body[data-skin="brutal"][data-alt] .langbar{box-shadow:4px 4px 0 #f4f1ea}
+body[data-skin="brutal"][data-alt] .tabs button.on{color:#111;border-color:#111}
+/* the yellow hero card keeps black ink */
+body[data-skin="brutal"][data-alt] .hero{color:#111;--pearl:#111;--text:#111;--mist:#2e2e2e;--dim:#4a4a4a;--gold-2:#111;--line:#111}
+body[data-skin="brutal"][data-alt] .hero :is(.btn.ghost,.btn.line,.iconbtn){border-color:#111;color:#111}
+
+/* Parchment: lamp-lit */
+body[data-skin="parchment"][data-alt]{--ink:#17130e;--ink-2:#201a13;--ink-3:#2a2219;--line:#3a3024;--hair:#2e261c;--pearl:#f1e7d6;--mist:#cdbfa6;--dim:#a8987f;
+  --gold:#d9874a;--gold-2:#e8a06a;--on-gold:#1a0f05;--text:#ece1cd;
+  --shadow:0 6px 20px rgba(0,0,0,.4);--chip-on-bg:rgba(217,135,74,.14);--chip-on-line:rgba(217,135,74,.55);
+  --glass:#2e251b;--glass-line:#4a3d2c;--cover-filter:sepia(.25) brightness(.85)}
+
+/* Daf: white ink on a dark page */
+body[data-skin="daf"][data-alt]{--ink:#121110;--ink-2:#1a1917;--ink-3:#22201d;--line:#3a3730;--hair:#2a2824;--pearl:#ece7dc;--mist:#c9c3b6;--dim:#9e988b;
+  --gold:#ece7dc;--gold-2:#ece7dc;--on-gold:#121110;--text:#e6e0d3;--mark:#5a4a1c;--chip-on-line:#ece7dc;
+  --glass:#1a1917;--glass-line:#3a3730;--float-shadow:0 -1px 0 #3a3730;--cover-filter:grayscale(.6) brightness(.85);
+  --ai-bg:#1a1917;--ai-line:#3a3730;--ai-tag:#ece7dc;--ai-fg:#121110}
+body[data-skin="daf"][data-alt] .seg button.on{background:#ece7dc;color:#121110}
+
+/* Clear: white on black, yellow kept */
+body[data-skin="clear"][data-alt]{--ink:#000;--ink-2:#000;--ink-3:#000;--line:#fff;--hair:#fff;--pearl:#fff;--mist:#e6e6e6;--dim:#ccc;
+  --gold:#ffd400;--gold-2:#ffd400;--on-gold:#000;--text:#fff;
+  --top-bg:#000;--tabs-bg:#000;--hero-bg:#000;--hero-line:#fff;--chip-on-bg:#ffd400;--chip-on-line:#ffd400;
+  --glass:#000;--glass-line:#fff;--float-shadow:none;--track:rgba(255,255,255,.35);--scrim:rgba(0,0,0,.7);
+  --ai-bg:#000;--ai-line:#fff;--ai-tag:#ffd400;--ai-fg:#000}
+body[data-skin="clear"][data-alt] :is(.btn,.chip,.tool,.pill,.seg){border-color:#fff}
+body[data-skin="clear"][data-alt] .chip.on{color:#000}
+body[data-skin="clear"][data-alt] :is(.eyebrow,.seglabel,.field label){color:#fff}
+body[data-skin="clear"][data-alt] .seg button{color:#fff}
+body[data-skin="clear"][data-alt] .seg button.on{background:#ffd400;color:#000}
+body[data-skin="clear"][data-alt] .tabs button{color:#ccc}
+body[data-skin="clear"][data-alt] .tabs button.on{color:#fff}
+body[data-skin="clear"][data-alt] :is(.btn.gold,.ctrls .play){background:#ffd400;color:#000}
+
+/* Folio: the night edition; the player turns to paper */
+body[data-skin="folio"][data-alt]{--ink:#111111;--ink-2:#1a1a1a;--ink-3:#222222;--line:#3a3732;--hair:#2a2824;--pearl:#F7F4EE;--text:#F7F4EE;--mist:#C9C3B8;--dim:#9E978B;
+  --gold:#F7F4EE;--gold-2:#FF6A50;--on-gold:#111111;--ok:#6FC495;--logo:#E0472D;
+  --chip-on-bg:#F7F4EE;--chip-on-line:#F7F4EE;--glass:#F7F4EE;--glass-line:#F7F4EE;--track:rgba(17,17,17,.2);
+  --ai-bg:#1a1a1a;--ai-line:#F7F4EE;--ai-tag:#F7F4EE;--ai-fg:#111111}
+body[data-skin="folio"][data-alt] .hello em{color:#FF6A50}
+body[data-skin="folio"][data-alt] :is(.hero,.panel){border-top-color:#F7F4EE}
+body[data-skin="folio"][data-alt] .sec-h{border-bottom-color:#F7F4EE}
+body[data-skin="folio"][data-alt] .chip.on{color:#111}
+body[data-skin="folio"][data-alt] .tabs button.on{color:#F7F4EE}
+body[data-skin="folio"][data-alt] .mini{--pearl:#111;--mist:#3A3732;--dim:#5F5A52;--gold:#111;--on-gold:#F7F4EE;--ink-3:#E2DCD0;color:#111}
+body[data-skin="folio"][data-alt] :is(.cover,.art){--c1:#2A2A2A!important;--c2:#3A3A3A!important;--c3:#222!important}
+body[data-skin="folio"][data-alt] .plart>i{background:#2A2A2A!important}
+body[data-skin="folio"][data-alt] .plart>i:nth-child(2){background:#C2311A!important}
+
+/* Sunlit: dusk; terracotta stays, the player turns to cream */
+body[data-skin="sunlit"][data-alt]{--ink:#1A1512;--ink-2:#241D18;--ink-3:#2E251F;--line:#3D332B;--hair:#2F2721;--pearl:#FFF6E9;--text:#FFF6E9;--mist:#D9CDBE;--dim:#B3A797;
+  --gold:#E8683D;--gold-2:#FF9B73;--on-gold:#1A1512;--ok:#6FC495;--logo:#E8683D;
+  --chip-on-bg:#FFF6E9;--chip-on-line:#FFF6E9;--glass:#FFF6E9;--glass-line:#FFF6E9;--track:rgba(26,21,18,.2);
+  --ai-bg:#241D18;--ai-line:#3D332B;--ai-tag:#FFF6E9;--ai-fg:#1A1512}
+body[data-skin="sunlit"][data-alt] .hello em{color:#FF9B73}
+body[data-skin="sunlit"][data-alt] .chip.on{color:#1A1512}
+body[data-skin="sunlit"][data-alt] .mini{--pearl:#1A1A1A;--mist:#5C554C;--dim:#5C554C;--gold:#1A1A1A;--gold-2:#C8461F;--on-gold:#FFF6E9;--ink-3:#F0E4D2;color:#1A1A1A}
+
+/* Ner: stone at night, olive light, the candle still gold */
+body[data-skin="ner"][data-alt]{--ink:#1C1A15;--ink-2:#25221C;--ink-3:#2F2B23;--line:#4A4335;--hair:#37322A;--pearl:#EDE4D1;--text:#EDE4D1;--mist:#CFC4AC;--dim:#A89E87;
+  --gold:#A9BC84;--gold-2:#C9D6A8;--on-gold:#1C1A15;--ok:#A9BC84;--logo:#A9BC84;
+  --hero-bg:#2E3822;--hero-line:#3D4A2C;--chip-on-bg:#A9BC84;--chip-on-line:#A9BC84;--glass:#2E3822;--glass-line:#3D4A2C;
+  --ai-bg:#25221C;--ai-line:#4A4335;--ai-tag:#A9BC84;--ai-fg:#1C1A15}
+body[data-skin="ner"][data-alt] .chip.on{color:#1C1A15}
+
+/* light tints follow the effective mode (body.light), so dark versions of light skins use the bright tints */

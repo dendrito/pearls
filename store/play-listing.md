@@ -41,7 +41,7 @@ Everything below is what Play Console asks for, in the order it asks. Replace `C
 > • Open any section in Sefaria
 >
 > MAKE IT YOURS
-> • 15 looks, from a printed-page "Daf" to large-type "Clear", and three Hebrew typefaces
+> • 17 looks, each in light and dark, from a printed-page "Daf" to large-type "Clear", and three Hebrew typefaces
 >
 > PRIVATE BY DESIGN
 > No account, no ads, no tracking. Your progress stays on your phone.

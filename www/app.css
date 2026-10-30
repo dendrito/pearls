@@ -58,7 +58,7 @@ a{color:var(--gold-2)}
 .top .back[hidden]{display:none}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 /* the Pearls mark (the app icon, "glint A"): a flat pearl with a quarter-arc glint, in each skin's colours */
-.brand .dot{width:26px;height:26px;border-radius:50%;flex:none;position:relative;background:var(--pearl)}
+.brand .dot{width:26px;height:26px;border-radius:50%;flex:none;position:relative;background:var(--logo,var(--pearl))}
 .brand .dot::after{content:"";position:absolute;inset:14%;border-radius:50%;border:2.6px solid transparent;border-top-color:var(--ink);transform:rotate(-45deg)}
 .brand b{font-family:var(--f-display);font-weight:400;font-size:26px;letter-spacing:.01em;line-height:1}
 .brand small{display:block;white-space:nowrap;font-family:var(--f-label);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
