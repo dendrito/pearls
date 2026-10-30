@@ -56,6 +56,21 @@ is in `chat-transcript.jsonl.gz`.
 - The status and navigation bars follow the skin.
 - The native code is now Java, built with javac + D8. dexgen and the smali code are gone.
 
+## 2.0.0: built for Google Play
+
+- Targets Android 16. The build makes a signed .aab for Play upload.
+- Background playback runs as a foreground service, with a media notification and lock-screen controls.
+- The app is served from a private https address, with no file access; saved data moves across once.
+- Edge to edge with inset padding, the newer back-gesture handling, and bundled fonts.
+- Headphones: pause on disconnect (a setting) and earbud controls (1.9.1).
+
+**Still needed for Play, on the user's side:**
+- the developer account, and a closed test with 12 testers for 14 days;
+- permission from Har Bracha;
+- the privacy policy, store listing and Data safety form;
+- the foreground-service declaration (a short video of background playback);
+- choosing Play App Signing with the existing key.
+
 ## Open items, in order
 
 1. **Translate Emuna 20-30.** Then run `./build.sh`, republish the web artifact and send the APK.

@@ -1,6 +1,7 @@
 # build outputs
 /build/
 /Pearls.apk
+/Pearls.aab
 /dist/Pearls-Apple.zip
 /apple/www/
 /apple/build/

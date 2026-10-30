@@ -8,8 +8,6 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.StatFs;
-import android.view.View;
-import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
@@ -63,7 +61,7 @@ public class PearlsBridge {
             File d = dlDir();
             o.put("ok", d != null);
             if (d != null) {
-                o.put("dir", Uri.fromFile(d).toString() + "/");
+                o.put("dir", AppServer.DL_BASE);   // served by AppServer (the WebView has no file access)
                 StatFs st = new StatFs(d.getAbsolutePath());
                 o.put("free", st.getAvailableBytes());
             }
@@ -296,17 +294,31 @@ public class PearlsBridge {
             @Override public void run() {
                 try {
                     int c = 0xFF000000 | Integer.parseInt(hex.replace("#", ""), 16);
-                    Window w = act.getWindow();
-                    w.setStatusBarColor(c);
-                    w.setNavigationBarColor(c);
-                    web.setBackgroundColor(c);
-                    int flags = w.getDecorView().getSystemUiVisibility();
-                    flags = light ? (flags | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) : (flags & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-                    if (android.os.Build.VERSION.SDK_INT >= 26)
-                        flags = light ? (flags | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) : (flags & ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-                    w.getDecorView().setSystemUiVisibility(flags);
+                    if (act instanceof MainActivity) ((MainActivity) act).setBars(c, light);
                 } catch (Exception e) { /* ignore a bad colour */ }
             }
         });
+    }
+
+    /* ---------- one-time move of the page's saved data from file:// to the https app origin ---------- */
+    @JavascriptInterface
+    public void saveMigration(String json) {
+        try (OutputStream o = new FileOutputStream(new File(act.getFilesDir(), "migration.json"))) {
+            o.write((json == null ? "{}" : json).getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) { /* nothing to carry over */ }
+        act.getSharedPreferences("pearls", Context.MODE_PRIVATE).edit().putBoolean("migrated", true).apply();
+    }
+
+    @JavascriptInterface
+    public String takeMigration() {
+        File f = new File(act.getFilesDir(), "migration.json");
+        if (!f.exists()) return null;
+        try (InputStream in = new FileInputStream(f)) {
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            byte[] buf = new byte[16384]; int r;
+            while ((r = in.read(buf)) > 0) b.write(buf, 0, r);
+            return new String(b.toByteArray(), StandardCharsets.UTF_8);
+        } catch (Exception e) { return null; }
+        finally { f.delete(); }
     }
 }

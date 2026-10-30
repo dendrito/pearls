@@ -24,11 +24,12 @@ def main():
     assets = os.path.join(OUT, "assets"); shutil.copytree(WWW, os.path.join(assets, "www"), ignore=shutil.ignore_patterns("icon-512.png"))
     base = os.path.join(OUT, "base.apk")
     run(aapt2, "link", "-I", jar, "--manifest", os.path.join(HERE, "AndroidManifest.xml"),
-        "-A", assets, "-o", base, "--auto-add-overlay", "--no-compress-regex", r"\.(png|mp3)$",
+        "-A", assets, "-o", base, "--auto-add-overlay", "--no-compress-regex", r"\.(png|mp3)$", "--java", os.path.join(OUT, "gen"),
         os.path.join(OUT, "res.zip"))
     # 3. dex: Java sources (android/java) -> javac against android.jar -> d8
     dex = os.path.join(OUT, "classes.dex"); cls = os.path.join(OUT, "classes"); os.makedirs(cls)
-    srcs = [os.path.join(dp, f) for dp, _, fs in os.walk(os.path.join(HERE, "java")) for f in fs if f.endswith(".java")]
+    srcs = [os.path.join(dp, f) for d in (os.path.join(HERE, "java"), os.path.join(OUT, "gen"))
+            for dp, _, fs in os.walk(d) for f in fs if f.endswith(".java")]
     run("javac", "-nowarn", "-Xlint:none", "-source", "8", "-target", "8", "-bootclasspath", jar, "-encoding", "UTF-8", "-d", cls, *srcs)
     classes = [os.path.join(dp, f) for dp, _, fs in os.walk(cls) for f in fs if f.endswith(".class")]
     run("java", "-cp", os.path.join(TOOLS, "r8lib.jar"), "com.android.tools.r8.D8", "--release", "--min-api", "24",

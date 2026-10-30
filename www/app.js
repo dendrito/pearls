@@ -434,7 +434,7 @@ audio.addEventListener("ended", () => {
 });
 audio.addEventListener("error", () => {
   const t = cur(); if (!t || !audio.getAttribute("src")) return;
-  if (audio.src.startsWith("file:")) {        // a downloaded file that won't play: stream it instead, and fetch it again later
+  if (DL.dir && audio.src.startsWith(DL.dir)) {   // a downloaded file that won't play: stream it instead
     const n = dlName(t, P.part, P.lang); DL.files.delete(n);
     if (online()) { audio.src = partUrl(t, P.part, P.lang); audio.play().catch(() => {}); return; }
   }

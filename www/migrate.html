@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Pearls</title>
+<body style="margin:0;background:#0b0f1a">
+<script>
+/* One-time move (Pearls 2.0): earlier versions ran from file://, this one from https://appassets.androidplatform.net.
+   Saved data (progress, playlists, settings, downloads) belongs to the old address, so hand it to the app. */
+(function () {
+  var d = {};
+  try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); d[k] = localStorage.getItem(k); } } catch (e) {}
+  try { PearlsNative.saveMigration(JSON.stringify(d)); } catch (e) {}
+  location.replace("https://appassets.androidplatform.net/www/index.html");
+})();
+</script>

@@ -7,8 +7,7 @@
 <title>Pearls</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@400;500;600;700&family=Frank+Ruhl+Libre:wght@400;500&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Syne:wght@600;700;800&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="fonts/web/fonts.css">
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="skins.css">
 </head>
@@ -29,6 +28,13 @@
   <button data-tab="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h11M4 12h11M4 17h7"/><circle cx="18" cy="16" r="2.5"/><path d="M20.5 16V6l-3 1"/></svg>Playlists</button>
   <button data-tab="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>Search</button>
 </nav>
+<script>
+/* Android app (served from appassets.androidplatform.net): text from ph.yhb.org.il goes through the app's own fetcher,
+   and saved data from earlier versions (which ran from file://) is carried over once. */
+if (location.host === "appassets.androidplatform.net") window.PEARLS_PROXY = "/proxy?u=";
+try { var N = window.PearlsNative, m = N && N.takeMigration && N.takeMigration();
+  if (m) { var d = JSON.parse(m); Object.keys(d).forEach(function (k) { if (localStorage.getItem(k) == null) localStorage.setItem(k, d[k]); }); } } catch (e) {}
+</script>
 <script src="catalog.js"></script>
 <script src="data.js"></script>
 <script src="translit.js"></script>

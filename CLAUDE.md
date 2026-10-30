@@ -26,8 +26,32 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   Google's r8-releases bucket), then an aligned zip, then `signer/sign.mjs` (signature schemes v1, v2 and v3).
 - Text: all official English is bundled (`www/en/`, from `fetch_en_text.py` -> `src/en/` -> `make_en_books.py`), and so are
   the AI translations. Hebrew is fetched from ph.yhb.org.il and then kept on the phone.
-- `python3 test_offline.py` tests downloads and offline mode against a stand-in for the Android bridge. It must end
-  "32/32 checks passed".
+- `./build.sh` also makes `dist/Pearls-<ver>.aab`, the Play upload. `android/build_aab.py` assembles it from aapt2's
+  protobuf output and signs it with jarsigner. `tools/bundletool-all-1.17.2.jar` only validates it; it came from the
+  npm package `bundletoolheavy`, because Google's own hosts aren't reachable from the build machine.
+- Tests:
+  - `python3 test_offline.py`: downloads, offline mode and headphones, against a stand-in for the Android bridge.
+    It must end "32/32 checks passed".
+  - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
+    "6/6 checks passed".
+
+## Android 2.0 shell (Google Play ready)
+
+- Targets Android 16 (API 36). The code is compiled against `tools/android.jar` (API 33): Play checks only the
+  target, and everything used exists in API 33.
+- **App address:** the app is served from `https://appassets.androidplatform.net/www/` by `AppServer.java`, with file
+  access switched off.
+  - `/dl/NAME` serves downloads, with Range support for seeking.
+  - `/proxy?u=` fetches ph.yhb.org.il natively; `index.html` sets `PEARLS_PROXY` on that host.
+- **Moving saved data:** the first 2.0 launch opens `www/migrate.html` (file://), which passes the old localStorage
+  to `saveMigration`. `index.html` takes it back with `takeMigration`.
+- **Edge to edge:** the WebView sits in a FrameLayout padded by the system bar, cutout and keyboard insets.
+  `setBars` colours that frame with the skin's colour and sets light or dark bar icons.
+- **Background playback:** `PlaybackService` is a mediaPlayback foreground service with a MediaStyle notification
+  (also shown on the lock screen), tied to the MediaSession, and holds a partial wake lock while playing.
+- **Back:** handled through OnBackInvokedCallback. At the app's root, back sends the app to the background instead of
+  closing it.
+- **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
 
 ## Offline and downloads (Android)
 
@@ -58,7 +82,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 | `make_catalog.py`, `make_translit.py`, `make_he_books.py` | Build www data: the English catalogue, KTS transliteration, and the Hebrew-only books with AI translations. |
 | `work/he`, `work/en`, `work/TRANSLATE.md`, `work/check.py` | Hebrew sources, AI translations, the translation brief (fidelity rules plus licence evidence), and the validator. |
 | `src/` | Scraped source data: ph.yhb.org.il and Sefaria. |
-| `android/` | Manifest, res, `java/` (activity and offline bridge), `build_apk.py`, `make_icons.py`. |
+| `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
 | `apple/` | Xcode project. One multiplatform target. The `pearls://` scheme handler also proxies ph.yhb.org.il, which sends duplicate CORS headers. Run `apple/sync_www.sh` after changing www. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
 | `docs/` | S&P house rules (KTS) and the Pearls ⇄ Meldar integration notes. |

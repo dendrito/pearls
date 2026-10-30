@@ -13,11 +13,13 @@ if [ ! -f signer/key.pem ] || [ ! -f signer/cert.pem ]; then
 fi
 python3 make_catalog.py
 python3 make_translit.py
+[ -f www/fonts/web/fonts.css ] || python3 fetch_webfonts.py
 python3 make_en_books.py
 python3 make_he_books.py
 python3 android/build_apk.py
 VER=$(sed -n 's/.*versionName="\([^"]*\)".*/\1/p' android/AndroidManifest.xml)
-mkdir -p dist && cp Pearls.apk "dist/Pearls-$VER.apk"
+python3 android/build_aab.py
+mkdir -p dist && cp Pearls.apk "dist/Pearls-$VER.apk" && cp Pearls.aab "dist/Pearls-$VER.aab"
 ./apple/sync_www.sh
 rm -f dist/Pearls-Apple.zip && zip -qr dist/Pearls-Apple.zip apple -x 'apple/build/*' '*/xcuserdata/*'
-echo "Built dist/Pearls-$VER.apk and dist/Pearls-Apple.zip"
+echo "Built dist/Pearls-$VER.apk, dist/Pearls-$VER.aab (Google Play) and dist/Pearls-Apple.zip"
