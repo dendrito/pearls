@@ -32,6 +32,8 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 - Tests:
   - `python3 test_offline.py`: downloads, offline mode and headphones, against a stand-in for the Android bridge.
     It must end "32/32 checks passed".
+  - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
+  - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
   - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
     "6/6 checks passed".
 
@@ -78,6 +80,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 | Path | What |
 |---|---|
 | `www/app.js`, `app.css`, `skins.css`, `modes.css`, `data.js` | The app. 17 skins, each in light and dark (2.3): `skins.css` draws each skin in its own mode (`light` in SKINS), `modes.css` holds the counterpart palette under `body[data-alt]`; Settings → Appearance (`prefs.mode`: design, light, dark, auto) picks. Pearl Minimal's three entries became one skin (old prefs migrate). Check with `python3 tools_skinshots.py home|read|settings` (contact sheets in `build/skinshots/`). 3 Hebrew typefaces (Frank Ruhl Libre, Shofar, Keter YG v0.103). Read/listen language pickers. Audio control bar. Credits page (`#credits`). |
+| `www/calendar.js` | The Jewish calendar and its readings: 22 festivals and fasts plus Rosh Ḥodesh, with postponements, study windows (30 days before a festival) and chapters. Drives Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and the calendar boost in `recommend()`. Method: `docs/calendar-readings.md`. Test: `python3 test_calendar.py` (must end "calendar: 14/14"). |
 | `www/fonts/` | Shofar and Keter YG (Culmus, GPL+FE). Every Hebrew font must have GPOS `mark` and `mkmk`. |
 | `make_catalog.py`, `make_translit.py`, `make_he_books.py` | Build www data: the English catalogue, KTS transliteration, and the Hebrew-only books with AI translations. |
 | `work/he`, `work/en`, `work/TRANSLATE.md`, `work/check.py` | Hebrew sources, AI translations, the translation brief (fidelity rules plus licence evidence), and the validator. |
@@ -99,3 +102,13 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   `python3 -I work/check.py BB-CC`.
 - **Network:** ph.yhb.org.il returns 403 for the Python-urllib user agent. Use curl or set a User-Agent.
 - **Claims:** don't state facts about the recordings or the author that aren't verified on PH's own pages.
+- **Fonts (hard rule):** every letter the app shows must be drawn by the typeface meant to show it, never borrowed from
+  a fallback font (that's what made ḥ, ĥ and ḳ look "weird" in most skins). `python3 test_fonts.py` checks every
+  bundled Latin face named in app.css, skins.css and modes.css against every letter and punctuation mark in the text,
+  and fails the build (`./build.sh` runs it) if one is missing or a stack starts with an unbundled font.
+  - Fix a gap with `python3 patch_webfonts.py`. It builds the missing letters (ḥ Ḥ ḳ Ḳ ĥ Ĥ ʿ ʾ ½ ¼ ¾) from the font's
+    own h, k, period, circumflex and figures, with gvar/HVAR deltas for variable fonts and the slant for italics. If
+    that can't, choose another typeface.
+  - A new skin font goes in `fetch_webfonts.py`, then run `patch_webfonts.py` and `test_fonts.py`. Never add a
+    `font-family` without bundling it.
+  - Avoid characters fonts rarely have (e.g. U+2011 non-breaking hyphen); use the plain one.

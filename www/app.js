@@ -238,6 +238,16 @@ const SEASONS = {
 };
 const HEB = hebToday();
 const SEASON = (HEB && SEASONS[HEB.month] ? SEASONS[HEB.month](HEB.day) : { label: "This week", tags: ["shabbat"] });
+/* the calendar (calendar.js): festivals and fasts with their chapters; an event is "in its study window" from `lead`
+   days before (30 for the festivals) until it ends. It drives the "On the calendar" shelf, #calendar and recommend(). */
+const CAL = (window.PH_CAL ? (() => { try { return window.PH_CAL.upcoming(); } catch { return []; } })() : [])
+  .map(o => ({ ...o, ids: [...new Set(o.ids)].filter(id => BYID[id]) })).filter(o => o.ids.length);
+const CAL_NOW = CAL.filter(o => o.inWindow);
+const calWhen = o => window.PH_CAL.when(o);
+const CAL_TRACK = {};   // chapter id -> the soonest event in its study window that lists it
+for (const o of CAL_NOW) for (const id of o.ids) if (!CAL_TRACK[id]) CAL_TRACK[id] = o;
+const calPl = o => ({ id: "cal-" + o.id, kind: "auto", cal: o, name: o.name, tracks: o.ids,
+  blurb: `${o.hd} ${o.hm} · ${o.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · ${calWhen(o)}.${o.note ? " " + o.note : ""}${o.extra.length ? " " + o.extra.join(". ") + "." : ""}` });
 
 /* ---------- recommendation engine ----------
    score = taste similarity (tag profile, recency-decayed) + continuation + season + length fit + novelty
@@ -283,7 +293,9 @@ function recommend(limit = 12, opts = {}) {
     let s = cosine(w, t.tags) * 1.4;
     if (s > .35) { const top = t.tags.filter(g => w[g] > 0).sort((a, b) => w[b] - w[a])[0]; if (top) reasons.push(["taste", `More ${TOPIC_LABEL[top] || top}`]); }
     if (nextUp[t.id]) { s += .9; reasons.unshift(["next", `Next after “${nextUp[t.id].from.title}”`]); }
-    if (t.tags.some(g => SEASON.tags.includes(g))) { s += .55; reasons.push(["season", `In season · ${SEASON.label}`]); }
+    const ce = CAL_TRACK[t.id];
+    if (ce) { s += .75 + (ce.start <= 7 ? .25 : 0); reasons.unshift(["season", `${ce.name} ${calWhen(ce)}`]); }
+    else if (!CAL_NOW.length && t.tags.some(g => SEASON.tags.includes(g))) { s += .55; reasons.push(["season", `In season · ${SEASON.label}`]); }
     const d = dur(t);
     if (sess && d) { const fit = Math.exp(-Math.pow(Math.log(d / sess), 2) / .5); s += .3 * fit; if (fit > .8) reasons.push(["fit", `Fits your ~${mins(sess)} sessions`]); }
     if (state.likes.has(t.id)) s -= .3;
@@ -324,7 +336,8 @@ function madeForYou() {
   const sess = typicalSession() || 1200;
   const quick = recommend(40, { perVol: 4 }).filter(r => dur(r.t) && dur(r.t) <= Math.min(sess, 1200)).slice(0, 8).map(r => r.t.id);
   const out = [{ id: "daily-mix", kind: "auto", name: "Your Daily Mix", blurb: "Rebuilt every day from what you finish, like and skip.", tracks: daily }];
-  if (seasonIds.length) out.push({ id: "season-mix", kind: "auto", name: SEASON.label, blurb: `What the calendar is pointing at${HEB ? ` · ${HEB.day} ${HEB.month}` : ""}.`, tracks: seasonIds });
+  if (CAL_NOW.length) out.push(calPl(CAL_NOW[0]));
+  else if (seasonIds.length) out.push({ id: "season-mix", kind: "auto", name: SEASON.label, blurb: `What the calendar is pointing at${HEB ? ` · ${HEB.day} ${HEB.month}` : ""}.`, tracks: seasonIds });
   if (quick.length >= 3) out.push({ id: "quick-mix", kind: "auto", name: "Commute Length", blurb: "Recommended chapters that fit one sitting.", tracks: quick });
   const liked = [...state.likes].filter(id => BYID[id]);
   if (liked.length) out.push({ id: "liked", kind: "auto", name: "Liked Pearls", blurb: "Everything you've hearted.", tracks: liked });
@@ -336,7 +349,38 @@ function rankedPresets() {
     - p.tracks.filter(id => (state.plays[id] || {}).done).length / p.tracks.length * .6 }))
     .sort((a, b) => b.s - a.s).map(x => x.p);
 }
-function findPlaylist(id) { return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || madeForYou().find(p => p.id === id); }
+function findPlaylist(id) { return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
+/* "On the calendar": what's in its study window, then what's next */
+function calCard(o) {
+  const done = o.ids.filter(isDone).length, now = o.inWindow;
+  return `<button class="calcard ${now ? "now" : ""}" data-act="playlist" data-id="cal-${o.id}">
+    <span class="cd"><b>${o.hd}</b><i>${esc(o.hm)}</i></span>
+    <span class="ct"><em>${now && o.start > 0 ? "Study now · " : ""}${esc(calWhen(o))}</em><b>${esc(R(o.name))}</b>
+      <span>${o.ids.length} chapter${o.ids.length > 1 ? "s" : ""}${mins(plDur(o.ids)) ? ` · ${mins(plDur(o.ids))}` : ""}${done ? ` · ${done} read` : ""}</span></span></button>`;
+}
+function calShelf() {
+  if (!CAL.length) return "";
+  const list = CAL_NOW.concat(CAL.filter(o => !o.inWindow).slice(0, Math.max(2, 5 - CAL_NOW.length)));
+  return `<section><div class="sec-h"><h2>On the calendar</h2><button class="more" data-go="calendar">The year</button></div>
+    <div class="shelf">${list.map(calCard).join("")}</div></section>`;
+}
+function vCalendar() {
+  setTop("Calendar"); setTab("");
+  const byMonth = [];
+  for (const o of CAL) { const k = `${o.hm} ${o.hy}`; let g = byMonth.find(x => x.k === k); if (!g) byMonth.push(g = { k, list: [] }); g.list.push(o); }
+  view.innerHTML = `<div class="view">
+    <div><div class="eyebrow">${HEB ? `${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}` : "The calendar"}</div>
+      <h1 class="hello">Learn the laws <em>before</em> the day.</h1>
+      <p class="sub">"We ask and expound the laws of Pesach thirty days before Pesach" (Pesachim 6a; Shulchan Arukh, Orach Chayim 429:1). Pearls starts recommending each festival's chapters 30 days ahead, a week ahead for fast days, and a few days ahead for Rosh Ḥodesh and the smaller days. Dates follow the calendar in Israel; outside Israel, Pesaḥ, Shavu'ot and Sukkot have a second festival day (Laws of the Festivals, chapter 9). A Hebrew date begins at nightfall the evening before.</p></div>
+    ${byMonth.map(g => `<section><div class="sec-h"><h2>${esc(g.k)}</h2></div><div class="list">${g.list.map(o => {
+      const done = o.ids.filter(isDone).length;
+      return `<button class="calrow ${o.inWindow ? "now" : ""}" data-act="playlist" data-id="cal-${o.id}">
+        <span class="cd"><b>${o.hd}</b><i>${esc(o.hm)}</i></span>
+        <span class="ct"><b>${esc(R(o.name))}</b><span lang="he" dir="rtl" class="hn">${esc(o.he)}</span>
+          <span class="m">${esc(o.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }))} · ${esc(calWhen(o))}${o.inWindow && o.start > 0 ? " · study now" : ""}</span>
+          <span class="m">${o.ids.length} chapter${o.ids.length > 1 ? "s" : ""}${done ? ` · ${done} read` : ""}${o.extra.length ? ` · ${esc(o.extra.join("; "))}` : ""}</span></span></button>`; }).join("")}</div></section>`).join("")}
+  </div>`;
+}
 const plDur = ids => ids.reduce((a, id) => a + (dur(BYID[id]) || 0), 0);
 
 /* ---------- audio engine ----------
@@ -594,7 +638,7 @@ const DLI = {
 function dlLabel(t) {
   const st = dlState(t), L = st.lang === "en" ? "English" : "Hebrew";
   if (st.s === "done") return { cls: "on", icon: DLI.done, text: `Downloaded · ${L}` };
-  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: DL.prefs.wifiOnly && !online() ? "Waiting for a connection" : DL.prefs.wifiOnly ? "Waiting for Wi‑Fi" : "Queued" };
+  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: DL.prefs.wifiOnly && !online() ? "Waiting for a connection" : DL.prefs.wifiOnly ? "Waiting for Wi-Fi" : "Queued" };
   if (st.s === "loading") return { cls: "busy", icon: DLI.wait, text: `Downloading ${st.pct || 0}%` };
   return { cls: "", icon: DLI.get, text: "Download" };
 }
@@ -634,7 +678,7 @@ function dlMany(ids) {
   const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
   dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
     <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this phone` : ""}. Each chapter downloads in the language it plays in (${audioLang === "auto" ? "matching your reading language" : audioLang === "en" ? "English where recorded" : "Hebrew"}).
-    ${DL.prefs.wifiOnly ? "Downloads wait for Wi‑Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
+    ${DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
     $("[data-ok]", s).onclick = () => { close(); ts.forEach(t => downloadTrack(t)); toast(`Downloading ${ts.length} chapter${ts.length > 1 ? "s" : ""}`); };
@@ -715,7 +759,7 @@ function vHome() {
   const hr = new Date().getHours(), greet = hr < 12 ? "Boker tov" : hr < 18 ? "Good afternoon" : "Erev tov";
   view.innerHTML = `
   <div class="view">
-    <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(SEASON.label)}</div>
+    <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}</div>
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
     ${offlineCard()}
     ${todayCard()}
@@ -725,6 +769,7 @@ function vHome() {
       <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
       <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
         <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}Read in English</button></div></section>` : ""}
+    ${calShelf()}
     ${resumeList.length ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div><div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
     <section><div class="sec-h"><h2>Made for you</h2><button class="more" data-go="library">All playlists</button></div>
       <div class="shelf">${madeForYou().map(plCard).join("")}</div></section>
@@ -1165,12 +1210,12 @@ function vDownloads() {
     ${!DL.ok ? `<div class="panel note">This phone's storage isn't available right now, so audio can't be downloaded.</div>` : ""}
     ${busy.length ? `<section><div class="sec-h"><h2>Downloading</h2><button class="more" data-act="dlcancel">Cancel all</button></div>
       <div class="list">${busy.map(t => trackRow(t, { why: dlLabel(t).text, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Cancel">${I.x}</button>` })).join("")}</div>
-      ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi‑Fi. Turn off “Wi‑Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
+      ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
     <section class="panel dlset"><div class="eyebrow">Smart downloads</div>
       ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the phone, plus chapters you're partway through, so they play without a connection.`)}
       <div class="field"><label>Chapters ahead</label><div class="chips">${[1, 3, 5, 10].map(n => `<button class="chip ${p.ahead === n ? "on" : ""}" data-ahead="${n}">${n}</button>`).join("")}</div></div>
       ${tog("autoDelete", "Delete after listening", "Removes chapters that smart downloads fetched once you've heard them. Chapters you download yourself stay until you remove them.")}
-      ${tog("wifiOnly", "Wi‑Fi only", "Downloads wait for Wi‑Fi instead of using mobile data.")}
+      ${tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
       <div class="field"><label>Storage limit for smart downloads</label><div class="chips">${[[500, "500 MB"], [1024, "1 GB"], [2048, "2 GB"], [5120, "5 GB"], [0, "No limit"]].map(([v, l]) => `<button class="chip ${p.limitMB === v ? "on" : ""}" data-limit="${v}">${l}</button>`).join("")}</div>
         <span class="note">When it's full, the oldest smart downloads make room, heard ones first. About ${fmtMB(8000 * 3600)} per hour of Hebrew audio, ${fmtMB(16000 * 3600)} of English.</span></div>
     </section>
@@ -1188,7 +1233,7 @@ function vDownloads() {
         : `<div class="panel empty"><div class="em-orb"></div><span>Nothing downloaded yet. Tap <b>Download</b> on a chapter, or <b>Download all</b> on a book or playlist. With smart downloads on, what you're listening to downloads by itself.</span><button class="btn ghost" data-go="books">Browse the books</button></div>`}</section>
   </div>`;
   view.querySelectorAll("[data-dlpref]").forEach(b => b.onclick = () => { const k = b.dataset.dlpref; p[k] = !p[k]; saveDl(); b.querySelector(".radio").classList.toggle("on", p[k]);
-    if (k === "wifiOnly") toast(p[k] ? "New downloads wait for Wi‑Fi" : "Downloads may use mobile data"); smartSoon(300); });
+    if (k === "wifiOnly") toast(p[k] ? "New downloads wait for Wi-Fi" : "Downloads may use mobile data"); smartSoon(300); });
   view.querySelectorAll("[data-ahead]").forEach(b => b.onclick = () => { p.ahead = +b.dataset.ahead; saveDl(); view.querySelectorAll("[data-ahead]").forEach(x => x.classList.toggle("on", x === b)); smartSoon(300); });
   view.querySelectorAll("[data-limit]").forEach(b => b.onclick = () => { p.limitMB = +b.dataset.limit; saveDl(); view.querySelectorAll("[data-limit]").forEach(x => x.classList.toggle("on", x === b)); smartSoon(300); });
 }
@@ -1259,7 +1304,7 @@ function vPlaylist(id) {
   const ts = pl.tracks.map(i => BYID[i]).filter(Boolean);
   view.innerHTML = `<div class="view">
     <div class="vhead">${plArt(pl)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-      <div class="eyebrow">${own ? "Your playlist" : pl.kind === "auto" ? "Made for you" : "Curated"}</div><h1>${esc(pl.name)}</h1>
+      <div class="eyebrow">${own ? "Your playlist" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
       <div class="stats"><span>${ts.length} chapters</span><span>${mins(plDur(pl.tracks)) || "–"}</span></div></div></div>
     ${pl.blurb ? `<p class="sub" style="margin:0">${esc(pl.blurb)}</p>` : ""}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1594,6 +1639,7 @@ function render() {
   else if (h === "progress") vProgress();
   else if (h === "search") vSearch();
   else if (h === "credits") vCredits();
+  else if (h === "calendar") vCalendar();
   else if (h === "downloads") vDownloads();
   else vHome();
   window.scrollTo(0, 0); refreshPlaying();

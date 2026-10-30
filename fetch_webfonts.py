@@ -25,6 +25,8 @@ FONTS = [  # (npm package, css files, family name used in app.css)
     ("@fontsource-variable/bricolage-grotesque", ["wght.css", "index.css"], "Bricolage Grotesque"),
     ("@fontsource/suez-one", ["400.css"], "Suez One"),
     ("@fontsource-variable/assistant", ["wght.css", "index.css"], "Assistant"),
+    # Parchment's body face (it was named in skins.css but never bundled; test_fonts.py now catches that)
+    ("@fontsource-variable/inter", ["wght.css", "index.css"], "Inter"),
 ]
 KEEP = re.compile(r"-(latin|latin-ext|hebrew)-")
 shutil.rmtree(OUT, ignore_errors=True); os.makedirs(OUT)
