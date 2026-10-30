@@ -165,7 +165,7 @@ body[data-skin="nacre"]{--ink:#12110F;--ink-2:#1B1916;--ink-3:#24211D;--line:#2C
   --ai-bg:rgba(239,231,216,.05);--ai-line:#3a352e;--ai-tag:#EFE7D8;--ai-fg:#12110F}
 body[data-skin="nacre"] .aura{display:none}
 body[data-skin="nacre"] .btn.gold,body[data-skin="nacre"] .mini .iconbtn.big,body[data-skin="nacre"] .np .play{background:linear-gradient(120deg,#F7F1E8 0%,#E8E5F1 45%,#E3EFE9 72%,#F5EAE2 100%);color:#12110F}
-body[data-skin="nacre"] .brand .dot,body[data-skin="nacre"] .hero .orb{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.95) 0 7%,rgba(255,255,255,0) 28%),radial-gradient(circle at 72% 80%,rgba(140,110,170,.38),rgba(0,0,0,0) 58%),conic-gradient(from 210deg,#f5ece3,#e2e5f0,#e4efe6,#f0e2ea,#f5ece3);box-shadow:inset -6px -9px 16px rgba(60,42,30,.38),0 0 30px rgba(240,226,214,.22)}
+body[data-skin="nacre"] .hero .orb{background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.95) 0 7%,rgba(255,255,255,0) 28%),radial-gradient(circle at 72% 80%,rgba(140,110,170,.38),rgba(0,0,0,0) 58%),conic-gradient(from 210deg,#f5ece3,#e2e5f0,#e4efe6,#f0e2ea,#f5ece3);box-shadow:inset -6px -9px 16px rgba(60,42,30,.38),0 0 30px rgba(240,226,214,.22)}
 body[data-skin="nacre"] .hero .orb{width:120px;height:120px;right:-24px;top:-24px}
 body[data-skin="nacre"] .hero .orb::after{border-color:rgba(239,231,216,.18)}
 body[data-skin="nacre"] .hero h3{font-size:34px}
@@ -270,3 +270,6 @@ body[data-skin="ner"] .plart>i{background:#3D4A2C!important}
 body[data-skin="ner"] .plart>i:nth-child(2),body[data-skin="ner"] .plart>i:nth-child(3){background:#B57F1F!important}
 body[data-skin="ner"] .mini{--gold-2:#E6B45A}
 body[data-skin="ner"] .mini .langpill{border-color:#E6B45A;color:#E6B45A}
+
+/* skins with a mark of their own drop the glint */
+body[data-skin="tekhelet"] .brand .dot::after,body[data-skin="folio"] .brand .dot::after,body[data-skin="sunlit"] .brand .dot::after,body[data-skin="ner"] .brand .dot::after{display:none}

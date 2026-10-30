@@ -7,6 +7,7 @@
         <item name="android:navigationBarColor">@color/ink</item>
         <item name="android:colorAccent">@color/gold</item>
     </style>
+    <color name="icon_bg">#FF12110F</color>
     <color name="ink">#FF0B0F1A</color>
     <color name="gold">#FFE2B65C</color>
 </resources>

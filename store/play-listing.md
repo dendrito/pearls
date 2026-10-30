@@ -56,7 +56,7 @@ Bracha".)
 **Graphics** (in `store/`)
 | Asset | File | Play's rule |
 |---|---|---|
-| App icon | `icon-512.png` | 512×512 PNG |
+| App icon | `play-icon-512.png` | 512×512 PNG, full square (Play rounds it) |
 | Feature graphic | `feature-graphic.png` | 1024×500 PNG/JPG |
 | Phone screenshots | `screenshots/01…06-*.png` | 2–8, 9:16, 1080×1920 |
 

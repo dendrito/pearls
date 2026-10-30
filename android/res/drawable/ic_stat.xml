@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Notification icon: a pearl (white on transparent, as Android requires) -->
+<!-- Notification icon: the pearl, glint A, white on transparent (made by android/make_icons.py) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
-        android:pathData="M12,3a9,9 0,1 1,0 18a9,9 0,1 1,0 -18zM9.2,6.6a2.4,2.4 0,1 0,0.01 0z" />
+    <group android:translateX="2" android:translateY="2" android:scaleX="0.2" android:scaleY="0.2">
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M0,50 A50,50 0 1,1 100,50 A50,50 0 1,1 0,50 Z M14,50 A36,36 0 0,1 50,14 L50,24 A26,26 0 0,0 24,50 Z" />
+    </group>
 </vector>

@@ -98,8 +98,7 @@ with sync_playwright() as p:
     html = f"""<html><head><link rel="stylesheet" href="file://{WWW}/fonts/web/fonts.css"></head><body style="margin:0;width:1024px;height:500px;overflow:hidden;position:relative;
       background:radial-gradient(520px 420px at 78% 30%,#2a2148 0%,transparent 70%),radial-gradient(500px 380px at 0% 110%,#3a2a10 0%,transparent 65%),#0b0f1a;color:#f4ecdc;font-family:'Instrument Serif',serif">
       <div style="position:absolute;left:70px;top:118px;width:520px">
-        <div style="display:flex;align-items:center;gap:22px"><div style="width:74px;height:74px;border-radius:50%;
-          background:radial-gradient(circle at 35% 30%,#fff 0%,#f3e7cf 25%,#c9a96a 60%,#6b5326 100%);box-shadow:0 0 50px rgba(226,182,92,.45)"></div>
+        <div style="display:flex;align-items:center;gap:22px"><div style="width:74px;height:74px;border-radius:50%;background:#EFE7D8;position:relative;flex:none"><div style="position:absolute;left:10.4px;top:10.4px;width:53.2px;height:53.2px;border-radius:50%;border:7.4px solid transparent;border-top-color:#0b0f1a;transform:rotate(-45deg);box-sizing:border-box"></div></div>
           <div style="font-size:96px;line-height:1">Pearls</div></div>
         <div style="font-family:'Figtree',sans-serif;font-size:17px;letter-spacing:4px;text-transform:uppercase;color:#c9bfae;margin-top:22px">Powered by Peninei Halakha</div>
         <div style="font-size:44px;line-height:1.15;margin-top:12px">Halakha <i style="color:#e2b65c">in English</i></div>
@@ -112,5 +111,5 @@ with sync_playwright() as p:
     open(os.path.join(RAW, "fg.html"), "w").write(html)
     fg.goto("file://" + os.path.join(RAW, "fg.html")); fg.wait_for_timeout(500); fg.screenshot(path=os.path.join(HERE, "feature-graphic.png"))
     b.close()
-shutil.copy(os.path.join(WWW, "icon-512.png"), os.path.join(HERE, "icon-512.png"))
+# the Play Store icon (store/play-icon-512.png) is made by android/make_icons.py
 print("done:", sorted(os.listdir(OUT)))
