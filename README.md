@@ -11,6 +11,5 @@ Text © Yeshivat Har Bracha, CC BY 4.0 (ph.yhb.org.il/terms).
 
 Also in this repo:
 
-- the Meldar font fix (`meldar-font-fix/`);
 - UI design directions (`design/`);
 - the handoff notes from the original chat (`handoff/`).

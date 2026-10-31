@@ -1,6 +1,7 @@
 # Handoff from the claude.ai chat (Oct 2026)
 
-This repo was moved out of a long Claude chat in the "Meldar Chat" project. Everything built there is here. The full chat
+This repo was moved out of a long Claude chat that began in the "Meldar Chat" project. Since 31 Oct 2026 Pearls
+has its own claude.ai project, "Pearls". Everything built there is here. The full chat
 is in `chat-transcript.jsonl.gz`.
 
 ## Published artifacts (claude.ai, private to the user)
@@ -40,11 +41,8 @@ is in `chat-transcript.jsonl.gz`.
 - **AI translations** of Hebrew-only books:
   - complete: Berakhot (10), Kashrut (17), Family Purity (18), Giyur (19);
   - Emuna (20) is at 29 of 30 chapters.
-- **Meldar font fix** (`meldar-font-fix/`):
-  - Keter YG is upgraded to v0.103;
-  - Frank Ruhl Libre‑Taamim is repaired (its layout tables had been lost);
-  - the fix ships under new filenames, because Meldar caches fonts as immutable for a year.
-  - **Not deployed yet:** Meldar's source repo wasn't reachable from the chat.
+- **Meldar font fix:** done for Meldar (Keter YG v0.103, Frank Ruhl Libre‑Taamim repaired). It now lives with the
+  Meldar project.
 
 ## Since the move (1.9.0)
 
@@ -117,9 +115,10 @@ is in `chat-transcript.jsonl.gz`.
    - 21 Ḥafetzei Kodesh
    - 07 Likkutim I
    - 08 Likkutim II
-3. **Deploy the Meldar font fix** to meldar.pages.dev and meldar-proto.pages.dev. Steps are in `meldar-font-fix/README.md`.
-4. **Meldar importer** for the `pearls-study-log/1` export.
-5. **Decide KTS vs Meldar's `sp` transliteration.** See `docs/`.
+3. **Decide KTS vs Meldar's `sp` transliteration.** See `docs/`. This is shared with Meldar.
+4. *(Moved to the Meldar project on 31 Oct 2026: deploying the Meldar font fix, and Meldar's importer for the
+   `pearls-study-log/1` export. The font-fix kit is `meldar-font-fix.zip`; it's no longer in this repo.)*
+5. *(not used)*
 6. **Optional:**
    - an "outside Israel" calendar setting, listing second festival days as dates of their own;
    - a Tu Bi-Shvat reading list reviewed by the user;

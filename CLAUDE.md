@@ -7,7 +7,9 @@ ships three ways:
 - an iPad / iPhone / Mac app (`apple/`, WKWebView);
 - a web artifact on claude.ai.
 
-The repo also holds the Meldar font fix (`meldar-font-fix/`).
+Pearls is its own project, with its own claude.ai project "Pearls". Meldar (meldar.pages.dev) is a separate product.
+Pearls links to it in three places: the "Open in Meldar" button, the `pearls-study-log/1` export, and the shared S&P
+(KTS) spelling rules. Meldar's own work, such as its font fix, lives with Meldar, not here.
 
 Start with `handoff/HANDOFF.md`: it records what was decided in the original chat and what is still open. The full
 original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for detail).
@@ -104,8 +106,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 | Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
 | `apple/` | Xcode project. One multiplatform target. The `pearls://` scheme handler also proxies ph.yhb.org.il, which sends duplicate CORS headers. Run `apple/sync_www.sh` after changing www. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
-| `docs/` | S&P house rules (KTS) and the Pearls ⇄ Meldar integration notes. |
-| `meldar-font-fix/` | Fixed Keter YG and the repaired Frank Ruhl Libre‑Taamim for meldar.pages.dev, with a README and deploy steps. |
+| `docs/` | S&P house rules (KTS), the calendar readings method, and the notes on how Pearls links to Meldar. |
 
 ## Rules
 
