@@ -71,8 +71,38 @@ is in `chat-transcript.jsonl.gz`.
 - the foreground-service declaration (a short video of background playback);
 - choosing Play App Signing with the existing key.
 
+## 2.0.0 to 2.4.0 (claude.ai session, 30–31 Oct 2026)
+
+- **Store kit** (`store/`): privacy policy, Play listing and forms (`play-listing.md`), screenshots, feature graphic
+  and the email to Har Bracha (`email-har-bracha.md`).
+  - Har Bracha has its own iOS app, "Daily Pearl". The email acknowledges it and offers to cooperate or rename.
+  - **Naming is still the user's decision.**
+- **Brand:** "Pearls, powered by Peninei Halakha" appears in the app header, the listing and the feature graphic.
+- **2.1.0:** four skins from the design canvas: Nacre, Folio, Sunlit and Ner.
+- **2.2.0:** the icon is **"Glint A"**, a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F).
+  `android/make_icons.py` makes every size.
+- **2.3.0:** the glint logo appears in every skin, and every skin has a light and a dark version (`www/modes.css`).
+  - Settings → Appearance offers As designed, Light, Dark and Match phone.
+  - Pearl Minimal's three entries became one skin.
+- **2.4.0:**
+  - **Fonts are a hard rule.** `patch_webfonts.py` builds the missing ḥ ĥ ḳ ʿ ½ … letters from each font's own
+    parts, and `test_fonts.py` fails the build on any gap. Parchment's Inter is now bundled.
+  - **Calendar readings** (`www/calendar.js`): festivals, fasts and Rosh Ḥodesh, with the standard postponements and
+    30-day study windows. They feed Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and
+    the recommendations. The method is in `docs/calendar-readings.md`.
+- **Design canvas** "Pearls · Nacre" (directions, icon boards, glyph board):
+  https://claude.ai/artifact/CaR1nBi7ibUmTGZNGSufz9
+- **Tests:** all must pass before a release.
+  - `test_app.py` must end "errors: none".
+  - `test_offline.py` must end 32/32.
+  - `test_android_shell.py` must end 6/6.
+  - `test_fonts.py` must end "fonts: all letters covered".
+  - `test_calendar.py` must end 14/14.
+
 ## Open items, in order
 
+0. **Get the code onto GitHub.** The user creates `dendrito/pearls`, then the next session adds it with push access
+   and runs `git push -u origin --all`. Until then, the repo travels as `pearls.bundle`.
 1. **Translate Emuna 20-30.** Then run `./build.sh`, republish the web artifact and send the APK.
 2. **Translate the remaining Hebrew-only books:**
    - 11 Family
@@ -84,3 +114,10 @@ is in `chat-transcript.jsonl.gz`.
 3. **Deploy the Meldar font fix** to meldar.pages.dev and meldar-proto.pages.dev. Steps are in `meldar-font-fix/README.md`.
 4. **Meldar importer** for the `pearls-study-log/1` export.
 5. **Decide KTS vs Meldar's `sp` transliteration.** See `docs/`.
+6. **Optional:**
+   - an "outside Israel" calendar setting, listing second festival days as dates of their own;
+   - a Tu Bi-Shvat reading list reviewed by the user;
+   - regenerate the store screenshots, which still say "15 looks" (`store/make_store_art.py`; needs ph.yhb.org.il);
+   - republish the Pearls web artifact from `www/` (it is at an older version).
+7. **Play release, the user's side:** the developer account, 12 testers for 14 days, Har Bracha's permission, a
+   hosted privacy policy, the foreground-service video, and replacing `CONTACT_EMAIL`.
