@@ -90,6 +90,11 @@ is in `chat-transcript.jsonl.gz`.
   - **Calendar readings** (`www/calendar.js`): festivals, fasts and Rosh Ḥodesh, with the standard postponements and
     30-day study windows. They feed Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and
     the recommendations. The method is in `docs/calendar-readings.md`.
+- **2.5.0:**
+  - **Playback order** on Now Playing: In order, Continue the book, Shuffle, Repeat chapter, Repeat queue and Repeat
+    section. Smart downloads follow it.
+  - **Lists:** Review (spaced: 1, 3, 7, 14, 30 days), Study later and Favorites, added from Now Playing or any ⋯ menu.
+- **AI voice:** the user has Chatterbox running on Colab with `tts/Pearls_TTS.ipynb`.
 - **Design canvas** "Pearls · Nacre" (directions, icon boards, glyph board):
   https://claude.ai/artifact/CaR1nBi7ibUmTGZNGSufz9
 - **Tests:** all must pass before a release.
@@ -98,6 +103,7 @@ is in `chat-transcript.jsonl.gz`.
   - `test_android_shell.py` must end 6/6.
   - `test_fonts.py` must end "fonts: all letters covered".
   - `test_calendar.py` must end 14/14.
+  - `test_playmodes.py` must end 17/17.
 
 ## Open items, in order
 
