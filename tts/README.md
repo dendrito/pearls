@@ -17,7 +17,11 @@ translated): 1,218 sections, about 625,000 words, about 70 hours. One MP3 per se
 - The section title, then the text.
 - Source citations in brackets, such as "(SA OḤ 167:1)" or "(Devarim 8:10)", are left out, because they're for the
   eye. Add `--keep-refs` to read them, with the abbreviations spoken in full.
-- Hebrew script is left out. ḥ is read as "kh", and the terms in `lexicon.tsv` are respelled.
+- Hebrew script is left out.
+- **Kokoro:** words with ḥ or kh are spoken sound by sound (`heb_ipa`), with a real guttural ḥ (as in "Bach") and the
+  stress on the last syllable. Its English rules would otherwise say "kallah".
+- **Chatterbox:** it reads letters, not sounds, so ḥ becomes "kh"; listen for whether it says the guttural.
+- Other Hebrew terms are respelled from `lexicon.tsv`.
 - `--dry` prints exactly what will be spoken, without making any audio.
 
 ## Free servers

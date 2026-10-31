@@ -1,14 +1,9 @@
 # Pronunciation respellings for the voice. term<TAB>how to spell it so an English voice says it right.
 # Whole words, matched as written in the text (with ḥ etc.); applied before ḥ->kh. Add lines freely.
+# Words with ḥ or kh need no line here: Kokoro gets them sound by sound (heb_ipa in pearls_tts.py), with the guttural ḥ.
 Peninei	Pneenay
-Peninei Halakha	Pneenay Halakhah
-halakha	halakhah
-Halakha	Halakhah
-halakhot	halakhote
-Hilkhot	Heelkhote
 mitzva	mitsvah
 mitzvot	mitsvote
-Berakhot	Brakhote
 Birkat	Beerkat
 Birkat Ha-mazon	Beerkat Hamazone
 Ha-motzi	Hamotsee
@@ -20,10 +15,6 @@ Ha-gafen	Hagafen
 Ha-tov	Hatove
 Ve-hametiv	Vehameteev
 Ha-gomel	Hagomel
-Sheheḥeyanu	Sheh-heh-kheh-yah-noo
-Shulḥan Arukh	Shoolkhan Arookh
-le-khatḥila	lekhat-kheelah
-Le-khatḥila	Lekhat-kheelah
 be-di'avad	bedee-avad
 Beit	Bayt
 Bnei	Bnay
@@ -34,12 +25,8 @@ Devarim	Dvareem
 Shemot	Shmote
 Vayikra	Vayeekra
 Bamidbar	Bameedbar
-Ḥullin	Khooleen
-Pesaḥim	Pesakheem
-Pesaḥ	Pesakh
 Tanakh	Tanakh
 Shekhina	Shkheenah
-Aḥaronim	Akharoneem
 Rishonim	Reeshoneem
 tzaddik	tsadeek
 tzaddikim	tsadeekeem
@@ -49,12 +36,6 @@ Ramban	Rambahn
 Rashi	Rahshee
 Rema	Remah
 Shakh	Shakh
-mashgiaḥ	mashgeeakh
-sheḥita	shkheetah
-shoḥet	shokhet
-ḥalla	khallah
-ḥalav	khalav
-ḥelev	khelev
 sheratzim	shratseem
 kashrut	kashroot
 Yerushalmi	Yerooshalmee

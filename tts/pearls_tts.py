@@ -22,7 +22,34 @@ ABBR = {   # citation abbreviations, spoken in full when citations are kept
     "SA": "Shulkhan Arukh", "OḤ": "Orakh Khayim", "YD": "Yoreh De'ah", "EH": "Even Ha-ezer", "ḤM": "Khoshen Mishpat",
     "MB": "Mishna Berura", "BHL": "Bi'ur Halakha", "Rema": "Rema",
 }
-LETTERS = str.maketrans({"ḥ": "kh", "Ḥ": "Kh", "ĥ": "kh", "Ĥ": "Kh", "ḳ": "k", "Ḳ": "K", "ʿ": "", "ʾ": "", "­": ""})
+LETTERS = str.maketrans({"ḳ": "k", "Ḳ": "K", "ʿ": "", "ʾ": "", "­": ""})   # ḥ stays: each engine handles it
+KH = str.maketrans({"ḥ": "kh", "Ḥ": "Kh", "ĥ": "kh", "Ĥ": "Kh"})
+
+# ---------- Hebrew words for Kokoro, sound by sound ----------
+# Kokoro takes phonemes directly. Its English rules turn "kh" into a plain k ("kallah"), so words with ḥ or kh are
+# spelled out here, with the guttural x (as in "Bach") and the stress on the last syllable, as in Israeli Hebrew.
+HEB_WORD = re.compile(r"[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|[Kk]h)[A-Za-zḤḥĥĤ'’]*(?:-[A-Za-zḤḥĥĤ'’]+)*|[A-Za-z]+-[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|kh)[A-Za-zḤḥĥĤ'’]*")
+G2P = [("Y", "j"), ("tch", "tʃ"), ("kh", "x"), ("ch", "x"), ("ḥ", "x"), ("ĥ", "x"), ("tz", "ts"), ("ts", "ts"), ("sh", "ʃ"), ("zh", "ʒ"),
+       ("ei", "eɪ"), ("ay", "aɪ"), ("ai", "aɪ"), ("oi", "ɔɪ"), ("ee", "iː"), ("oo", "uː"),
+       ("a", "ɑː"), ("e", "ɛ"), ("i", "iː"), ("o", "oʊ"), ("u", "uː"),
+       ("b", "b"), ("d", "d"), ("f", "f"), ("g", "ɡ"), ("h", "h"), ("j", "dʒ"), ("k", "k"), ("l", "l"), ("m", "m"), ("n", "n"),
+       ("p", "p"), ("q", "k"), ("r", "ɹ"), ("s", "s"), ("t", "t"), ("v", "v"), ("w", "v"), ("x", "ks"), ("y", "j"), ("z", "z"), ("'", ""), ("’", "")]
+VOW = {"ɑː", "ɛ", "iː", "oʊ", "uː", "eɪ", "aɪ", "ɔɪ"}
+def heb_ipa(word):
+    out = []
+    for part in word.lower().split("-"):
+        w = re.sub(r"([bdfgklmnprstvz])\1", r"\1", part); w = re.sub(r"(?<=[ae])y(?=[aeiou])", "Y", w); toks = []; i = 0
+        while i < len(w):
+            for a, b in G2P:
+                if w.startswith(a, i): toks.append(b); i += len(a); break
+            else: i += 1
+        if len(toks) > 1 and toks[-1] == "h" and toks[-2] in VOW: toks.pop()          # final -ah: silent h
+        vs = [k for k, t in enumerate(toks) if t in VOW]
+        if vs and (len(vs) > 1 or len(part) > 2):                                    # stress the last syllable
+            k = vs[-1]; k = k - 1 if k > 0 and toks[k - 1] not in VOW else k
+            toks.insert(k, "ˈ")
+        out.append("".join(toks))
+    return " ".join(out)
 
 def load_lexicon(path):
     lex = []
@@ -80,8 +107,15 @@ class KokoroEngine:
         self.k = Kokoro(os.path.join(mdir, "kokoro-v1.0.onnx"), os.path.join(mdir, "voices-v1.0.bin"))
         self.voice = voice or "am_michael"; self.speed = speed; self.lang = "en-gb" if self.voice[0] == "b" else "en-us"
         self.sr = 24000
+    def phonemes(self, text):
+        out, pos = [], 0
+        for m in HEB_WORD.finditer(text):
+            if m.start() > pos: out.append(self.k.tokenizer.phonemize(text[pos:m.start()], self.lang))
+            out.append(heb_ipa(m.group())); pos = m.end()
+        if pos < len(text): out.append(self.k.tokenizer.phonemize(text[pos:], self.lang))
+        return re.sub(r"\s+", " ", " ".join(o.strip() for o in out if o.strip()))
     def say(self, text):
-        a, sr = self.k.create(text, voice=self.voice, speed=self.speed, lang=self.lang); self.sr = sr
+        a, sr = self.k.create(self.phonemes(text), voice=self.voice, speed=self.speed, lang=self.lang, is_phonemes=True); self.sr = sr
         return np.asarray(a, dtype=np.float32)
 
 class ChatterboxEngine:
@@ -100,7 +134,7 @@ class ChatterboxEngine:
         if speed != 1.0: print("note: --speed is applied afterwards with ffmpeg for Chatterbox", file=sys.stderr)
     def say(self, text):
         self.torch.manual_seed(1234)   # the same text always gives the same reading
-        wav = self.m.generate(text, audio_prompt_path=self.ref, **self.kw)
+        wav = self.m.generate(text.translate(KH), audio_prompt_path=self.ref, **self.kw)
         return wav.squeeze(0).detach().cpu().numpy().astype(np.float32)
 
 # ---------- main ----------
