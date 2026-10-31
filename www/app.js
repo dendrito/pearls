@@ -21,6 +21,7 @@ const state = {
   days: store.get("days", {}),            // YYYY-MM-DD -> {min, ch:[ids]}
   saved: store.get("saved", []),          // [{ref, id, sec, title, note, at}]
   plan: store.get("plan", null),          // {book:"01"|"all", per:1, start:ts}
+  lists: Object.assign({ review: [], later: [] }, store.get("lists", {})),   // review: [{id, at, due, step}], later: [{id, part, pos, at}]
   prefs: Object.assign({ size: 1, hc: false, tint: false, read: "en", meldar: "https://meldar.pages.dev/?ref={ref}" }, store.get("prefs", {})),
   speedBy: store.get("speedBy", {})
 };
@@ -29,7 +30,7 @@ const save = {
   skips: () => store.set("skips", state.skips), mine: () => store.set("mine", state.mine),
   interests: () => store.set("interests", state.interests), measured: () => store.set("measured", state.measured),
   read: () => store.set("read", state.read), days: () => store.set("days", state.days), saved: () => store.set("saved", state.saved),
-  plan: () => store.set("plan", state.plan), prefs: () => store.set("prefs", state.prefs)
+  plan: () => store.set("plan", state.plan), prefs: () => store.set("prefs", state.prefs), lists: () => store.set("lists", state.lists)
 };
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 function logDay(minutes, chId) {
@@ -349,7 +350,7 @@ function rankedPresets() {
     - p.tracks.filter(id => (state.plays[id] || {}).done).length / p.tracks.length * .6 }))
     .sort((a, b) => b.s - a.s).map(x => x.p);
 }
-function findPlaylist(id) { return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
+function findPlaylist(id) { if (id === "review" || id === "later" || id === "liked") return listPl(id); return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
 /* "On the calendar": what's in its study window, then what's next */
 function calCard(o) {
   const done = o.ids.filter(isDone).length, now = o.inWindow;
@@ -399,6 +400,38 @@ const wantsEnglish = t => hasEn(t) && (audioLang === "en" || !hasHe(t) || (audio
 const audio = new Audio(); audio.preload = "metadata";
 const P = { queue: [], idx: -1, ctx: null, sleepAt: null, sleepEnd: false, part: 0, lang: "he", fails: 0 };
 const cur = () => BYID[P.queue[P.idx]];
+/* Playback order (Now Playing → the order pill). Smart downloads follow it: they fetch what will actually play next. */
+const PLAY_MODES = [
+  ["next", "In order", "The queue in order; when it ends, a recommendation", "order"],
+  ["book", "Continue the book", "After each chapter, the next chapter of the same book", "book"],
+  ["shuffle", "Shuffle", "The rest of the queue in random order", "shuffle"],
+  ["repeat1", "Repeat chapter", "Hear this chapter again and again", "repeat1"],
+  ["repeatAll", "Repeat queue", "Back to the first chapter when the queue ends", "repeat"],
+  ["repeatSec", "Repeat section", "Loop the current section, to learn it by heart (chazara)", "repeat1"]
+];
+const playMode = () => state.prefs.playMode || "next";
+function shuffleRest() {   // keep what's playing; shuffle what comes after it, remembering the order to go back to
+  if (P.idx < 0) return; P.unshuffled = P.queue.slice();
+  const rest = P.queue.slice(P.idx + 1);
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  P.queue = P.queue.slice(0, P.idx + 1).concat(rest);
+}
+function setPlayMode(m) {
+  const was = playMode(); state.prefs.playMode = m; save.prefs();
+  if (m === "shuffle" && was !== "shuffle") shuffleRest();
+  if (was === "shuffle" && m !== "shuffle" && P.unshuffled) { const id = P.queue[P.idx]; P.queue = P.unshuffled; P.idx = Math.max(0, P.queue.indexOf(id)); P.unshuffled = null; }
+  store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); syncNP(true); smartSoon(500);
+}
+/* what plays after the current chapter, in this mode (for smart downloads and "Up next") */
+function upcoming(n) {
+  const t = cur(); if (!t) return [];
+  const m = playMode(), out = [];
+  if (m === "repeat1" || m === "repeatSec") return [t.id];
+  if (m === "book") { let x = t; while (out.length < n && (x = BYID[`${x.vol.book}-${String(x.n + 1).padStart(2, "0")}`])) out.push(x.id); return out; }
+  for (let k = P.idx + 1; out.length < n && k < P.queue.length; k++) out.push(P.queue[k]);
+  if (m === "repeatAll") for (let k = 0; out.length < n && k < P.idx; k++) out.push(P.queue[k]);
+  return out;
+}
 function playQueue(ids, start = 0, ctx = null) {
   const first = ids[start]; ids = ids.filter(id => BYID[id] && (hasHe(BYID[id]) || hasEn(BYID[id])));
   if (!ids.length) { toast("No recording of this yet. The text is here to read."); return; }
@@ -409,14 +442,16 @@ function playQueue(ids, start = 0, ctx = null) {
     if (have.length < ids.length) toast(`Offline: playing the ${have.length} downloaded chapter${have.length > 1 ? "s" : ""}`);
     ids = have;
   }
-  start = Math.max(0, ids.indexOf(first)); P.queue = ids; P.idx = Math.max(0, Math.min(start, P.queue.length - 1)); P.ctx = ctx;
+  start = Math.max(0, ids.indexOf(first)); P.queue = ids; P.idx = Math.max(0, Math.min(start, P.queue.length - 1)); P.ctx = ctx; P.unshuffled = null;
+  if (playMode() === "shuffle") shuffleRest();
   if (ctx && state.speedBy[ctx]) state.speed = state.speedBy[ctx];
   store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx }); load(true, true);
 }
 function load(autoplay, fresh) {
   const t = cur(); if (!t) return;
   const p = state.plays[t.id];
-  if (fresh) { P.part = p && !p.done && p.part != null ? Math.min(p.part, nSections(t) - 1) : 0; P.fails = 0; }
+  if (fresh) { P.part = p && !p.done && p.part != null ? Math.min(p.part, nSections(t) - 1) : 0; P.fails = 0; P.fin = null; }
+  if (fresh) { const L = state.lists.later.find(x => x.id === t.id); if (L && L.part && (!p || p.done || (p.part || 0) < L.part)) P.part = Math.min(L.part, nSections(t) - 1); }
   P.lang = playLang(t);
   audio.src = srcFor(t, P.part, P.lang); audio.playbackRate = state.speed;
   if (fresh) smartSoon(2500);
@@ -436,6 +471,12 @@ function playLang(t) {                        // the language a chapter plays in
 function toggle() { if (!cur()) return; audio.paused ? audio.play().catch(() => {}) : audio.pause(); }
 function nextTrack(skipped) {
   const t = cur(); if (t && skipped && audio.currentTime < 60 && P.part === 0) { state.skips[t.id] = (state.skips[t.id] || 0) + 1; save.skips(); }
+  const m = playMode();
+  if (m === "book" && t) {   // the next chapter of this book comes next, whatever the queue holds
+    const nx = BYID[`${t.vol.book}-${String(t.n + 1).padStart(2, "0")}`];
+    if (nx && (hasHe(nx) || hasEn(nx))) { if (P.queue[P.idx + 1] !== nx.id) P.queue.splice(P.idx + 1, 0, nx.id); P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); return; }
+  }
+  if (m === "repeatAll" && P.idx >= P.queue.length - 1 && P.queue.length) { P.idx = 0; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); toast("From the top"); return; }
   if (P.idx < P.queue.length - 1) { P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); }
   else { // queue ran out: keep going with a recommendation (like radio)
     const r = recommend(1, { exclude: new Set(P.queue) })[0];
@@ -444,7 +485,9 @@ function nextTrack(skipped) {
 }
 function next(skipped) {           // next section, then next chapter
   const t = cur(); if (!t) return;
-  if (P.part < nSections(t) - 1) { P.part++; P.fails = 0; load(true); } else nextTrack(skipped);
+  if (P.part < nSections(t) - 1) { P.part++; P.fails = 0; load(true); }
+  else if (playMode() === "repeat1" && !skipped) { P.part = 0; P.fails = 0; P.fin = null; load(true); }
+  else nextTrack(skipped);
 }
 function prev() {
   if (audio.currentTime > 5) { audio.currentTime = 0; return; }
@@ -458,7 +501,9 @@ audio.addEventListener("timeupdate", () => {
   const now = Date.now();
   if (!audio.paused && p._t) { const dt = Math.min(2, (now - p._t) / 1000); p.sec += dt * state.speed; if (tick % 8 === 0) logDay(dt * 8 / 60); }
   p._t = now; p.pos = audio.currentTime; p.part = P.part; p.last = now;
-  if (P.part === nSections(t) - 1 && audio.duration && audio.currentTime / audio.duration > .92 && !p.done) { p.done = true; p.n = (p.n || 0) + 1; logDay(0, t.id); smartSoon(5000); }
+  if (P.part === nSections(t) - 1 && audio.duration && audio.currentTime / audio.duration > .92 && P.fin !== t.id) {
+    P.fin = t.id; if (!p.done) { p.done = true; p.n = (p.n || 0) + 1; } else p.n = (p.n || 0) + 1;
+    logDay(0, t.id); studied(t.id); smartSoon(5000); }
   if (++tick % 8 === 0) save.plays();
   if (P.sleepAt && now >= P.sleepAt) { P.sleepAt = null; audio.pause(); toast("Sleep timer: paused"); }
   updateProgress();
@@ -486,6 +531,7 @@ audio.addEventListener("ended", () => {
   const t = cur(); if (!t) return;
   if (P.sleepEnd && P.part >= nSections(t) - 1) { P.sleepEnd = false; toast("Sleep timer: stopped after the chapter"); return; }
   if (P.sleepSec) { P.sleepSec = false; if (P.part < nSections(t) - 1) { P.part++; load(false); } toast("Sleep timer: stopped after the section"); return; }
+  if (playMode() === "repeatSec") { audio.currentTime = 0; audio.play().catch(() => {}); return; }
   next(false);
 });
 audio.addEventListener("error", () => {
@@ -598,16 +644,26 @@ function smartRun() {
   if (!NATIVE || !DL.ok) return;
   dlRefresh();
   const p = DL.prefs, now = cur();
-  if (p.autoDelete) for (const id in DL.idx) {
-    const e = DL.idx[id], t = BYID[id];
-    if (t && e.auto && isDone(id) && !(now && now.id === id)) { try { NATIVE.remove(JSON.stringify(dlNames(t, e.lang))); } catch {} delete DL.idx[id]; }
-  }
-  if (!p.smart || !online()) { saveDl(); dlPaint(); return; }
+  /* what to keep, most important first:
+     1. the chapter playing and what the playback order will play next (repeat keeps this one; shuffle and
+        "continue the book" look at their own next chapters; heard chapters count when they'll play again);
+     2. chapters you're partway through;
+     3. Review chapters due within a day and the top of Study later (two at most). */
   const want = [];
-  const take = t => { if (t && !want.includes(t) && (hasHe(t) || hasEn(t)) && !isDone(t.id)) want.push(t); };
-  if (P.queue.length) for (let k = Math.max(0, P.idx); k < P.queue.length && want.length < p.ahead + 1; k++) take(BYID[P.queue[k]]);
+  const take = (t, again) => { if (t && !want.includes(t) && (hasHe(t) || hasEn(t)) && (again || !isDone(t.id))) want.push(t); };
+  if (now) take(now, true);
+  const again = playMode() === "repeatAll" || playMode() === "repeat1" || playMode() === "repeatSec";
+  for (const id of upcoming(p.ahead)) { if (want.length >= p.ahead + 1) break; take(BYID[id], again); }
   Object.entries(state.plays).filter(([id, x]) => BYID[id] && !x.done && (x.part || x.pos > 30)).sort((a, b) => b[1].last - a[1].last)
     .slice(0, 2).forEach(([id]) => { if (want.length < p.ahead + 1) take(BYID[id]); });
+  const extra = state.lists.review.filter(r => r.due <= Date.now() + DAY).sort((a, b) => a.due - b.due).map(r => r.id)
+    .concat(state.lists.later.map(x => x.id)).map(id => BYID[id]).filter(Boolean).slice(0, 2);
+  for (const t of extra) take(t, true);
+  if (p.autoDelete) for (const id in DL.idx) {   // smart downloads you've heard go, unless they're about to play again
+    const e = DL.idx[id], t = BYID[id];
+    if (t && e.auto && isDone(id) && !want.includes(t)) { try { NATIVE.remove(JSON.stringify(dlNames(t, e.lang))); } catch {} delete DL.idx[id]; }
+  }
+  if (!p.smart || !online()) { saveDl(); dlPaint(); return; }
   const limit = p.limitMB ? p.limitMB * 1e6 : Infinity;
   let used = dlUsed() + [...DL.active.values()].reduce((a, x) => a + Math.max(0, (x.total || 0) - (x.done || 0)), 0);
   for (const t of want) {
@@ -687,6 +743,11 @@ function dlMany(ids) {
 
 /* ---------- icons ---------- */
 const I = {
+  order: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>',
+  repeat1: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5V10a4 4 0 0 1 4-4h11M16 3l3 3-3 3M20 12.5V14a4 4 0 0 1-4 4H5M8 21l-3-3 3-3"/><path d="M11.2 10.4 12.5 9.6v5" stroke-width="1.6"/></svg>',
+  repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5V10a4 4 0 0 1 4-4h11M16 3l3 3-3 3M20 12.5V14a4 4 0 0 1-4 4H5M8 21l-3-3 3-3"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12M6 20.5h12M7.5 3.5c0 4.5 4.5 5.5 4.5 8.5s-4.5 4-4.5 8.5M16.5 3.5c0 4.5-4.5 5.5-4.5 8.5s4.5 4 4.5 8.5"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>',
   next: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 6.2v11.6a1 1 0 0 0 1.5.86L15 13.5V17a1 1 0 0 0 2 0V7a1 1 0 0 0-2 0v3.5L6.5 5.34A1 1 0 0 0 5 6.2Z"/></svg>',
@@ -1281,6 +1342,9 @@ function vLibrary() {
       <button class="btn gold" data-act="newpl">${I.plus}New</button></div>
     ${NATIVE ? `<button class="panel progresslink" data-go="downloads"><span><b>Downloads</b><br><span class="note">${dlSummary()}</span></span><span class="dur">›</span></button>` : ""}
     <button class="panel progresslink" data-go="progress"><span><b>Progress</b><br><span class="note">${streak()}-day streak · ${TRACKS.filter(t => isDone(t.id)).length} chapters done · badges</span></span><span class="dur">›</span></button>
+    <section><div class="sec-h"><h2>Your lists</h2></div><div class="list">${["review", "later", "liked"].map(k => { const pl = listPl(k), due = k === "review" ? state.lists.review.filter(r => r.due <= Date.now()).length : 0;
+      return `<button class="trk" data-act="playlist" data-id="${k}" style="grid-template-columns:44px 1fr auto"><span class="listic ${k}">${k === "review" ? I.repeat : k === "later" ? I.clock : I.heartOn}</span>
+        <div class="txt"><div class="t">${pl.name}</div><div class="m">${pl.tracks.length ? `${pl.tracks.length} chapter${pl.tracks.length > 1 ? "s" : ""}${due ? ` · ${due} due today` : ""}` : k === "review" ? "Tap Review while listening" : k === "later" ? "Tap Study later while listening" : "Tap ♥ on any chapter"}</div></div><span class="dur">›</span></button>`; }).join("")}</div></section>
     <section><div class="sec-h"><h2>Saved passages</h2></div>
       ${state.saved.length ? `<div class="list">${state.saved.map((s, i) => { const t = BYID[s.ch]; return t ? `<div class="savedrow">
         <button class="txt" data-act="opensaved" data-i="${i}" style="text-align:left"><b>${esc(R(s.title))}</b><span class="m">${esc(R(t.vol.short))} ${t.n}:${s.sec}${t.vol.he ? " · AI translation" : ""}</span>
@@ -1299,12 +1363,12 @@ function vLibrary() {
 }
 function vPlaylist(id) {
   const pl = findPlaylist(id); if (!pl) return vLibrary();
-  const own = pl.kind !== "preset" && pl.kind !== "auto";
+  const own = pl.kind !== "preset" && pl.kind !== "auto" && pl.kind !== "list";
   setTop(pl.name); setTab("library");
   const ts = pl.tracks.map(i => BYID[i]).filter(Boolean);
   view.innerHTML = `<div class="view">
     <div class="vhead">${plArt(pl)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-      <div class="eyebrow">${own ? "Your playlist" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
+      <div class="eyebrow">${own ? "Your playlist" : pl.kind === "list" ? "Your list" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
       <div class="stats"><span>${ts.length} chapters</span><span>${mins(plDur(pl.tracks)) || "–"}</span></div></div></div>
     ${pl.blurb ? `<p class="sub" style="margin:0">${esc(pl.blurb)}</p>` : ""}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1312,7 +1376,7 @@ function vPlaylist(id) {
       <button class="btn ghost" data-act="shufflepl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.shuffle}Shuffle</button>${dlManyButton(ts.map(t => t.id))}
       ${own ? `<button class="btn line" data-act="renamepl" data-id="${pl.id}">Rename</button><button class="btn line" data-act="delpl" data-id="${pl.id}">Delete</button>`
             : `<button class="btn line" data-act="copypl" data-id="${pl.id}">${I.plus}Save a copy</button>`}</div>
-    ${ts.length ? `<div class="list">${ts.map((t, i) => trackRow(t, { end: own ? `
+    ${ts.length ? `<div class="list">${ts.map((t, i) => trackRow(t, pl.kind === "list" ? { why: (pl.why || {})[t.id], end: `<button class="iconbtn" style="background:none;width:34px" data-act="${pl.list === "liked" ? "like" : "unlist"}" data-list="${pl.list}" data-id="${t.id}" aria-label="Remove">${I.x}</button>` } : { end: own ? `
         <button class="iconbtn" style="background:none;width:34px" data-act="mv" data-id="${pl.id}" data-i="${i}" data-d="-1" aria-label="Move up" ${i ? "" : "disabled"}>${I.up}</button>
         <button class="iconbtn" style="background:none;width:34px" data-act="mv" data-id="${pl.id}" data-i="${i}" data-d="1" aria-label="Move down" ${i < ts.length - 1 ? "" : "disabled"}>${I.dn}</button>
         <button class="iconbtn" style="background:none;width:34px" data-act="rm" data-id="${pl.id}" data-i="${i}" aria-label="Remove">${I.x}</button>` : undefined })).join("")}</div>`
@@ -1400,7 +1464,7 @@ function syncNP(full) {
   const liked = state.likes.has(t.id);
   if (full || npEl.dataset.id !== t.id + ':' + P.part + ':' + P.lang) {
     npEl.dataset.id = t.id + ':' + P.part + ':' + P.lang;
-    const upnext = P.queue.slice(P.idx + 1, P.idx + 4).map(i => BYID[i]).filter(Boolean);
+    const upnext = upcoming(3).filter(i => i !== t.id).map(i => BYID[i]).filter(Boolean), pm = PLAY_MODES.find(x => x[0] === playMode());
     npEl.innerHTML = `<div class="sheet-h"><button class="iconbtn" data-act="npclose" aria-label="Close">${I.down}</button>
         <div class="eyebrow">${P.ctx ? esc(P.ctx) : "Now playing"}</div><button class="iconbtn" data-act="trackmenu" data-id="${t.id}" aria-label="More">${I.more}</button></div>
       <div class="np">${cover(t.vol, "bigart")}
@@ -1415,12 +1479,16 @@ function syncNP(full) {
           <button class="skip" data-act="f30" aria-label="Forward 30 seconds">${I.fwd30}</button>
           <button class="sm" data-act="next" aria-label="Next">${I.next}</button></div>
         ${listenSeg(t, P.lang)}
-        <div class="np-tools"><button class="pill" data-act="speed" id="speedPill">${state.speed}×</button>
+        <div class="np-tools"><button class="pill ${pm[0] !== "next" ? "on" : ""}" data-act="playmode">${I[pm[3]] || I.order}${pm[1]}</button>
+          <button class="pill" data-act="speed" id="speedPill">${state.speed}×</button>
           <button class="pill ${P.sleepAt || P.sleepEnd ? "on" : ""}" data-act="sleep" id="sleepPill">${I.moon}${P.sleepEnd ? "End of chapter" : P.sleepAt ? "Sleep" : "Sleep timer"}</button>
           <button class="pill" data-act="addto" data-id="${t.id}">${I.plus}Playlist</button>
+          <button class="pill ${liked ? "on" : ""}" data-act="like" data-id="${t.id}">${liked ? I.heartOn : I.heart}Favorite</button>
+          <button class="pill ${onList("review", t.id) ? "on" : ""}" data-act="togglelist" data-list="review" data-id="${t.id}" aria-pressed="${onList("review", t.id)}">${I.repeat}Review</button>
+          <button class="pill ${onList("later", t.id) ? "on" : ""}" data-act="togglelist" data-list="later" data-id="${t.id}" aria-pressed="${onList("later", t.id)}">${I.clock}Study later</button>
           <button class="pill" data-act="readnp" data-id="${t.id}">${I.read}Read</button></div>
         ${upnext.length ? `<div><div class="eyebrow" style="margin-bottom:4px">Up next</div><div class="list">${upnext.map(u => trackRow(u, { openChapter: false })).join("")}</div></div>`
-          : `<p class="note">When this ends, Pearls keeps going with a recommendation.</p>`}
+          : `<p class="note">${pm[0] === "repeat1" ? "This chapter will play again." : pm[0] === "repeatSec" ? "This section will play again." : "When this ends, Pearls keeps going with a recommendation."}</p>`}
       </div>`;
     const sk = $("#seek", npEl);
     sk.oninput = () => { sk._drag = true; $("#tCur").textContent = fmt(+sk.value); };
@@ -1469,6 +1537,8 @@ function trackMenu(id) {
     <button class="opt" data-a="playnext">${I.queue}<b>Play next</b></button>
     <button class="opt" data-a="add">${I.plus}<b>Add to playlist</b></button>
     <button class="opt" data-a="like">${liked ? I.heartOn : I.heart}<b>${liked ? "Remove from liked" : "Like"}</b></button>
+    <button class="opt" data-a="review">${I.repeat}<b>${onList("review", id) ? "Remove from Review" : "Add to Review"}</b></button>
+    <button class="opt" data-a="later">${I.clock}<b>${onList("later", id) ? "Remove from Study later" : "Study later"}</b></button>
     <button class="opt" data-a="read">${I.read}<b>Read in English</b></button>
     <button class="opt" data-a="radio">${I.shuffle}<b>Start a mix from this chapter</b></button>
     ${NATIVE && (hasHe(t) || hasEn(t)) ? (dlState(t).s === "none" ? `<button class="opt" data-a="dl">${DLI.get}<b>Download</b></button>` : `<button class="opt" data-a="undl">${I.x}<b>Remove download</b></button>`) : ""}
@@ -1478,6 +1548,8 @@ function trackMenu(id) {
       if (a === "playnext") { if (!cur()) playQueue([id], 0); else { P.queue.splice(P.idx + 1, 0, id); toast("Plays next"); syncNP(true); } }
       if (a === "add") addTo(id);
       if (a === "like") like(id);
+      if (a === "review") toggleList("review", id);
+      if (a === "later") toggleList("later", id);
       if (a === "read") { closeNP(); go(`ch-${id}`); }
       if (a === "radio") { playQueue([id, ...similar(t, 9).map(r => r.t.id)], 0, `Mix from ${t.title}`); toast("Mix started"); }
       if (a === "dl") { downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're online" : "Downloading"); }
@@ -1499,10 +1571,43 @@ function spellingDialog() {
     });
   });
 }
+/* Review (spaced: due again after 1, 3, 7, 14 and 30 days, then it leaves the list) and Study later (a reading
+   list that remembers where you were). Both are device-only, like everything else. */
+const REVIEW_STEPS = [1, 3, 7, 14, 30];
+const onList = (k, id) => state.lists[k].some(x => x.id === id);
+function toggleList(k, id) {
+  const L = state.lists[k];
+  if (onList(k, id)) { state.lists[k] = L.filter(x => x.id !== id); toast(k === "review" ? "Removed from Review" : "Removed from Study later"); }
+  else if (k === "review") { L.push({ id, at: Date.now(), due: Date.now() + REVIEW_STEPS[0] * DAY, step: 0 }); toast("Added to Review · back tomorrow, then after 3, 7, 14 and 30 days"); }
+  else { const c = cur(), here = c && c.id === id; L.push({ id, at: Date.now(), part: here ? P.part : 0, pos: here ? Math.floor(audio.currentTime) : 0 });
+    toast(here ? `Study later · saved at section ${P.part + 1}` : "Added to Study later"); }
+  save.lists(); paintLists(id); smartSoon();
+}
+function studied(id) {   // a chapter was finished (heard to the end, or ticked): advance its review, clear it from Study later
+  const r = state.lists.review.find(x => x.id === id);
+  if (r && r.due <= Date.now() + DAY / 2) { r.step++; if (r.step >= REVIEW_STEPS.length) state.lists.review = state.lists.review.filter(x => x !== r); else r.due = Date.now() + REVIEW_STEPS[r.step] * DAY; }
+  state.lists.later = state.lists.later.filter(x => x.id !== id);
+  save.lists();
+}
+function paintLists(id) {
+  document.querySelectorAll(`[data-act="togglelist"][data-id="${id}"]`).forEach(b => { const on = onList(b.dataset.list, id); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+}
+function listPl(k) {
+  if (k === "liked") return { id: "liked", kind: "list", list: "liked", name: "Favorites", blurb: "Everything you've hearted. Your recommendations lean this way.", tracks: [...state.likes].filter(id => BYID[id]) };
+  if (k === "review") {
+    const L = state.lists.review.filter(r => BYID[r.id]).sort((a, b) => a.due - b.due);
+    return { id: "review", kind: "list", list: "review", name: "Review", blurb: "Chapters to go over again. Each comes back after 1, 3, 7, 14 and 30 days; finish it when it's due and it moves on.", tracks: L.map(r => r.id),
+      why: Object.fromEntries(L.map(r => { const d = Math.round((r.due - Date.now()) / DAY); return [r.id, `${d <= 0 ? "Due today" : d === 1 ? "Due tomorrow" : `Due in ${d} days`} · review ${r.step + 1} of ${REVIEW_STEPS.length}`]; })) };
+  }
+  const L = state.lists.later.filter(x => BYID[x.id]);
+  return { id: "later", kind: "list", list: "later", name: "Study later", blurb: "Saved for when you have time. Playing one starts at the section you were on; finishing it takes it off the list.", tracks: L.map(x => x.id),
+    why: Object.fromEntries(L.map(x => [x.id, `Saved ${new Date(x.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}${x.part ? ` · from section ${x.part + 1}` : ""}`])) };
+}
 function like(id) {
   state.likes.has(id) ? state.likes.delete(id) : state.likes.add(id); save.likes();
   toast(state.likes.has(id) ? "Liked · your recommendations will lean this way" : "Removed from liked");
-  document.querySelectorAll(`[data-act="like"][data-id="${id}"]`).forEach(b => { const on = state.likes.has(id); b.classList.toggle("on", on); b.innerHTML = on ? I.heartOn : I.heart; });
+  document.querySelectorAll(`[data-act="like"][data-id="${id}"]`).forEach(b => { const on = state.likes.has(id); b.classList.toggle("on", on); b.innerHTML = b.classList.contains("pill") ? `${on ? I.heartOn : I.heart}Favorite` : on ? I.heartOn : I.heart; });
+  smartSoon();
 }
 let toastT;
 function toast(msg) { document.querySelectorAll(".toast").forEach(t => t.remove()); const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
@@ -1571,7 +1676,12 @@ document.addEventListener("click", e => {
       slot.hidden = false; slot.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`;
       hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; tintHebrew(slot); })
         .catch(() => { slot.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew for this section. You need a connection.</p>`; }); break; }
-    case "markdone": { if (state.read[id]) { delete state.read[id]; } else { state.read[id] = Date.now(); logDay(0, id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
+    case "markdone": { if (state.read[id]) { delete state.read[id]; } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
+    case "togglelist": toggleList(b.dataset.list, id); break;
+    case "playmode": dialog(`<h3>Playback order</h3>${PLAY_MODES.map(([k, n, d, ic]) => `<button class="opt" data-m="${k}"><span class="radio ${playMode() === k ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${n}</b><br><span class="note">${d}</span></span></button>`).join("")}
+      <p class="foot" style="margin:0">${NATIVE ? "Smart downloads follow this order, so what plays next is already on the phone." : ""}</p>`, (s2, close) => {
+        s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
+    case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
     case "audiolang": { audioLang = (cur() ? P.lang : (audioLang === "auto" ? (wantsEnglish(BYID[id] || {}) ? "en" : "he") : audioLang)) === "en" ? "he" : "en"; store.set("audioLang", audioLang); const pos = audio.currentTime; load(!audio.paused);
       document.querySelectorAll('.chhead [data-act="audiolang"]').forEach(c => { if (BYID[c.dataset.id]) c.textContent = "Listen · " + (wantsEnglish(BYID[c.dataset.id]) ? "English" : "Hebrew"); });
       const pb = document.querySelector('[data-act="playch"] .plang'), pid = pb && pb.parentNode.dataset.id; if (pb && BYID[pid]) pb.textContent = ` · ${wantsEnglish(BYID[pid]) ? "English" : "Hebrew"}`;
@@ -1665,5 +1775,5 @@ if (state.lastQueue && state.lastQueue.ids && state.lastQueue.ids.length && !sta
 applyPrefs();
 renderMini();
 render();
-window.PEARLS = { recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
+window.PEARLS = { playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
 })();

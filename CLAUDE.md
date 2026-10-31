@@ -32,6 +32,8 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 - Tests:
   - `python3 test_offline.py`: downloads, offline mode and headphones, against a stand-in for the Android bridge.
     It must end "32/32 checks passed".
+  - `python3 test_playmodes.py`: playback order, smart downloads that follow it, and the Review / Study later lists.
+    It must end "17/17 checks passed".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
   - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
@@ -73,6 +75,19 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   headphones unplugged). It also runs a MediaSession, so earbud buttons and in-ear detection reach the player. Both call
   `window.PEARLS_MEDIA(cmd)`, and the page reports playback back through `PearlsNative.mediaState`. Whether a disconnect
   pauses is the user's setting, `prefs.unplugPause` (on by default; Settings → Pause when headphones disconnect).
+- **Playback order** (2.5; Now Playing → the order pill, `prefs.playMode`): In order, Continue the book, Shuffle,
+  Repeat chapter, Repeat queue, Repeat section (chazara). `upcoming(n)` says what will play next in that mode.
+  - Smart downloads fetch, in this order: the chapter playing, then `upcoming()` (heard chapters too, when a repeat
+    mode will play them again), then chapters partway through, then up to two from Review (due within a day) and
+    Study later.
+  - Auto-delete spares anything in that list.
+- **Lists** (2.5; `state.lists`, device-only), each a playlist in Library → Your lists:
+  - **Review:** spaced. A chapter is due after 1, 3, 7, 14 and 30 days; finishing it when it's due moves it on, and
+    after the fifth review it leaves the list.
+  - **Study later:** remembers the section you were on.
+  - **Favorites:** the liked chapters.
+  - Now Playing and every chapter's ⋯ menu have Favorite, Playlist, Review and Study later. Finishing a chapter
+    (`studied()`) advances its review and clears it from Study later.
 - The Apple app and the web version have no bridge. They read the bundled English offline, but don't download audio.
 
 ## Where things are
