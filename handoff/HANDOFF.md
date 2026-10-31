@@ -119,5 +119,12 @@ is in `chat-transcript.jsonl.gz`.
    - a Tu Bi-Shvat reading list reviewed by the user;
    - regenerate the store screenshots, which still say "15 looks" (`store/make_store_art.py`; needs ph.yhb.org.il);
    - republish the Pearls web artifact from `www/` (it is at an older version).
-7. **Play release, the user's side:** the developer account, 12 testers for 14 days, Har Bracha's permission, a
+7. **AI voice** (`tts/`; see `tts/README.md`): MP3s for the AI-translated sections, made with Kokoro or Chatterbox, on
+   Colab or Kaggle (`tts/Pearls_TTS.ipynb`). Still to do:
+   - the user picks a voice;
+   - generate everything;
+   - host the files;
+   - add them to the app as an "AI voice" audio option, labelled like the AI translations.
+   Kokoro reads ḥ as gibberish, so `lexicon.tsv` and the ḥ->kh rule are needed.
+8. **Play release, the user's side:** the developer account, 12 testers for 14 days, Har Bracha's permission, a
    hosted privacy policy, the foreground-service video, and replacing `CONTACT_EMAIL`.
