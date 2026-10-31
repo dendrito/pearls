@@ -38,6 +38,7 @@ first (`--only 10`).
 ## Commands
 
     pip install chatterbox-tts kokoro-onnx soundfile          # plus ffmpeg
+    pip uninstall -y torchvision                              # on Colab: its build needs a newer torch than Chatterbox
     python pearls_tts.py --engine chatterbox --only 17-11 --sections 1 --out samples
     python pearls_tts.py --engine chatterbox --out audio            # everything
     python pearls_tts.py --engine kokoro --voice bf_emma --out audio-kokoro
