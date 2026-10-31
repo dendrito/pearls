@@ -30,7 +30,9 @@ def load_lexicon(path):
         for line in open(path, encoding="utf8"):
             line = line.rstrip("\n")
             if not line or line.startswith("#") or "\t" not in line: continue
-            a, b = line.split("\t", 1); lex.append((re.compile(r"(?<![\w-])" + re.escape(a) + r"(?![\w-])"), b))
+            a, b = line.split("\t", 1)
+            for x, y in {(a, b), (a[:1].upper() + a[1:], b[:1].upper() + b[1:])}:   # also at the start of a sentence
+                lex.append((re.compile(r"(?<![\w-])" + re.escape(x) + r"(?![\w-])"), y))
     return lex
 
 def speakable(html, lex, keep_refs=False):
@@ -123,7 +125,7 @@ def main():
         for s in ch["sections"]:
             if a.sections and s["n"] not in a.sections: continue
             name = f"ai-{ch['id']}-{s['n']:02d}.mp3"; dst = os.path.join(a.out, name)
-            pars = speakable(s["html"], lex, a.keep_refs); title = s["title"].translate(LETTERS)
+            pars = speakable(s["html"], lex, a.keep_refs); title = " ".join(speakable(s["title"], lex))
             if a.dry: print(f"## {name}\n{title}.\n\n" + "\n\n".join(pars) + "\n"); continue
             if os.path.exists(dst): continue
             if eng is None:
