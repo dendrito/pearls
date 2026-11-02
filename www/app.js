@@ -158,7 +158,13 @@ const SKINS = [
   { id: "nacre", name: "Nacre", note: "warm ink and bone, a pearl's sheen on what's playing", bg: "#12110F", acc: "#E9E4EC", alt: "#F6F1E7" },
   { id: "folio", name: "Folio", note: "paper, black type and one vermilion; square and editorial", bg: "#F7F4EE", acc: "#C2311A", light: true, alt: "#111111" },
   { id: "sunlit", name: "Sunlit", note: "warm cream and terracotta, rounded and friendly", bg: "#FFF6E9", acc: "#C8461F", light: true, alt: "#1A1512" },
-  { id: "ner", name: "Ner", note: "Jerusalem stone, olive and candle gold, with arches", bg: "#E8DDC8", acc: "#3D4A2C", light: true, alt: "#1C1A15" }
+  { id: "ner", name: "Ner", note: "Jerusalem stone, olive and candle gold, with arches", bg: "#E8DDC8", acc: "#3D4A2C", light: true, alt: "#1C1A15" },
+  { id: "azulejo", name: "Azulejo", note: "cobalt and ochre tiles on white, flat", bg: "#F7F5EF", acc: "#1F4FA0", light: true, alt: "#0E1A30" },
+  { id: "cutpaper", name: "Cut Paper", note: "layered paper arches: sand, terracotta and slate", bg: "#EFE4CF", acc: "#A84A34", light: true, alt: "#1C1A17" },
+  { id: "riso", name: "Riso", note: "two spot colours, pink and teal, printed flat", bg: "#F6F2EA", acc: "#D02F67", light: true, alt: "#141414" },
+  { id: "boneink", name: "Bone & Ink", note: "the logo's two colours only, thin rules", bg: "#EFE7D8", acc: "#12110F", light: true, alt: "#12110F" },
+  { id: "mizrah", name: "Mizraḥ Arches", note: "olive and saffron arch windows", bg: "#F4EEDC", acc: "#4F5B2E", light: true, alt: "#171A12" },
+  { id: "thread", name: "Thread", note: "tzitzit strings and tallit stripes in blue", bg: "#F3F6F9", acc: "#2B5D8C", light: true, alt: "#0B1826" }
 ];
 const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match phone"]];
 /* 2.3: the three Pearl Minimal entries became one skin with modes */
@@ -798,7 +804,7 @@ function trackRow(t, o = {}) {
 function plArt(pl) {
   const vols = [...new Set(pl.tracks.map(id => BYID[id] && BYID[id].vol).filter(Boolean))];
   const four = [0, 1, 2, 3].map(i => vols[i % Math.max(1, vols.length)] || VOLS[i]);
-  return `<div class="plart">${four.map((v, i) => `<i style="--c1:${i % 2 ? v.c1 : `linear-gradient(135deg,${v.c1},${v.c2})`};background:${i % 3 ? v.c1 : `linear-gradient(135deg,${v.c1},${v.c2})`}" data-g="${v.glyph}"></i>`).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
+  return `<div class="plart">${four.map((v, i) => `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
 }
 const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.id}">${plArt(pl)}<span>${pl.tracks.length} chapters · ${mins(plDur(pl.tracks)) || "–"}</span></button>`;
 const volCard = v => { const n = v.chapters.length, heard = TRACKS.filter(t => t.vol === v && (state.plays[t.id] || {}).done).length;

@@ -3,9 +3,9 @@
    counterpart palette below re-sets the same tokens. Loaded after skins.css, so equal-specificity rules here win. */
 
 /* ---------- shared defaults ---------- */
-body[data-alt="dark"]{--scheme:dark;--track:rgba(255,255,255,.14);--scrim:rgba(0,0,0,.55);--float-shadow:0 12px 40px rgba(0,0,0,.6);
+body[data-alt="dark"]{--scheme:dark;--track:rgba(255,255,255,.14);--scrim:rgba(0,0,0,.55);--float-shadow:none;
   --ai-bg:rgba(122,108,240,.08);--ai-line:#3a3470;--ai-tag:#7a6cf0;--ai-fg:#fff}
-body[data-alt="light"]{--scheme:light;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.35);--float-shadow:0 10px 30px rgba(0,0,0,.12);
+body[data-alt="light"]{--scheme:light;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.35);--float-shadow:none;
   --ai-bg:rgba(91,79,214,.06);--ai-line:#cdc8f2;--ai-tag:#5b4fd6;--ai-fg:#fff}
 
 /* =================== dark skins, light version =================== */
@@ -13,11 +13,11 @@ body[data-alt="light"]{--scheme:light;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0
 /* Classic: the study hall by day */
 body:not([data-skin])[data-alt]{--ink:#f6f3ec;--ink-2:#fffdf8;--ink-3:#ece7dc;--line:#dcd5c6;--hair:rgba(220,213,198,.7);--pearl:#141a2e;--mist:#4a5170;--dim:#5e6585;
   --gold:#d9a641;--gold-2:#8a5f12;--on-gold:#1a1406;--text:#1d2236;
-  --top-bg:linear-gradient(var(--ink) 70%,rgba(246,243,236,0));--tabs-bg:linear-gradient(rgba(246,243,236,.75),var(--ink) 40%);
-  --hero-bg:linear-gradient(160deg,#fbf1d9 0%,#f6ecd8 55%,#f0e8d8 100%);--hero-line:#e6d6b0;--hero-shadow:none;
-  --shadow:0 10px 30px rgba(20,26,46,.1);--chip-on-bg:rgba(217,166,65,.16);--chip-on-line:rgba(160,110,20,.55);
-  --glass:rgba(255,253,248,.95);--glass-line:#dcd5c6;--float-shadow:0 12px 30px rgba(20,26,46,.15);--track:rgba(20,26,46,.14);
-  --glow:0 0 34px rgba(217,166,65,.35);--scrim:rgba(20,26,46,.35);--ai-bg:rgba(122,108,240,.07);--ai-line:#cfc9f0}
+  --top-bg:var(--ink);--tabs-bg:var(--ink);
+  --hero-bg:#f8eedb;--hero-line:#e6d6b0;--hero-shadow:none;
+  --shadow:none;--chip-on-bg:rgba(217,166,65,.16);--chip-on-line:rgba(160,110,20,.55);
+  --glass:rgba(255,253,248,.95);--glass-line:#dcd5c6;--float-shadow:none;--track:rgba(20,26,46,.14);
+  --glow:none;--scrim:rgba(20,26,46,.35);--ai-bg:rgba(122,108,240,.07);--ai-line:#cfc9f0}
 body:not([data-skin])[data-alt] .aura{opacity:.6}
 
 /* Night Gold */
@@ -31,23 +31,23 @@ body[data-skin="mint"][data-alt]{--ink:#eef6f2;--ink-2:#f8fcfa;--ink-3:#e0ece6;-
 /* Tekhelet: sea light */
 body[data-skin="tekhelet"][data-alt]{--ink:#eef5fb;--ink-2:#f7fbfe;--ink-3:#dde9f4;--line:#c3d6e8;--hair:#d3e2ef;--pearl:#06213a;--mist:#2f4b66;--dim:#4d6883;
   --gold:#1f74c4;--gold-2:#155a9c;--on-gold:#fff;--text:#0b2540;--logo:#1f74c4;
-  --top-bg:linear-gradient(var(--ink) 70%,rgba(238,245,251,0));--tabs-bg:linear-gradient(rgba(238,245,251,.7),var(--ink) 40%);
-  --hero-bg:radial-gradient(120% 90% at 100% 0%,#bfe0fb 0%,#dcecf9 45%,#eef5fb 100%);--hero-line:#b5d0ea;--hero-shadow:none;
-  --glow:0 0 40px rgba(31,116,196,.25);--chip-on-bg:rgba(31,116,196,.1);--chip-on-line:rgba(31,116,196,.5);
-  --glass:rgba(247,251,254,.95);--glass-line:#c3d6e8;--float-shadow:0 10px 30px rgba(6,33,58,.15);--track:rgba(6,33,58,.12);--scrim:rgba(6,20,40,.35);
+  --top-bg:var(--ink);--tabs-bg:var(--ink);
+  --hero-bg:#d6e8f8;--hero-line:#b5d0ea;--hero-shadow:none;
+  --glow:none;--chip-on-bg:rgba(31,116,196,.1);--chip-on-line:rgba(31,116,196,.5);
+  --glass:rgba(247,251,254,.95);--glass-line:#c3d6e8;--float-shadow:none;--track:rgba(6,33,58,.12);--scrim:rgba(6,20,40,.35);
   --ai-bg:rgba(31,116,196,.06);--ai-line:#b5d0ea;--ai-tag:#1f6fd6}
 
 /* Studio */
 body[data-skin="studio"][data-alt]{--ink:#f4f4f2;--ink-2:#ffffff;--ink-3:#e9e9e6;--line:#d8d8d3;--hair:#e2e2dd;--pearl:#0e0e10;--mist:#45454c;--dim:#5f5f67;
-  --gold:#c6f36b;--gold-2:#3d5a00;--on-gold:#0e0e10;--text:#1a1a1d;--glow:0 0 30px rgba(120,170,20,.25);
+  --gold:#c6f36b;--gold-2:#3d5a00;--on-gold:#0e0e10;--text:#1a1a1d;--glow:none;
   --chip-on-bg:rgba(198,243,107,.35);--chip-on-line:#3d5a00;--glass:#ffffff;--glass-line:#d8d8d3;
   --ai-bg:rgba(120,170,20,.07);--ai-line:#c7dba0;--ai-tag:#3d5a00}
 
 /* Nacre: bone paper, ink type; the sheen stays on what's live */
 body[data-skin="nacre"][data-alt]{--ink:#F6F1E7;--ink-2:#FFFDF8;--ink-3:#ECE5D8;--line:#DDD4C4;--hair:rgba(29,27,24,.10);--pearl:#1D1B18;--text:#1D1B18;--mist:#4E483F;--dim:#6A6357;
   --gold:#1D1B18;--gold-2:#5C5070;--on-gold:#F6F1E7;--ok:#2F6B4A;
-  --hero-bg:#FFFDF8;--hero-line:rgba(29,27,24,.12);--glow:0 0 30px rgba(120,100,150,.18);
-  --chip-on-bg:rgba(29,27,24,.06);--chip-on-line:rgba(29,27,24,.5);--glass:#FFFDF8;--glass-line:#DDD4C4;--float-shadow:0 12px 30px rgba(29,27,24,.15);
+  --hero-bg:#FFFDF8;--hero-line:rgba(29,27,24,.12);--glow:none;
+  --chip-on-bg:rgba(29,27,24,.06);--chip-on-line:rgba(29,27,24,.5);--glass:#FFFDF8;--glass-line:#DDD4C4;--float-shadow:none;
   --track:rgba(29,27,24,.12);--scrim:rgba(29,27,24,.35);--ai-bg:rgba(29,27,24,.04);--ai-line:#DDD4C4;--ai-tag:#1D1B18;--ai-fg:#F6F1E7}
 body[data-skin="nacre"][data-alt] .btn.gold,body[data-skin="nacre"][data-alt] .mini .iconbtn.big,body[data-skin="nacre"][data-alt] .np .play{background:#1D1B18;color:#F6F1E7}
 body[data-skin="nacre"][data-alt] .trk .bar i,body[data-skin="nacre"][data-alt] .mini .prog i{background:#1D1B18}
@@ -74,7 +74,7 @@ body[data-skin="ice"][data-alt]{--ink:#0b1018;--ink-2:#111824;--ink-3:#182131;--
 /* Illuminated: the manuscript by candlelight */
 body[data-skin="illuminated"][data-alt]{--ink:#1a140d;--ink-2:#221a11;--ink-3:#2c2216;--line:#5a4527;--hair:#3a2d1c;--pearl:#f1e6cf;--mist:#cdbb9c;--dim:#a8957a;
   --gold:#6d8fe8;--gold-2:#9fb5f2;--on-gold:#10182e;--text:#ecdfc5;--rubric:#e06a5c;
-  --glass:rgba(34,26,17,.96);--float-shadow:0 8px 24px rgba(0,0,0,.5);--cover-filter:sepia(.45) saturate(.8) brightness(.85);
+  --glass:rgba(34,26,17,.96);--float-shadow:none;--cover-filter:sepia(.45) saturate(.8) brightness(.85);
   --ai-bg:rgba(109,143,232,.08);--ai-line:#3a4a7a;--ai-tag:#6d8fe8;--ai-fg:#10182e}
 
 /* Brutal: black paper, white ink, the same acid yellow */
@@ -95,7 +95,7 @@ body[data-skin="brutal"][data-alt] .hero :is(.btn.ghost,.btn.line,.iconbtn){bord
 /* Parchment: lamp-lit */
 body[data-skin="parchment"][data-alt]{--ink:#17130e;--ink-2:#201a13;--ink-3:#2a2219;--line:#3a3024;--hair:#2e261c;--pearl:#f1e7d6;--mist:#cdbfa6;--dim:#a8987f;
   --gold:#d9874a;--gold-2:#e8a06a;--on-gold:#1a0f05;--text:#ece1cd;
-  --shadow:0 6px 20px rgba(0,0,0,.4);--chip-on-bg:rgba(217,135,74,.14);--chip-on-line:rgba(217,135,74,.55);
+  --shadow:none;--chip-on-bg:rgba(217,135,74,.14);--chip-on-line:rgba(217,135,74,.55);
   --glass:#2e251b;--glass-line:#4a3d2c;--cover-filter:sepia(.25) brightness(.85)}
 
 /* Daf: white ink on a dark page */
@@ -152,3 +152,18 @@ body[data-skin="ner"][data-alt]{--ink:#1C1A15;--ink-2:#25221C;--ink-3:#2F2B23;--
 body[data-skin="ner"][data-alt] .chip.on{color:#1C1A15}
 
 /* light tints follow the effective mode (body.light), so dark versions of light skins use the bright tints */
+
+/* ========== Flat skins (2.6), dark version ========== */
+body[data-skin="azulejo"][data-alt]{--scheme:dark;--ink:#0E1A30;--ink-2:#16264A;--ink-3:#1D3058;--line:#2A3D66;--hair:#22355A;--pearl:#EEF1F7;--text:#EEF1F7;--mist:#B4C0D8;--dim:#94A3C0;--gold:#6F9BE8;--gold-2:#9DBBF0;--on-gold:#0E1A30;--logo:#6F9BE8;
+  --hero-bg:var(--ink-2);--glass:#16264A;--ai-fg:#0E1A30;--hero-art:url(art/azulejo-dark.svg);--fc1:#1F4FA0;--fc2:#2E63BF;--fc3:#B8902F}
+body[data-skin="cutpaper"][data-alt]{--scheme:dark;--ink:#1C1A17;--ink-2:#29251F;--ink-3:#332E27;--line:#3A342C;--hair:#302B24;--pearl:#F1E8D8;--text:#F1E8D8;--mist:#CDBFA8;--dim:#A99B85;--gold:#D9775E;--gold-2:#E8957F;--on-gold:#1C1A17;--logo:#D9775E;
+  --hero-bg:var(--ink-2);--glass:#29251F;--ai-fg:#1C1A17;--hero-art:url(art/cutpaper-dark.svg);--fc1:#2F4A5A;--fc2:#A84A34;--fc3:#5C4F3E}
+body[data-skin="riso"][data-alt]{--scheme:dark;--ink:#141414;--ink-2:#1F1F1F;--ink-3:#2A2A2A;--line:#333333;--hair:#2A2A2A;--pearl:#F6F2EA;--text:#F6F2EA;--mist:#C9C3B9;--dim:#A39D94;--gold:#FF6B9A;--gold-2:#FF8FB3;--on-gold:#141414;--logo:#FF6B9A;
+  --hero-bg:var(--ink-2);--glass:#1F1F1F;--ai-fg:#141414;--hero-art:url(art/riso-dark.svg);--fc1:#0F7B7B;--fc2:#D02F67;--fc3:#333333}
+body[data-skin="boneink"][data-alt]{--scheme:dark;--ink:#12110F;--ink-2:#1A1916;--ink-3:#24221E;--line:#EFE7D8;--hair:#3A362F;--pearl:#EFE7D8;--text:#EFE7D8;--mist:#C4BBAA;--dim:#A39A8A;--gold:#EFE7D8;--gold-2:#EFE7D8;--on-gold:#12110F;--logo:#EFE7D8;
+  --hero-bg:var(--ink-2);--glass:#1A1916;--ai-fg:#12110F;--hero-art:url(art/boneink-dark.svg);--fc1:#2A2722;--fc2:#3A362F;--fc3:#2A2722}
+body[data-skin="mizrah"][data-alt]{--scheme:dark;--ink:#171A12;--ink-2:#22261A;--ink-3:#2C3122;--line:#3A4130;--hair:#2F3426;--pearl:#F1EBD8;--text:#F1EBD8;--mist:#CCC8B0;--dim:#A8A58E;--gold:#A9B86A;--gold-2:#C3D088;--on-gold:#171A12;--logo:#A9B86A;
+  --hero-bg:var(--ink-2);--glass:#22261A;--ai-fg:#171A12;--hero-art:url(art/mizrah-dark.svg);--fc1:#4F5B2E;--fc2:#A8721C;--fc3:#3B4422}
+body[data-skin="thread"][data-alt]{--scheme:dark;--ink:#0B1826;--ink-2:#12253A;--ink-3:#1A3049;--line:#22384F;--hair:#1B2F44;--pearl:#EAF1F8;--text:#EAF1F8;--mist:#B3C3D4;--dim:#8EA2B8;--gold:#7FB2E0;--gold-2:#A5CAEC;--on-gold:#0B1826;--logo:#7FB2E0;
+  --hero-bg:var(--ink-2);--glass:#12253A;--ai-fg:#0B1826;--hero-art:url(art/thread-dark.svg);--fc1:#2B5D8C;--fc2:#3E6F9E;--fc3:#12253A}
+body[data-skin="riso"][data-alt] .hello em{color:#3CC6C0}

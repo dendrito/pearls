@@ -6,8 +6,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__)); WWW = os.path.join(ROOT, "www
 os.makedirs(OUT, exist_ok=True)
 PAGE = sys.argv[1] if len(sys.argv) > 1 else "home"
 URL = "file://" + os.path.join(WWW, "index.html")
-SK = ["classic","pearl","sand","ice","night","mint","illuminated","tekhelet","brutal","parchment","studio","daf","clear","nacre","folio","sunlit","ner"]
-LIGHT = {"pearl","sand","ice","illuminated","brutal","parchment","daf","clear","folio","sunlit","ner"}
+SK = ["classic","pearl","sand","ice","night","mint","illuminated","tekhelet","brutal","parchment","studio","daf","clear","nacre","folio","sunlit","ner","azulejo","cutpaper","riso","boneink","mizrah","thread"]
+LIGHT = {"pearl","sand","ice","illuminated","brutal","parchment","daf","clear","folio","sunlit","ner","azulejo","cutpaper","riso","boneink","mizrah","thread"}
 STATE = {"pearls:interests": ["shabbat","prayer"], "pearls:plays": {"01-02": {"sec": 900, "pos": 140, "part": 3, "done": False, "n": 0, "last": 1761800000000}},
          "pearls:likes": ["01-03"], "pearls:onb": True}
 names = []

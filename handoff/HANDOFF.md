@@ -103,6 +103,17 @@ is in `chat-transcript.jsonl.gz`.
   - `test_calendar.py` must end 14/14.
   - `test_playmodes.py` must end 17/17.
 
+## Flat skins (branch `flat-skins`, 2 Nov 2026, not released)
+
+- The user dislikes gradients that fake a 3D look, so every skin is now flat: no gradient that blends colours, no
+  blurred shadow, no blur filter. Hard stops and no-blur shadows (Brutal's offset) stay. `test_flat.py` enforces it
+  and `build.sh` runs it.
+- The 17 existing skins kept their colours. Their gradients became solid fills, and the glows and soft shadows were
+  removed. Cover art is now two flat circles instead of radial washes.
+- Six new skins, each light and dark, with flat SVG art in `www/art/`: Azulejo, Cut Paper, Riso, Bone & Ink,
+  Mizraḥ Arches and Thread. The mockups are at https://claude.ai/artifact/9ecHz7u4Zwsbz2eXQ37bdB.
+- **Open:** the user may drop some of the six. Then bump the version and update the store art ("23 looks").
+
 ## Open items, in order
 
 0. **Get the code onto GitHub.** The user creates `dendrito/pearls`, then the next session adds it with push access
