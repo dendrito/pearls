@@ -1003,11 +1003,12 @@ function cleanHeb(html) {
   d.querySelectorAll("[style]").forEach(e => e.removeAttribute("style"));
   return d.innerHTML;
 }
-function cleanHTML(html) {
+function cleanHTML(html, t) {
   const d = document.createElement("div"); d.innerHTML = html;
   d.querySelectorAll("script,style,iframe,form,img[src^='http:']").forEach(e => e.remove());
   d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
   d.querySelectorAll("[style]").forEach(e => { if (!/padding-left/.test(e.getAttribute("style"))) e.removeAttribute("style"); });
+  if (t) linkCites(d, t);
   respellTree(d);
   return d.innerHTML;
 }
@@ -1046,8 +1047,9 @@ function vChapter(id) {
     const r = $("#reader"); if (!r || !document.body.contains(r)) return;
     if (t.vol.he) return renderHebrewChapter(t, posts, r);
     if (!posts.length) { r.innerHTML = `<p class="note">The English text for this chapter isn't published online yet. <a href="https://ph.yhb.org.il/en/" target="_blank" rel="noopener">Open the site</a></p>`; return; }
-    r.innerHTML = posts.map((p, i) => `<section id="sec-${i + 1}"><div class="en-body"><h3>${R(p.title.rendered)}</h3>${cleanHTML(p.content.rendered)}</div><div class="hebslot" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i, { hebrew: true })}</section>`).join("") +
+    r.innerHTML = posts.map((p, i) => `<section id="sec-${i + 1}"><div class="en-body"><h3>${R(p.title.rendered)}</h3>${cleanHTML(p.content.rendered, t)}</div><div class="hebslot" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i, { hebrew: true })}</section>`).join("") +
       `<p class="foot">Source: <a href="${esc(posts[0].link)}" target="_blank" rel="noopener">${esc(posts[0].link)}</a></p>`;
+    citeClicks(r);
     applyReadLang(t, r);
   }).catch(() => {
     const r = $("#reader"); if (r) r.innerHTML = `<div class="panel note">Couldn't load the text. You need a connection the first time a chapter opens. The audio may still play.
@@ -1068,20 +1070,71 @@ function renderHebrewChapter(t, d, r) {
     secs.map((s, i) => {
       const heb = `<div class="heb-orig" lang="he" dir="rtl" data-sec="${i + 1}" ${d.translated ? "hidden" : ""}>${s.body_he != null ? `<h3>${s.title_he}</h3>${s.body_he}${notesHTML((s.notes_he || []).map(n => ({ n: n.n, he: n.he })), "he")}` : ""}</div>`;
       if (!d.translated || !s.body_en) return `<section id="sec-${i + 1}">${heb}<p class="foot"><a href="${esc(s.link)}" target="_blank" rel="noopener">Source: ph.yhb.org.il</a></p></section>`;
-      const box = document.createElement("div"); box.innerHTML = s.body_en + notesHTML(s.notes_en); respellTree(box);
+      const box = document.createElement("div"); box.innerHTML = s.body_en + notesHTML(s.notes_en); linkCites(box, t); respellTree(box);
       return `<section id="sec-${i + 1}"><div class="ai-sec"><h3>${esc(R(s.title_en || ""))} <span class="aitag sm">AI</span></h3>${box.innerHTML}
         <div class="secfoot"><button class="linkbtn" data-heb>Show Hebrew</button><a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener">Hebrew source ↗</a></div></div>${heb}${secTools(t, i)}</section>`;
     }).join("") +
     `<p class="foot">From <i>Peninei Halakha</i> by Rabbi Eliezer Melamed — פניני הלכה, הרב אליעזר מלמד, מכון הר ברכה — licensed CC BY 4.0. ${d.translated ? "Translated into English by AI (changes: translation; footnote markers kept)." : ""}</p>`;
-  r.querySelectorAll('.heb-orig').forEach(tintHebrew);
+  r.querySelectorAll('.heb-orig').forEach(h => hebDone(h, t));
+  citeClicks(r);
   if (d.translated) applyReadLang(t, r);
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
     if (!he.hidden && !he.innerHTML.trim()) {   // lite build: the Hebrew is fetched on demand
       he.innerHTML = `<p class="note">Loading the Hebrew…</p>`;
-      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; tintHebrew(he); })
+      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); })
         .catch(() => { he.innerHTML = `<p class="note">Couldn't load the Hebrew. It needs a connection.</p>`; });
     } };
+}
+
+/* ---------- citation links: SA 345:2, Shabbat 6a, Rambam, Tanakh… open the cited text ----------
+   The grammar is Meldar's meldar-cite.js, shipped unmodified (like meldar-record.js); pearls-cite-links.js puts it
+   on the page. Links are made before respelling and before Hebrew letter tints, which both rewrite text nodes.
+   Chapter HTML is rebuilt as strings, so clicks are handled by delegation (citeClicks), not by per-link listeners. */
+const SEF_BOOK = {}; for (const b in SEF) SEF_BOOK[SEF[b].t] = b;
+function linkCites(root, t) {
+  if (!window.PEARLS_CITE || !root || !t) return;
+  try { PEARLS_CITE.linkify(root, { ref: sefRef(t, null) || "" }); } catch (e) { /* a page without links beats no page */ }
+}
+function hebDone(el, t) { linkCites(el, t); tintHebrew(el); citeClicks(el); }
+function citeClicks(root) {
+  if (!root || root.dataset.cites) return; root.dataset.cites = 1;
+  root.addEventListener("click", e => {
+    const a = e.target.closest("a.pc-cite"); if (!a || !root.contains(a)) return;
+    e.preventDefault(); e.stopPropagation();
+    const ref = a.dataset.ref || "";
+    if (a.classList.contains("pc-cite-internal")) return openPHRef(ref);
+    citeSheet({ ref, text: a.textContent, resolved: !!ref, why: ref ? "" : a.title, secBy: a.dataset.secby || "", sec: a.dataset.sec || "" });
+  });
+}
+function openPHRef(ref) {   // "Peninei Halakhah, Shabbat 21:8" -> that chapter in Pearls, scrolled to the section
+  const m = /^Peninei Halakhah, (.+?) (\d+):(\d+)$/.exec(ref), b = m && SEF_BOOK[m[1]];
+  const t = b && BYID[`${b}-${String(+m[2]).padStart(2, "0")}`];
+  if (!t) { window.open(sefUrl(ref), "_blank", "noopener"); return; }
+  go(`ch-${t.id}`);
+  let n = 0; const seek = () => { const s = $(`#sec-${+m[3]}`); if (s) s.scrollIntoView({ behavior: "smooth" }); else if (n++ < 40) setTimeout(seek, 100); };
+  setTimeout(seek, 50);
+}
+function citeSheet(h) {
+  const lic = (v, l) => v ? `<div class="pc-lic">${esc(v)} · ${esc(l || "licence not stated by the source")}</div>` : "";
+  const sec = h.secBy === "vol" || h.secBy === "chapter"
+    ? `<p class="pc-note">The siman is the author's. The section (${esc(h.sec)}) is our reading of this chapter, because the citation doesn't name one.</p>` : "";
+  dialog(`<div class="pc-sheet"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+      <h3>${esc(h.resolved ? h.ref : h.text)}</h3><button class="iconbtn" data-x aria-label="Close">${I.x}</button></div>
+    ${h.resolved ? `${sec}<div class="pc-body"><div class="loading"><div class="spin"></div>Loading from Sefaria…</div></div>
+      <div class="meldarrow"><a class="tool" href="${PEARLS_CITE.sefariaUrl(h.ref)}" target="_blank" rel="noopener">${I.ext}<span>Open on Sefaria</span></a>
+      <a class="tool" href="${PEARLS_CITE.meldarUrl(h.ref)}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a></div>`
+      : `<p class="note">${esc(h.why || "This reference couldn't be turned into a text address.")}</p>`}</div>`, (s, close) => {
+    $("[data-x]", s).onclick = close;
+    if (!h.resolved) return;
+    PEARLS_CITE.fetchSource(h.ref).then(x => {
+      const body = $(".pc-body", s); if (!body) return;
+      body.innerHTML = x.error ? `<p class="note">${esc(x.error)}</p>`
+        : (x.he ? `<p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}` : "")
+        + (x.en ? `<p class="pc-en">${esc(x.en)}</p>${lic(x.enVersion, x.enLicence)}` : "");
+      const he = $(".pc-he", body); if (he) tintHebrew(he);
+    });
+  });
 }
 
 /* ---------- per-section tools: save, share, Sefaria/Meldar, Hebrew side by side ---------- */
@@ -1132,7 +1185,7 @@ function applyReadLang(t, r) {
   empty.forEach(s => { s.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`; });
   hebrewChapter(t).then(() => empty.forEach(s => {
     const h = hebCache[`${t.id}-${String(s.dataset.sec).padStart(2, "0")}`];
-    s.innerHTML = h ? `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}` : `<p class="note" dir="ltr">No Hebrew found for this section.</p>`; tintHebrew(s);
+    s.innerHTML = h ? `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}` : `<p class="note" dir="ltr">No Hebrew found for this section.</p>`; hebDone(s, t);
   })).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
 }
 function toggleSave(t, sec) {
@@ -1674,7 +1727,7 @@ document.addEventListener("click", e => {
     case "hebsec": { const sec = b.closest("section"), slot = sec.querySelector(".hebslot");
       slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; break; }
       slot.hidden = false; slot.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`;
-      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; tintHebrew(slot); })
+      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); })
         .catch(() => { slot.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew for this section. You need a connection.</p>`; }); break; }
     case "markdone": { if (state.read[id]) { delete state.read[id]; } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
     case "togglelist": toggleList(b.dataset.list, id); break;

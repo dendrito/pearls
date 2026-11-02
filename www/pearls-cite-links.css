@@ -1,0 +1,30 @@
+/* Citation links. Flat on purpose: a line and a colour, no gradient or shadow, so every skin can
+   restyle them with --pc-link / --pc-card / --pc-ink. */
+.pc-cite { color: var(--pc-link, inherit); text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 3px; text-decoration-color: var(--pc-link, currentColor); cursor: pointer; }
+.pc-cite-named { text-decoration-style: dotted; color: inherit; }
+.pc-cite-internal { text-decoration-style: double; }
+#pc-pop { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: flex-end;
+  justify-content: center; z-index: 9999; }
+#pc-pop .pc-card { background: var(--pc-card, #fff); color: var(--pc-ink, #222); width: 100%; max-width: 640px;
+  max-height: 78vh; overflow: auto; border-radius: 12px 12px 0 0; padding: 18px 16px 22px; position: relative;
+  border-top: 2px solid var(--pc-link, #8a6d3b); }
+#pc-pop .pc-x { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 14px; text-decoration: underline;
+  color: inherit; cursor: pointer; }
+#pc-pop .pc-head { font-weight: 700; margin-right: 28px; }
+#pc-pop .pc-note, #pc-pop .pc-lic { font-size: 13px; opacity: .75; margin: 4px 0 8px; }
+#pc-pop .pc-he { font-size: 1.15em; line-height: 1.9; }
+#pc-pop .pc-why { font-style: italic; }
+#pc-pop .pc-links { display: flex; gap: 16px; margin-top: 12px; }
+#pc-pop .pc-links a { color: var(--pc-link, #8a6d3b); }
+@media (prefers-color-scheme: dark) {
+  #pc-pop .pc-card { background: var(--pc-card, #1d1b18); color: var(--pc-ink, #eee); }
+}
+/* Pearls: links take the reader's accent; the sheet is the app's own .dialog, so every skin styles it */
+.reader a.pc-cite, .dialog a.pc-cite { color: var(--gold-2); text-decoration-color: var(--gold-2); }
+.reader a.pc-cite-named { color: inherit; text-decoration-color: var(--dim); }
+.pc-sheet { display: flex; flex-direction: column; gap: 10px; }
+.pc-sheet h3 { font-size: 20px; }
+.pc-sheet .pc-he { font-family: var(--f-heb); font-size: calc(19px * var(--read-scale, 1)); line-height: 1.9; }
+.pc-sheet .pc-en { font-size: calc(16px * var(--read-scale, 1)); line-height: 1.6; }
+.pc-sheet .pc-lic, .pc-sheet .pc-note { font-size: 13px; color: var(--mist); }
