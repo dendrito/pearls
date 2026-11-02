@@ -40,6 +40,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
     does", the Ashkenaz exception and the `#spelling` page. It must end "spelling: 11/11".
   - `python3 tts/test_speech.py`: Hebrew terms in any spelling reach the AI voice in a sayable form, English words
     untouched. It must end "speech: 6/6".
+  - `python3 test_flat.py`: the flat rule (see Rules). It must end "flat: no soft gradients or blurs".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
   - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 13/13".
@@ -101,7 +102,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 
 | Path | What |
 |---|---|
-| `www/app.js`, `app.css`, `skins.css`, `modes.css`, `data.js` | The app. 17 skins, each in light and dark (2.3): `skins.css` draws each skin in its own mode (`light` in SKINS), `modes.css` holds the counterpart palette under `body[data-alt]`; Settings → Appearance (`prefs.mode`: design, light, dark, auto) picks. Pearl Minimal's three entries became one skin (old prefs migrate). Check with `python3 tools_skinshots.py home|read|settings` (contact sheets in `build/skinshots/`). 3 Hebrew typefaces (Frank Ruhl Libre, Shofar, Keter YG v0.103). Read/listen language pickers. Audio control bar. Credits page (`#credits`). |
+| `www/app.js`, `app.css`, `skins.css`, `modes.css`, `data.js` | The app. 23 skins, each in light and dark (2.3; the six flat skins Azulejo, Cut Paper, Riso, Bone & Ink, Mizraḥ Arches and Thread came in 2.6, with their art in `www/art/<skin>-<light|dark>.svg`): `skins.css` draws each skin in its own mode (`light` in SKINS), `modes.css` holds the counterpart palette under `body[data-alt]`; Settings → Appearance (`prefs.mode`: design, light, dark, auto) picks. Pearl Minimal's three entries became one skin (old prefs migrate). Check with `python3 tools_skinshots.py home|read|settings` (contact sheets in `build/skinshots/`). 3 Hebrew typefaces (Frank Ruhl Libre, Shofar, Keter YG v0.103). Read/listen language pickers. Audio control bar. Credits page (`#credits`). |
 | `www/meldar-cite.js`, `www/pearls-cite-links.js`, `.css` | Citation links. Footnote and body citations (SA 345:2, MB, Shabbat 6a, Rambam, Tosafot, Tanakh, Arukh HaShulchan…) become links; a tap opens a sheet with the passage from Sefaria (Hebrew, English, each version's licence) and "Open on Sefaria / in Meldar". `meldar-cite.js` is Meldar's citation grammar, **shipped unmodified** like `meldar-record.js`: upgrade it by copying Meldar's file, never by editing it here. `linkCites()` in app.js runs before respelling and Hebrew tints (both rewrite text nodes); clicks are delegated (`citeClicks`) because chapter HTML is rebuilt as strings. A bare Shulchan Arukh siman takes its section from the chapter (`sefRef` → the grammar's section table) and the sheet says that part is our reading; with no chapter context it is not linked. Bare names ("Rashi") are not marked. "Peninei Halakha: Shabbat 21:8" opens that Pearls chapter. |
 | `www/calendar.js` | The Jewish calendar and its readings: 22 festivals and fasts plus Rosh Ḥodesh, with postponements, study windows (30 days before a festival) and chapters. Drives Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and the calendar boost in `recommend()`. Method: `docs/calendar-readings.md`. Test: `python3 test_calendar.py` (must end "calendar: 14/14"). |
 | `www/fonts/` | Shofar and Keter YG (Culmus, GPL+FE). Every Hebrew font must have GPOS `mark` and `mkmk`. |
@@ -124,6 +125,10 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   `python3 -I work/check.py BB-CC`.
 - **Network:** ph.yhb.org.il returns 403 for the Python-urllib user agent. Use curl or set a User-Agent.
 - **Claims:** don't state facts about the recordings or the author that aren't verified on PH's own pages.
+- **Flat (hard rule, 2.6):** no skin fakes depth. No gradient that blends one colour into another, no blurred
+  shadow, no blur filter. Hard-stop gradients (stripes, a split swatch, a progress track) and shadows with no blur
+  (Brutal's offset, focus rings) stay, because they are still flat. `python3 test_flat.py` checks app.css, skins.css,
+  modes.css, app.js, index.html and `www/art/*.svg`, and must end "flat: no soft gradients or blurs".
 - **Fonts (hard rule):** every letter the app shows must be drawn by the typeface meant to show it, never borrowed from
   a fallback font (that's what made ḥ, ĥ and ḳ look "weird" in most skins). `python3 test_fonts.py` checks every
   bundled Latin face named in app.css, skins.css and modes.css against every letter and punctuation mark in the text,
