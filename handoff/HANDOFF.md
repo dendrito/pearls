@@ -115,7 +115,14 @@ is in `chat-transcript.jsonl.gz`.
    - 21 Ḥafetzei Kodesh
    - 07 Likkutim I
    - 08 Likkutim II
-3. **Decide KTS vs Meldar's `sp` transliteration.** See `docs/`. This is shared with Meldar.
+3. *(Decided 31 Oct 2026.)* Spelling names: "Original" (Peninei Halakha's own, was "Ashkenazi") and "Neo-Classic S&P"
+   (the KTS house style, was "S&P house rules"). Meldar keeps de Sola–Gaster for its `sp`. Done in 2.6 (unreleased):
+   - `#spelling` page comparing every scheme (content shared with Meldar: spelling-schemes.md in the Pearls project);
+   - "Use English words where the book does" (Neo-Classic only, off by default): Sabbath, Passover, Tabernacles
+     (`ENGLISH` in `make_translit.py`; extend once the Gaster Book of Prayer pages are checked);
+   - lexicon status checked against the full KTS word list (`kts_lemmas.json`, 986 terms): 53 attested, 68 derived;
+   - Ashkenaz is a named exception (`WORKS` in `www/app.js`);
+   - the AI voice says Hebrew terms in any spelling (`tts/speech_form.py`, wired into `speakable`).
 4. *(Moved to the Meldar project on 31 Oct 2026: deploying the Meldar font fix, and Meldar's importer for the
    `pearls-study-log/1` export. The font-fix kit is `meldar-font-fix.zip`; it's no longer in this repo.)*
 5. *(not used)*

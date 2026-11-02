@@ -82,10 +82,13 @@ const $ = (s, el = document) => el.querySelector(s);
    The English text is published in the translators' own romanization (and it varies: Ĥametz / Ḥametz,
    Minĥa / Minchah). A scheme re-spells the Hebrew terms it knows; everything else is left as published. */
 const SCHEMES = {
-  source: { name: "Ashkenazi", sub: "Peninei Halakha's own spelling, as published: Ḥametz, Kiddush, Shabbat" },
-  house:  { name: "S&P house rules", sub: "London Spanish & Portuguese of de Sola and Gaster, with ḥ and ḳ: Ḥaméts, Ḳiddúsh, Shabbath" }
+  source: { name: "Original", sub: "Peninei Halakha's own spelling, as published: Ḥametz, Kiddush, Shabbat" },
+  house:  { name: "Neo-Classic S&P", sub: "The London Spanish & Portuguese spelling of de Sola and Gaster, with ḥ and ḳ added: Ḥaméts, Ḳiddúsh, Shabbath" }
 };
 let scheme = store.get("scheme", "source"); if (!SCHEMES[scheme]) scheme = "source";
+// "Use English words where the book does": Neo-Classic S&P only, off by default. Shabbath -> Sabbath, Pesaḥ -> Passover,
+// Succóth -> Tabernacles, as the London S&P books print them (the `en` column of translit.js).
+let enWords = store.get("enWords", false) === true;
 const LEX = window.PH_TRANSLIT || [];
 const LEXMAP = new Map();
 for (const e of LEX) for (const s of e.src) if (!LEXMAP.has(s.toLowerCase())) LEXMAP.set(s.toLowerCase(), e);
@@ -98,11 +101,12 @@ const caseLike = (src, out) => {
 const WORKS = new RegExp(["Peninei Hala[kc]h(?:a|ah)", "Mishn(?:a|ah) Berur(?:a|ah)", "Shul[ĥḥ]an [’']?Arukh", "Shul[ĥḥ]an Aruch", "Shulchan Aruch",
   "Arukh Ha-?shul[ĥḥ]an", "Kitzur Shul[ĥḥ]an Arukh", "[ĤḤH]ayei Adam", "Kaf Ha-?[ĥḥ]ayim", "Beit Yosef", "Magen Avraham", "Yalkut Yosef",
   "Ye[ĥḥ]aveh Da[’']at", "Yabi[’']a Omer", "Igrot Moshe", "Sefer Ha-?[ĥḥ]inukh", "Seder Hayom", "Ben Ish [ĤḤ]ai", "Mishneh Torah", "Tur",
-  "Hilkhot Shabbat", "Hilkhot [A-Z][\\p{L}’'-]+", "Masekhet [A-Z][\\p{L}’'-]+", "Tractate [A-Z][\\p{L}’'-]+"].join("|"), "gu");
+  "Hilkhot Shabbat", "Hilkhot [A-Z][\\p{L}’'-]+", "Masekhet [A-Z][\\p{L}’'-]+", "Tractate [A-Z][\\p{L}’'-]+",
+  "Ashkenaz(?:im|i)?"].join("|"), "gu");   // named exceptions keep their usual spelling: Ashkenaz, never "Ascenaz"
 const rcache = new Map();
 function R(text) {
   if (!text || scheme === "source" || !LEXRE) return text;
-  const k = scheme + "\u0001" + text; if (rcache.has(k)) return rcache.get(k);
+  const k = scheme + (enWords ? "+en" : "") + "\u0001" + text; if (rcache.has(k)) return rcache.get(k);
   // House rule: names of works and citations keep their catalogue spelling, so they can be looked up.
   const str = String(text), keep = [];
   for (const m of str.matchAll(WORKS)) keep.push([m.index, m.index + m[0].length]);
@@ -110,7 +114,8 @@ function R(text) {
   const out = str.replace(LEXRE, (m, off, whole) => {
     if (inKept(off)) return m;
     if (/^\s+\d+[ab]\b/.test(whole.slice(off + m.length, off + m.length + 8))) return m;   // tractate + folio: Berakhot 26b
-    const e = LEXMAP.get(m.toLowerCase()); return e && e[scheme] ? caseLike(m, e[scheme]) : m;
+    const e = LEXMAP.get(m.toLowerCase()); if (!e || !e[scheme]) return m;
+    return caseLike(m, scheme === "house" && enWords && e.en ? e.en : e[scheme]);
   });
   rcache.set(k, out); return out;
 }
@@ -121,6 +126,8 @@ function respellTree(root) {
   for (const n of nodes) { const v = R(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
 }
 function setScheme(s) { scheme = s; store.set("scheme", s); rcache.clear(); for (const k in textCache) delete textCache[k]; }
+function setEnWords(on) { enWords = !!on; store.set("enWords", enWords); rcache.clear(); for (const k in textCache) delete textCache[k]; }
+const enWordsOpt = () => `<button class="opt" data-enwords aria-pressed="${enWords}"><span class="radio ${enWords ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>Use English words where the book does</b><br><span class="note">With Neo-Classic S&amp;P: Sabbath, Passover and Tabernacles, as the London Spanish &amp; Portuguese prayer books print them, instead of Shabbath, Pesaḥ and Succóth.</span></span></button>`;
 
 
 /* ---------- Sefaria references (the key Meldar and Sefaria share) ---------- */
@@ -884,7 +891,7 @@ function vCredits() {
       <div class="panel"><div class="eyebrow" style="margin-bottom:6px">Changes Pearls makes</div>
         <ul class="credlist">
           <li>Text is reformatted for phone reading, split by section, with links to Sefaria and Meldar.</li>
-          <li>The optional "S&amp;P house rules" spelling changes how some Hebrew terms are transliterated; the default keeps the published spelling.</li>
+          <li>The optional "Neo-Classic S&amp;P" spelling changes how some Hebrew terms are transliterated; the default, "Original", keeps the published spelling. <a href="#spelling">All spelling schemes</a>.</li>
           <li>Hebrew-only volumes are translated into English by AI, as above.</li>
           <li>Chapters are tagged by topic and grouped into playlists and recommendations.</li>
         </ul></div>
@@ -904,6 +911,76 @@ function vCredits() {
         <li>The typefaces, from ${ext("https://fonts.google.com/", "Google Fonts")} under the SIL Open Font License, including Frank Ruhl Libre for the Hebrew.</li>
         <li>The Hebrew faces Shofar (in the style of Koren) and Keter YG, by Yoram Gnat of the ${ext("https://culmus.sourceforge.io/taamim/", "Culmus project")}, under the GNU GPL v2 with the font exception; included unmodified.</li>
       </ul></section>
+  </div>`;
+}
+/* All spelling schemes, compared (#spelling). The same table Meldar shows; source: spelling/spelling-schemes.md in the
+   Pearls project. Cells marked * are worked out from that scheme's rules, not seen printed. */
+const SCHEME_LIST = [
+  ["Original", "In Pearls", "Peninei Halakha's own English edition", "The spelling the book's translators used, mostly Ashkenazi and Israeli. It isn't rule-based and varies from book to book (Chodesh, Ĥodesh and Ḥodesh all appear)."],
+  ["Neo-Classic S&P", "In Pearls", "de Sola and Gaster's London Spanish & Portuguese spelling, as Shem Tob Gaguine wrote it", "The traditional S&P spelling, with ḥ, ḳ and ch added so the Hebrew letter behind the English can be read back."],
+  ["de Sola–Gaster", "In Meldar", "Book of Prayer of the Spanish & Portuguese Jews' Congregation, London (de Sola 1836, rev. Gaster 1901)", "As printed: h for both ḥet and khaf, k for qof, ng for ayin, ph, th, and stress accents."],
+  ["Modern London", "For reference", "The Heshaim siddur, 2011 and 2020", "The modern S&P siddur. It uses English for some words (Sabbath, Passover)."],
+  ["S&P London academic", "In Keter Shem Tob", "Scholarly romanization", "ḥ, q, ʿ, kh, and v for vet."],
+  ["Modern Sephardi", "In Keter Shem Tob", "The Israeli and Sephardi everyday standard", "ch for ḥet and khaf, k, silent ayin: Chodesh, Kiddush, Shema."],
+  ["Amsterdam", "For reference", "Esnoga English", "ch for ḥet and khaf, tz for tsadi, ng for ayin."],
+  ["Dutch", "For reference", "Esnoga Dutch (Pereira)", "sj, j, w and oe, as in Dutch."],
+];
+const LETTER_COLS = ["S&P academic", "Modern London", "Neo-Classic S&P", "de Sola–Gaster"];
+const LETTER_ROWS = [
+  ["ח", "ḥ", "h", "ḥ", "h (sometimes hh: Rosh Hhódesh)"],
+  ["ק", "q", "k", "ḳ", "k"],
+  ["כ", "kh", "kh", "ch", "h (Hahám)"],
+  ["כּ", "k", "k", "c / k", "c / k"],
+  ["פ", "f", "f", "ph", "ph"],
+  ["final ת", "t", "t", "th", "th"],
+  ["ע", "ʿ", "silent", "ng, ’ at the start", "ng"],
+  ["ב (vet)", "v", "v", "b", "b"],
+  ["Doubled letters", "yes", "some", "yes", "yes"],
+  ["Stress accent", "no", "no", "yes", "yes"],
+];
+const WORD_COLS = ["Original", "Neo-Classic S&P", "de Sola–Gaster", "Modern London", "S&P academic", "Amsterdam", "Dutch"];
+const WORD_ROWS = [
+  ["קַדִּישׁ", "Kaddish", "Ḳaddéesh", "Kaddéesh", "Kaddish", "Qaddish", "Kaddish", "Kaddisj"],
+  ["חֹדֶשׁ", "Chodesh", "Ḥódesh", "Hhódesh", "Hodesh", "Ḥodesh", "Chodesh", "Chodesj"],
+  ["תְּפִלִּין", "tefillin", "Tephilléen", "Tephilléen", "Tefilin", "Tefillin", "Tefillin", "Tefillin"],
+  ["שְׁמַע", "Shema", "Shemang", "Shemang", "Shema", "Shemaʿ", "Shemang", "Sjemang"],
+  ["בְּרָכָה", "berakha", "Berachá", "Beraháh*", "Berakha", "Berakhah", "Beracha", "Beracha"],
+  ["כֹּהֵן", "Kohen", "Cohen", "Cohen", "Cohen", "Kohen", "Cohen", "Cohen"],
+];
+function vSpelling() {
+  setTop("Spelling"); setTab("");
+  const table = (cols, rows, first) => `<div class="schemes-scroll"><table class="schemes-t"><thead><tr><th>${first}</th>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(([h, ...r]) => `<tr><th${/[֐-׿]/.test(h) ? ` lang="he" dir="rtl" class="he"` : ""}>${esc(h)}</th>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  view.innerHTML = `<div class="view credits schemes">
+    <div><div class="eyebrow">Spelling of Hebrew words</div>
+      <h1 class="hello">One word, <em>many spellings</em>.</h1>
+      <p class="sub">English books write Hebrew in different ways. Pearls offers two: <b>Original</b>, the spelling Peninei Halakha's translators used, and <b>Neo-Classic S&amp;P</b>. You're reading in <b>${esc(SCHEMES[scheme].name)}</b>. Change it in Settings.</p></div>
+
+    <section><div class="sec-h"><h2>The schemes</h2></div>
+      <div class="list">${SCHEME_LIST.map(([n, where, base, line]) => `<div class="panel scheme${SCHEMES[scheme].name === n ? " on" : ""}"><div class="eyebrow">${esc(where)}</div><b>${esc(n)}</b>
+        <p class="note" style="margin:4px 0 0">${esc(line)}</p><p class="foot" style="margin:4px 0 0">Based on: ${esc(base)}</p></div>`).join("")}</div></section>
+
+    <section><div class="sec-h"><h2>About Neo-Classic S&amp;P</h2></div>
+      <p class="reader-p">Neo-Classic S&amp;P is based on the London Spanish &amp; Portuguese spelling of D. A. de Sola (1836), revised by Moses Gaster (1901) and reissued under Haham Solomon Gaon, as printed in the <i>Book of Prayer of the Spanish &amp; Portuguese Jews' Congregation, London</i>. Shem Tob Gaguine wrote in this spelling himself, and so did the prayer books of his congregation.</p>
+      <p class="reader-p">It keeps the book's letters: b for vet (Yom Tob), c before a, o and u and k before e and i (Cohen, Keter), ph (Sepher), ts (Erets), th at the end of a word (Shabbath), ng for ayin (Shemang), acute accents for stress, and doubled letters for dagesh. It also keeps five familiar words exactly as the book prints them: Ḳaddéesh, Tsitséet, Tephilléen, Puréem and Talét.</p>
+      <p class="reader-p">It makes three changes, so you can tell which Hebrew letter stands behind the English. The book writes both ḥet and khaf as h, and both qof and hard kaf as k.</p>
+      <ul class="credlist">
+        <li><b>ch</b> for khaf (Berachá), where the book has h (Hahám).</li>
+        <li><b>ḥ</b> for ḥet. The book writes ḥet as h, or sometimes hh (Rosh Hhódesh), so the tradition already felt the need to mark it.</li>
+        <li><b>ḳ</b> for qof, borrowed from library catalogue romanization, so that Ḳidush (ק) and Kipur (כּ) no longer start with the same letter.</li>
+      </ul>
+      <p class="reader-p" style="margin-top:10px">Names of tractates, books and rabbis keep their usual catalogue spelling (<i>Moed Katan</i>, <i>Shulchan Aruch</i>), so a reference can be looked up. A few names are fixed exceptions: Ashkenaz stays Ashkenaz.</p></section>
+
+    <section><div class="sec-h"><h2>Letter by letter</h2></div>
+      ${table(LETTER_COLS, LETTER_ROWS, "")}
+      <p class="foot">Original has no row here: Peninei Halakha's own spelling isn't rule-based.</p></section>
+
+    <section><div class="sec-h"><h2>The same words, every scheme</h2></div>
+      ${table(WORD_COLS, WORD_ROWS, "")}
+      <p class="foot">* Worked out from the scheme's rules, not seen printed. Original shows the spelling Peninei Halakha uses most often.</p></section>
+
+    <section><div class="sec-h"><h2>English words</h2></div>
+      <p class="reader-p">The London books translate some words instead of spelling them in Hebrew: Sabbath, Passover, Tabernacles. Turn on <b>Use English words where the book does</b> in Settings to read them that way with Neo-Classic S&amp;P. It's off unless you choose it.</p></section>
   </div>`;
 }
 function vOnboard() {
@@ -1306,7 +1383,9 @@ function settingsDialog() {
     <div class="field"><label>Appearance</label><div class="chips">${MODES.map(([v, l]) => `<button class="chip ${(state.prefs.mode || "design") === v ? "on" : ""}" data-mode="${v}">${l}</button>`).join("")}</div>
       <span class="note">Every skin has a light and a dark version. "As designed" uses the one it was drawn in.</span></div>
     <div class="field"><label>Spelling of Hebrew words</label>
-      ${Object.entries(SCHEMES).map(([k, s]) => `<button class="opt" data-s="${k}"><span class="radio ${k === scheme ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${s.name}</b><br><span class="note">${esc(s.sub)}</span></span></button>`).join("")}</div>
+      ${Object.entries(SCHEMES).map(([k, s]) => `<button class="opt" data-s="${k}"><span class="radio ${k === scheme ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${esc(s.name)}</b><br><span class="note">${esc(s.sub)}</span></span></button>`).join("")}
+      ${enWordsOpt()}
+      <a class="note" href="#spelling" data-credits style="color:var(--gold-2)">All spelling schemes, compared</a></div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
     <div class="field"><label>Read in</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${(state.prefs.read || "en") === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
@@ -1318,11 +1397,12 @@ function settingsDialog() {
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
       <span class="note">Use {ref} for the Sefaria reference, e.g. “Peninei Halakhah, Berakhot 4:2”. Leave empty to hide the Meldar button.</span></div>
-    <p class="foot" style="margin:0">S&amp;P house rules re-spell ${LEX.length} recurring terms (${LEX.filter(e => e.st === "a").length} as the Keter Shem Tob house rules spell them, the rest derived by the same rules). Book and rabbi names keep their published spelling.</p>
+    <p class="foot" style="margin:0">Neo-Classic S&amp;P re-spells ${LEX.length} recurring terms (${LEX.filter(e => e.st === "a").length} as Keter Shem Tob spells them, the rest derived by the same rules). Book and rabbi names keep their published spelling.</p>
     ${NATIVE ? `<a class="btn line" href="#downloads" data-credits>${DLI.get}Downloads &amp; offline</a>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><a class="btn line" href="#credits" data-credits>Credits &amp; licence</a><button class="btn gold" data-ok>Done</button></div>`, (s, close) => {
     s.querySelectorAll("[data-credits]").forEach(a => a.onclick = () => close());
     s.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { setScheme(b.dataset.s); s.querySelectorAll("[data-s] .radio").forEach(r => r.classList.toggle("on", r.parentNode.dataset.s === scheme)); });
+    $("[data-enwords]", s).onclick = () => { setEnWords(!enWords); $("[data-enwords] .radio", s).classList.toggle("on", enWords); $("[data-enwords]", s).setAttribute("aria-pressed", enWords); };
     s.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { state.prefs.skin = b.dataset.skin; if (b.dataset.skin === "daf" && !state.prefs.readSet) state.prefs.read = "both"; save.prefs(); applyPrefs(); s.querySelectorAll("[data-skin]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
     s.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { state.prefs.mode = b.dataset.mode; save.prefs(); applyPrefs(); s.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b)); });
     s.querySelectorAll("[data-hefont]").forEach(b => b.onclick = () => { state.prefs.hefont = b.dataset.hefont; save.prefs(); applyHebFont(); s.querySelectorAll("[data-hefont]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
@@ -1563,12 +1643,17 @@ function spellingDialog() {
   dialog(`<h3>Spelling of Hebrew words</h3>
     <p class="note" style="margin:0">Changes how Hebrew terms are spelled in titles and in the English text. The audio is unaffected.</p>
     ${Object.entries(SCHEMES).map(([k, s]) => `<button class="opt" data-s="${k}" aria-pressed="${k === scheme}">
-      <span class="radio ${k === scheme ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${s.name}</b><br><span class="note">${esc(s.sub)}</span></span></button>`).join("")}
-    <p class="foot" style="margin:0">S&amp;P house rules re-spell ${LEX.length} recurring terms: ${att} exactly as the Keter Shem Tob house rules spell them, ${der} derived by the same rules. Words outside the list keep the published spelling. Names of books and rabbis are left alone, as in the house rules.</p>`, (s, close) => {
+      <span class="radio ${k === scheme ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${esc(s.name)}</b><br><span class="note">${esc(s.sub)}</span></span></button>`).join("")}
+    ${enWordsOpt()}
+    <a class="btn line" href="#spelling" data-schemes>All spelling schemes, compared</a>
+    <p class="foot" style="margin:0">Neo-Classic S&amp;P re-spells ${LEX.length} recurring terms: ${att} exactly as Keter Shem Tob spells them, ${der} derived by the same rules. Words outside the list keep the published spelling. Names of books and rabbis are left alone, as in the house rules.</p>`, (s, close) => {
     s.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
       setScheme(b.dataset.s); close(); renderMini(); render();
       toast(`Spelling: ${SCHEMES[scheme].name}`);
     });
+    $("[data-enwords]", s).onclick = () => { setEnWords(!enWords); close(); renderMini(); render();
+      toast(enWords ? "English words where the book uses them" : "Hebrew words throughout"); };
+    $("[data-schemes]", s).onclick = () => close();
   });
 }
 /* Review (spaced: due again after 1, 3, 7, 14 and 30 days, then it leaves the list) and Study later (a reading
@@ -1749,6 +1834,7 @@ function render() {
   else if (h === "progress") vProgress();
   else if (h === "search") vSearch();
   else if (h === "credits") vCredits();
+  else if (h === "spelling") vSpelling();
   else if (h === "calendar") vCalendar();
   else if (h === "downloads") vDownloads();
   else vHome();
@@ -1775,5 +1861,5 @@ if (state.lastQueue && state.lastQueue.ids && state.lastQueue.ids.length && !sta
 applyPrefs();
 renderMini();
 render();
-window.PEARLS = { playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
+window.PEARLS = { playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
 })();

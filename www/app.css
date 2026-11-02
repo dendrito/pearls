@@ -447,3 +447,14 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .listic svg{width:22px;height:22px}
 .listic.liked{color:var(--gold)}
 .np-tools{flex-wrap:wrap;justify-content:flex-start;gap:8px}
+
+/* All spelling schemes (#spelling) */
+.schemes .scheme b{display:block;color:var(--pearl);font-size:16px;margin-top:2px}
+.schemes .scheme.on{border-color:var(--gold)}
+.schemes-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;max-width:100%}
+.schemes-t{border-collapse:collapse;font-size:14px;color:var(--text);min-width:100%}
+.schemes-t th,.schemes-t td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;white-space:nowrap}
+.schemes-t thead th{color:var(--mist);font-weight:600;font-size:12px}
+.schemes-t tbody th{color:var(--pearl);font-weight:600}
+.schemes-t .he{font-family:var(--f-heb);font-size:18px;font-weight:400;text-align:right}
+.schemes-t tr:last-child>*{border-bottom:0}
