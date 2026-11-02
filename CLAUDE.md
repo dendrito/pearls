@@ -36,6 +36,10 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
     It must end "32/32 checks passed".
   - `python3 test_playmodes.py`: playback order, smart downloads that follow it, and the Review / Study later lists.
     It must end "17/17 checks passed".
+  - `python3 test_spelling.py`: the spelling schemes (Original, Neo-Classic S&P), "Use English words where the book
+    does", the Ashkenaz exception and the `#spelling` page. It must end "spelling: 11/11".
+  - `python3 tts/test_speech.py`: Hebrew terms in any spelling reach the AI voice in a sayable form, English words
+    untouched. It must end "speech: 6/6".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
   - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end

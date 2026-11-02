@@ -16,6 +16,8 @@ import argparse, glob, json, os, re, subprocess, sys, tempfile
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from speech_form import speech_form
 
 # ---------- text for the ear ----------
 ABBR = {   # citation abbreviations, spoken in full when citations are kept
@@ -62,6 +64,26 @@ def load_lexicon(path):
                 lex.append((re.compile(r"(?<![\w-])" + re.escape(x) + r"(?![\w-])"), y))
     return lex
 
+# Hebrew terms in any spelling the text may show (Original's ĥ, Neo-Classic S&P's ḳ, ch, final th and stress accents,
+# de Sola–Gaster's Hh): speech_form turns them into a form the voice can say. Only Hebrew terms are touched: a word
+# carrying one of those marks, or one of the Neo-Classic forms in www/translit.js (Shabbath has no mark). English words
+# (church, with, don’t) are left alone.
+TERM_L = r"[\wḥḤḳḲĥĤʿ]"
+TERM = re.compile(rf"(?<![\w-]){TERM_L}+(?:['’-]{TERM_L}+)*")   # inner apostrophes and hyphens stay with the word
+MARK = re.compile(r"[ḥḤḳḲĥĤʿáéíóúÁÉÍÓÚ]|^Hh")
+def _house_forms():
+    p = os.path.join(HERE, "..", "www", "translit.js")
+    if not os.path.exists(p): return set()
+    s = open(p, encoding="utf8").read()
+    rows = json.loads(s[s.index("["):s.rindex("]") + 1])
+    return {w.strip("’'") for r in rows for w in r["house"].split()} - {""}
+HOUSE = _house_forms()
+def _say(w):
+    if not (MARK.search(w) or w in HOUSE): return w
+    return speech_form(w.replace("’", "\0").replace("'", "\0")).replace("\0", "’")   # keep ru’aḥ's break (ru-akh)
+def hebrew_terms(t):
+    return TERM.sub(lambda m: _say(m.group()), t)
+
 def speakable(html, lex, keep_refs=False):
     t = re.sub(r"<sup[^>]*>.*?</sup>", "", html, flags=re.S)          # footnote markers
     t = re.sub(r"</p>\s*<p[^>]*>", "\n\n", t); t = re.sub(r"<br\s*/?>", "\n", t)
@@ -76,6 +98,7 @@ def speakable(html, lex, keep_refs=False):
     t = re.sub(r"[\u0590-\u05FF\uFB1D-\uFB4F][\u0590-\u05FF\uFB1D-\uFB4F\s'\"׳״־-]*", " ", t)   # Hebrew script: the voice can't read it
     t = re.sub(r"\(\s*[,;:]?\s*\)|\[\s*\]|[\"“”']\s*[\"“”']", "", t)
     for rx, b in lex: t = rx.sub(b, t)                                 # whole-term respellings first
+    t = hebrew_terms(t)                                                # then any other Hebrew term, in any spelling
     t = t.translate(LETTERS)
     t = re.sub(r"(?<=[A-Za-z])['’](?!(?:ll|re|ve)\b)(?=[a-z]{2,})", "-", t)   # Sha'arei -> Sha-arei; keeps don't, God's, you'll
     t = re.sub(r"[ \t]+", " ", t)
