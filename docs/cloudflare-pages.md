@@ -61,3 +61,11 @@ give the same pass: a signed, HttpOnly cookie that lasts 90 days. The code is in
 **Signing everyone out:** change `SESSION_SECRET`. This also cancels every invite link.
 Preview deployments have no `SESSION_SECRET` and answer "not set up", so they stay closed.
 
+
+## When a merge to main doesn't deploy
+
+The Deployments page should show a new row for each commit on main. If it keeps showing an old commit, Cloudflare has
+lost access to the repository (the dashboard says "disconnected from Git account"). "Retry deployment" on an old row
+only rebuilds that old commit, so it won't help. Instead, open github.com/settings/installations, click Configure next
+to *Cloudflare Workers and Pages*, and make sure dendrito/pearls is in its repository list. Then push any commit to
+main to start a build.
