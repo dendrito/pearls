@@ -508,3 +508,12 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .kinddesc{margin:0;max-width:62ch}
 .kinddesc .kindtag{margin-right:4px}
 .trk .m .kindtag{margin-right:2px}
+
+/* Books page: one tap plays a book (or continues it) */
+.volwrap{position:relative;display:flex;flex-direction:column}
+.volshelf .volwrap,.shelf .volwrap{flex:none}
+.volplay{position:absolute;top:8px;right:8px;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--on-gold);border:2px solid var(--ink)}
+.volplay svg{width:18px;height:18px;margin-left:2px}
+.mini .mact.sec{position:relative}
+.mini .mact.sec::after{content:"§";position:absolute;right:3px;bottom:2px;font-size:10px;font-weight:700;color:var(--gold-2)}
+@media (max-width:559px){.mini .mtools .mact{width:32px}}

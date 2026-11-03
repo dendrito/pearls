@@ -109,6 +109,10 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   playlist and More), and Home a "Listening now" card. All open the chapter at the section playing (`readAlong()` →
   `goSection()`). In the chapter view `paintNowSec()` marks that section and its TOC row, shows a "Playing now · Go
   there" bar, and follows the next section only if you were reading the one before (it never yanks you back).
+- **Control bar and Books page** (2.7): the mini player also has Shuffle, Repeat (queue → chapter → section → off)
+  and Continue the book toggles, which set `prefs.playMode` like the order pill. Continue the book now runs on into the
+  next book (`nextInOrder()`, skipping chapters with no recording). Every book card has a play button that starts the
+  book at its first unheard chapter.
 - The Apple app and the web version have no bridge. They read the bundled English offline, but don't download audio.
 
 ## Where things are

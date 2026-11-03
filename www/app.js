@@ -416,13 +416,19 @@ const cur = () => BYID[P.queue[P.idx]];
 /* Playback order (Now Playing → the order pill). Smart downloads follow it: they fetch what will actually play next. */
 const PLAY_MODES = [
   ["next", "In order", "The queue in order; when it ends, a recommendation", "order"],
-  ["book", "Continue the book", "After each chapter, the next chapter of the same book", "book"],
+  ["book", "Continue the book", "After each chapter, the next one in the book; at the end of a book, the next book", "book"],
   ["shuffle", "Shuffle", "The rest of the queue in random order", "shuffle"],
   ["repeat1", "Repeat chapter", "Hear this chapter again and again", "repeat1"],
   ["repeatAll", "Repeat queue", "Back to the first chapter when the queue ends", "repeat"],
   ["repeatSec", "Repeat section", "Loop the current section, to learn it by heart (chazara)", "repeat1"]
 ];
 const playMode = () => state.prefs.playMode || "next";
+function nextInOrder(t) {   // the next chapter with a recording, in book order; after a book's last chapter, the next book
+  const ts = TRACKS.filter(x => x.vol === t.vol).sort((a, b) => a.n - b.n);
+  for (const x of ts) if (x.n > t.n && (hasHe(x) || hasEn(x))) return x;
+  for (let i = VOLS.indexOf(t.vol) + 1; i < VOLS.length; i++) { const f = TRACKS.filter(x => x.vol === VOLS[i]).sort((a, b) => a.n - b.n).find(x => hasHe(x) || hasEn(x)); if (f) return f; }
+  return null;
+}
 function shuffleRest() {   // keep what's playing; shuffle what comes after it, remembering the order to go back to
   if (P.idx < 0) return; P.unshuffled = P.queue.slice();
   const rest = P.queue.slice(P.idx + 1);
@@ -440,7 +446,7 @@ function upcoming(n) {
   const t = cur(); if (!t) return [];
   const m = playMode(), out = [];
   if (m === "repeat1" || m === "repeatSec") return [t.id];
-  if (m === "book") { let x = t; while (out.length < n && (x = BYID[`${x.vol.book}-${String(x.n + 1).padStart(2, "0")}`])) out.push(x.id); return out; }
+  if (m === "book") { let x = t; while (out.length < n && (x = nextInOrder(x))) out.push(x.id); return out; }
   for (let k = P.idx + 1; out.length < n && k < P.queue.length; k++) out.push(P.queue[k]);
   if (m === "repeatAll") for (let k = 0; out.length < n && k < P.idx; k++) out.push(P.queue[k]);
   return out;
@@ -486,8 +492,8 @@ function nextTrack(skipped) {
   const t = cur(); if (t && skipped && audio.currentTime < 60 && P.part === 0) { state.skips[t.id] = (state.skips[t.id] || 0) + 1; save.skips(); }
   const m = playMode();
   if (m === "book" && t) {   // the next chapter of this book comes next, whatever the queue holds
-    const nx = BYID[`${t.vol.book}-${String(t.n + 1).padStart(2, "0")}`];
-    if (nx && (hasHe(nx) || hasEn(nx))) { if (P.queue[P.idx + 1] !== nx.id) P.queue.splice(P.idx + 1, 0, nx.id); P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); return; }
+    const nx = nextInOrder(t);
+    if (nx) { if (nx.vol !== t.vol) toast(`Next book: ${R(nx.vol.title)}`); if (P.queue[P.idx + 1] !== nx.id) P.queue.splice(P.idx + 1, 0, nx.id); P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); return; }
   }
   if (m === "repeatAll" && P.idx >= P.queue.length - 1 && P.queue.length) { P.idx = 0; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); toast("From the top"); return; }
   if (P.idx < P.queue.length - 1) { P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); }
@@ -833,7 +839,8 @@ const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.i
 const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
   const all = volTracks(v), ts = k ? volTracks(v, k) : all, ks = volKinds(v), heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
   const n = ts.length < all.length ? `${ts.length} of ${all.length} chapters` : `${all.length} chapters`;
-  return `<button class="volcard" data-act="vol" data-id="${v.book}${k && ks.length > 1 ? `-${k}` : ""}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta"><span class="kinds">${(k ? [k] : ks).map(kindTag).join("")}</span>${n}${heard ? ` · ${heard} heard` : ""}</div></div></button>`; };
+  const audible = all.filter(t => hasHe(t) || hasEn(t)), next = audible.find(t => !(state.plays[t.id] || {}).done) || audible[0];
+  return `<div class="volwrap"><button class="volcard" data-act="vol" data-id="${v.book}${k && ks.length > 1 ? `-${k}` : ""}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta"><span class="kinds">${(k ? [k] : ks).map(kindTag).join("")}</span>${n}${heard ? ` · ${heard} heard` : ""}</div></div></button>${next ? `<button class="volplay" data-act="playvol" data-id="${v.book}" data-start="${all.indexOf(next)}" aria-label="${heard ? "Continue" : "Play"} ${esc(R(v.title))}">${I.play}</button>` : ""}</div>`; };
 
 /* ---------- views ---------- */
 const view = $("#view"), topTitle = $("#topTitle"), backBtn = $("#backBtn"), brand = $("#brand");
@@ -1638,12 +1645,18 @@ function vSearch(q = "") {
 
 /* ---------- mini player & now playing ---------- */
 const mini = $("#mini");
+const PLAY_ICON_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>';
+function modeToggle(m) { setPlayMode(m); renderMini(); toast(PLAY_MODES.find(x => x[0] === m)[1]); }
 function mTools(t, labelled) {   // the mini player's Read along / Favorite / Playlist / More; on phones a row of its own, on wider screens beside the title
   const on = state.likes.has(t.id);
-  return `<button class="${labelled ? "mreadl" : "iconbtn mread"}" data-act="readalong" data-id="${t.id}" aria-label="Read along: the text of section ${P.part + 1}">${I.read}${labelled ? "<span>Read along</span>" : ""}</button>
-      <button class="iconbtn mact ${on ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Favorite">${on ? I.heartOn : I.heart}</button>
-      <button class="iconbtn mact" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
-      <button class="iconbtn mact" data-act="trackmenu" data-id="${t.id}" aria-label="More: Review, Study later, Play next">${I.more}</button>`;
+  const m = playMode(), rep = { repeatAll: ["repeat", "Repeat: the queue"], repeat1: ["repeat1", "Repeat: this chapter"], repeatSec: ["repeat1", "Repeat: this section"] }[m];
+  return `<button class="${labelled ? "mreadl" : "iconbtn mread"}" data-act="readalong" data-id="${t.id}" aria-label="Read along: the text of section ${P.part + 1}" title="Read along: the text of section ${P.part + 1}">${I.read}${labelled ? "<span>Read along</span>" : ""}</button>
+      <button class="iconbtn mact ${m === "shuffle" ? "on" : ""}" data-act="mshuffle" aria-pressed="${m === "shuffle"}" aria-label="Shuffle" title="Shuffle">${I.shuffle}</button>
+      <button class="iconbtn mact ${rep ? "on" : ""} ${m === "repeatSec" ? "sec" : ""}" data-act="mrepeat" aria-pressed="${!!rep}" aria-label="${rep ? rep[1] : "Repeat: off"}" title="${rep ? rep[1] : "Repeat: off"}">${I[rep ? rep[0] : "repeat"]}</button>
+      <button class="iconbtn mact ${m === "book" ? "on" : ""}" data-act="mbook" aria-pressed="${m === "book"}" aria-label="Continue the book, then the next book" title="Continue the book, then the next book">${PLAY_ICON_BOOK}</button>
+      <button class="iconbtn mact ${on ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Favorite" title="Favorite">${on ? I.heartOn : I.heart}</button>
+      <button class="iconbtn mact" data-act="addto" data-id="${t.id}" aria-label="Add to playlist" title="Add to playlist">${I.plus}</button>
+      <button class="iconbtn mact" data-act="trackmenu" data-id="${t.id}" aria-label="More: Review, Study later, Play next" title="More: Review, Study later, Play next">${I.more}</button>`;
 }
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
@@ -1919,7 +1932,7 @@ document.addEventListener("click", e => {
     case "togglelist": toggleList(b.dataset.list, id); break;
     case "playmode": dialog(`<h3>Playback order</h3>${PLAY_MODES.map(([k, n, d, ic]) => `<button class="opt" data-m="${k}"><span class="radio ${playMode() === k ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${n}</b><br><span class="note">${d}</span></span></button>`).join("")}
       <p class="foot" style="margin:0">${NATIVE ? "Smart downloads follow this order, so what plays next is already on the phone." : ""}</p>`, (s2, close) => {
-        s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
+        s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); renderMini(); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
     case "audiolang": { audioLang = (cur() ? P.lang : (audioLang === "auto" ? (wantsEnglish(BYID[id] || {}) ? "en" : "he") : audioLang)) === "en" ? "he" : "en"; store.set("audioLang", audioLang); const pos = audio.currentTime; load(!audio.paused);
       document.querySelectorAll('.chhead [data-act="audiolang"]').forEach(c => { if (BYID[c.dataset.id]) c.textContent = "Listen · " + (wantsEnglish(BYID[c.dataset.id]) ? "English" : "Hebrew"); });
@@ -1962,6 +1975,9 @@ document.addEventListener("click", e => {
     case "np": openNP(); break;
     case "npclose": history.back(); break;
     case "readalong": readAlong(); break;
+    case "mshuffle": modeToggle(playMode() === "shuffle" ? "next" : "shuffle"); break;
+    case "mrepeat": { const order = ["repeatAll", "repeat1", "repeatSec"], i = order.indexOf(playMode()); modeToggle(i === order.length - 1 ? "next" : order[i + 1]); break; }
+    case "mbook": modeToggle(playMode() === "book" ? "next" : "book"); break;
     case "tonowsec": { const s = cur() && $(`#sec-${P.part + 1}`); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); break; }
     case "readnp": closeNP(); history.replaceState(null, "", location.href); go(`ch-${id}`); break;
     case "speed": { const S = [.75, 1, 1.25, 1.5, 1.75, 2]; state.speed = S[(S.indexOf(state.speed) + 1) % S.length]; audio.playbackRate = state.speed; store.set("speed", state.speed); if (P.ctx) { state.speedBy[P.ctx] = state.speed; store.set("speedBy", state.speedBy); } b.textContent = state.speed + "×"; break; }
