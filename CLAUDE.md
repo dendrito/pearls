@@ -65,6 +65,14 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   closing it.
 - **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
 
+## What is translated
+
+Every chapter is one of three kinds, from `kindOf(t)` in `www/app.js`: **Official English** (Har Bracha's translation,
+the volumes in `catalog.js`), **AI translation** (a Hebrew-only volume whose chapter has a bundled translation) or
+**Hebrew only** (not translated yet). Books (`#books`, `#books-official|ai|he`), a mixed book's page (`#vol-20-he`) and
+Search filter by it, and track rows and book cards carry a flat tag (`.kindtag`). The Books and Search filters are
+remembered in `prefs.booksKind` / `prefs.searchKind`.
+
 ## Offline and downloads (Android)
 
 - `android/java/.../PearlsBridge.java` is `window.PearlsNative`:
