@@ -33,7 +33,8 @@
 <script>
 /* Android app (served from appassets.androidplatform.net): text from ph.yhb.org.il goes through the app's own fetcher,
    and saved data from earlier versions (which ran from file://) is carried over once. */
-if (location.host === "appassets.androidplatform.net") window.PEARLS_PROXY = "/proxy?u=";
+/* Web edition on Cloudflare Pages (pearls.pages.dev): the same /proxy, served by functions/proxy.js. */
+if (location.host === "appassets.androidplatform.net" || /(^|\.)pearls\.pages\.dev$/.test(location.hostname)) window.PEARLS_PROXY = "/proxy?u=";
 try { var N = window.PearlsNative, m = N && N.takeMigration && N.takeMigration();
   if (m) { var d = JSON.parse(m); Object.keys(d).forEach(function (k) { if (localStorage.getItem(k) == null) localStorage.setItem(k, d[k]); }); } } catch (e) {}
 </script>
