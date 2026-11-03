@@ -580,6 +580,8 @@ function mediaSession(t) {
    Files are fetched by Android's DownloadManager (PearlsNative, see android/java) into the app's files folder as
    BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
    language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
+/* The word for the device in "saved on this phone": the Apple app says what it runs on (PEARLS_SHELL, set by apple/). */
+const DEVICE = window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : "phone";
 const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
 const DL = {
   ok: false, dir: "", free: 0, files: new Map(), active: new Map(), timer: null,
@@ -746,7 +748,7 @@ function dlMany(ids) {
   if (!ts.length) { toast("Already downloaded"); return; }
   const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
   dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
-    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this phone` : ""}. Each chapter downloads in the language it plays in (${audioLang === "auto" ? "matching your reading language" : audioLang === "en" ? "English where recorded" : "Hebrew"}).
+    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this ${DEVICE}` : ""}. Each chapter downloads in the language it plays in (${audioLang === "auto" ? "matching your reading language" : audioLang === "en" ? "English where recorded" : "Hebrew"}).
     ${DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
@@ -1370,7 +1372,7 @@ function studyLog() {
 function dlSummary() {
   dlRefresh();
   const n = TRACKS.filter(isDownloaded).length, busy = TRACKS.filter(t => ["loading", "waiting"].includes(dlState(t).s)).length;
-  return `${n} chapter${n === 1 ? "" : "s"} on this phone${n ? ` · ${fmtMB(dlUsed())}` : ""}${busy ? ` · ${busy} downloading` : ""} · smart downloads ${DL.prefs.smart ? "on" : "off"}`;
+  return `${n} chapter${n === 1 ? "" : "s"} on this ${DEVICE}${n ? ` · ${fmtMB(dlUsed())}` : ""}${busy ? ` · ${busy} downloading` : ""} · smart downloads ${DL.prefs.smart ? "on" : "off"}`;
 }
 function hebSaved() { if (!NATIVE) return []; try { return JSON.parse(NATIVE.textList()).filter(f => /^he-\d\d-\d\d\.json$/.test(f.n)); } catch { return []; } }
 const HEALL = { run: false, done: 0, total: 0, failed: 0 };
@@ -1395,7 +1397,7 @@ function offlineCard() {
 }
 function vDownloads() {
   setTop("Downloads"); setTab("library");
-  if (!NATIVE) { view.innerHTML = `<div class="view"><h1 class="hello">Downloads</h1><p class="note">Downloading audio for offline listening works in the Android app.</p></div>`; return; }
+  if (!NATIVE) { view.innerHTML = `<div class="view"><h1 class="hello">Downloads</h1><p class="note">Downloading audio for offline listening works in the Pearls app for Android, iPhone and iPad.</p></div>`; return; }
   dlRefresh();
   const p = DL.prefs, have = TRACKS.filter(isDownloaded), busy = TRACKS.filter(t => ["loading", "waiting"].includes(dlState(t).s));
   const heb = hebSaved(), hebMB = heb.reduce((a, f) => a + f.s, 0), enN = TRACKS.filter(t => !t.vol.he).length, aiN = TRACKS.filter(t => t.vol.he && t.translated).length;
@@ -1404,12 +1406,12 @@ function vDownloads() {
   view.innerHTML = `<div class="view">
     <div><h1 class="hello">Downloads</h1>
       <p class="sub">${have.length} chapter${have.length === 1 ? "" : "s"} · ${fmtMB(dlUsed())} of audio${DL.free ? ` · ${fmtMB(DL.free)} free` : ""} · ${online() ? "online" : "<b>offline</b>"}</p></div>
-    ${!DL.ok ? `<div class="panel note">This phone's storage isn't available right now, so audio can't be downloaded.</div>` : ""}
+    ${!DL.ok ? `<div class="panel note">This ${DEVICE}'s storage isn't available right now, so audio can't be downloaded.</div>` : ""}
     ${busy.length ? `<section><div class="sec-h"><h2>Downloading</h2><button class="more" data-act="dlcancel">Cancel all</button></div>
       <div class="list">${busy.map(t => trackRow(t, { why: dlLabel(t).text, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Cancel">${I.x}</button>` })).join("")}</div>
       ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
     <section class="panel dlset"><div class="eyebrow">Smart downloads</div>
-      ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the phone, plus chapters you're partway through, so they play without a connection.`)}
+      ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the ${DEVICE}, plus chapters you're partway through, so they play without a connection.`)}
       <div class="field"><label>Chapters ahead</label><div class="chips">${[1, 3, 5, 10].map(n => `<button class="chip ${p.ahead === n ? "on" : ""}" data-ahead="${n}">${n}</button>`).join("")}</div></div>
       ${tog("autoDelete", "Delete after listening", "Removes chapters that smart downloads fetched once you've heard them. Chapters you download yourself stay until you remove them.")}
       ${tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
@@ -1418,13 +1420,13 @@ function vDownloads() {
     </section>
     <section class="panel dlset"><div class="eyebrow">Reading offline</div>
       <p class="note" style="margin:0"><b>English:</b> all ${enN} chapters of the official translation and the ${aiN} AI-translated chapters are inside the app, so they read without a connection.</p>
-      <p class="note" style="margin:0"><b>Hebrew:</b> ${heb.length} of ${TRACKS.length} chapters saved on this phone${heb.length ? ` (${fmtMB(hebMB)})` : ""}. A chapter's Hebrew is saved the first time it loads, and when you download its audio.</p>
+      <p class="note" style="margin:0"><b>Hebrew:</b> ${heb.length} of ${TRACKS.length} chapters saved on this ${DEVICE}${heb.length ? ` (${fmtMB(hebMB)})` : ""}. A chapter's Hebrew is saved the first time it loads, and when you download its audio.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         ${HEALL.run ? `<button class="btn line" data-act="dlhebstop">${DLI.wait}<span>Saving Hebrew ${HEALL.done}/${HEALL.total} · stop</span></button>`
           : heb.length < TRACKS.length ? `<button class="btn line" data-act="dlheb" ${online() ? "" : "disabled"}>${DLI.get}<span>Save all the Hebrew (~${fmtMB(Math.max(0, TRACKS.length - heb.length) * 60e3)})</span></button>` : `<span class="note">${DLI.done} All the Hebrew is saved.</span>`}
         ${heb.length ? `<button class="btn line" data-act="dlhebclear">Delete saved Hebrew</button>` : ""}</div>
     </section>
-    <section><div class="sec-h"><h2>On this phone</h2>${have.length ? `<button class="more" data-act="playdl">Play all</button>` : ""}</div>
+    <section><div class="sec-h"><h2>On this ${DEVICE}</h2>${have.length ? `<button class="more" data-act="playdl">Play all</button>` : ""}</div>
       ${have.length ? `<div class="list">${have.map(t => trackRow(t, { why: `${fmtMB(sizeOf(t))}${DL.idx[t.id].auto ? " · smart" : ""}`, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Remove download">${I.x}</button>` })).join("")}</div>
         <div style="display:flex;justify-content:flex-end"><button class="btn line" data-act="dlrmall">Delete all downloads</button></div>`
         : `<div class="panel empty"><div class="em-orb"></div><span>Nothing downloaded yet. Tap <b>Download</b> on a chapter, or <b>Download all</b> on a book or playlist. With smart downloads on, what you're listening to downloads by itself.</span><button class="btn ghost" data-go="books">Browse the books</button></div>`}</section>
@@ -1448,10 +1450,10 @@ function settingsDialog() {
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
     <div class="field"><label>Read in</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${(state.prefs.read || "en") === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
-      <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il. ${NATIVE ? "Once a chapter's Hebrew has loaded it stays on the phone for offline reading." : "It needs a connection."}</span></div>
+      <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il. ${NATIVE ? `Once a chapter's Hebrew has loaded it stays on the ${DEVICE} for offline reading.` : "It needs a connection."}</span></div>
     <div class="field"><label>Listen in</label><div class="chips">${[["auto", "Match my reading"], ["he", "Hebrew"], ["en", "English"]].map(([v, l]) => `<button class="chip ${audioLang === v ? "on" : ""}" data-alang="${v}">${l}</button>`).join("")}</div>
       <span class="note">"Match my reading" plays the English reading when you read in English and one exists, and the Hebrew otherwise. English readings exist for Shabbat, Prayer, Zemanim and Festivals, and parts of Pesach, Sukkot and Days of Awe; elsewhere the Hebrew plays.</span></div>
-    <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the phone's speaker.${window.PearlsNative ? "" : " Works in the Android app."}</span></span></button>
+    <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
@@ -1823,7 +1825,7 @@ document.addEventListener("click", e => {
     case "markdone": { if (state.read[id]) { delete state.read[id]; } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
     case "togglelist": toggleList(b.dataset.list, id); break;
     case "playmode": dialog(`<h3>Playback order</h3>${PLAY_MODES.map(([k, n, d, ic]) => `<button class="opt" data-m="${k}"><span class="radio ${playMode() === k ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${n}</b><br><span class="note">${d}</span></span></button>`).join("")}
-      <p class="foot" style="margin:0">${NATIVE ? "Smart downloads follow this order, so what plays next is already on the phone." : ""}</p>`, (s2, close) => {
+      <p class="foot" style="margin:0">${NATIVE ? `Smart downloads follow this order, so what plays next is already on the ${DEVICE}.` : ""}</p>`, (s2, close) => {
         s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
     case "audiolang": { audioLang = (cur() ? P.lang : (audioLang === "auto" ? (wantsEnglish(BYID[id] || {}) ? "en" : "he") : audioLang)) === "en" ? "he" : "en"; store.set("audioLang", audioLang); const pos = audio.currentTime; load(!audio.paused);

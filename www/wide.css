@@ -1,0 +1,39 @@
+/* Wide screens: iPad, Mac, desktop browsers (2.7).
+   Phones keep the bottom tab bar. From 768px wide the four tabs become a side rail on the left, the content gets a
+   wider column (the reading text itself stays at 66ch), dialogs open in the middle instead of rising from the bottom,
+   and Now Playing puts the cover beside the controls in landscape. Only layout lives here: colours and fonts come from
+   the skin tokens, so every skin and both modes work unchanged. Flat rule: no gradients, no blurred shadows. */
+@media (min-width:768px) and (min-height:500px){
+  :root{--tab-h:0px;--rail:96px}
+  body{padding-left:calc(var(--rail) + env(safe-area-inset-left,0px))}
+  .top{padding-left:24px}
+  main{max-width:1040px;padding-left:24px;padding-right:max(24px,env(safe-area-inset-right,0px))}
+  .shelf{scroll-padding-inline:24px;margin:0 -24px;padding-left:24px;padding-right:24px}
+
+  .tabs{top:0;right:auto;width:calc(var(--rail) + env(safe-area-inset-left,0px));
+    grid-template-columns:none;grid-auto-rows:min-content;align-content:start;gap:6px;
+    padding:calc(env(safe-area-inset-top,0px) + 78px) 10px calc(env(safe-area-inset-bottom,0px) + 16px) calc(10px + env(safe-area-inset-left,0px));
+    border-top:0;border-right:var(--bw) solid var(--hair)}
+  .tabs button{height:68px;border-radius:16px;font-size:12px;gap:5px}
+  .tabs button svg{width:24px;height:24px}
+
+  .mini{left:calc(var(--rail) + env(safe-area-inset-left,0px) + 24px);right:max(24px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+  body.has-mini main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  main{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  .toast{left:calc(var(--rail) + 16px)}
+
+  .scrim{align-items:center;padding:24px}
+  .dialog{border-radius:24px;border-bottom:1px solid var(--line);max-height:min(85vh,760px);padding-bottom:22px}
+
+  .vhead{grid-template-columns:168px 1fr;gap:24px}
+  .volgrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:20px}
+  .reader{font-size:calc(1em * 1.04)}
+}
+
+/* Now Playing in landscape on a tablet or a Mac window: cover on the left, everything else on the right. */
+@media (min-width:900px) and (min-height:500px) and (orientation:landscape){
+  .sheet-h{max-width:1000px}
+  .np{max-width:1000px;display:grid;grid-template-columns:minmax(260px,400px) minmax(0,1fr);column-gap:48px;row-gap:18px;align-content:start;margin-top:8px}
+  .np > *{grid-column:2}
+  .np > .bigart{grid-column:1;grid-row:1 / span 12;width:100%;margin:0;align-self:start;position:sticky;top:0}
+}
