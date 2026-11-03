@@ -86,3 +86,11 @@ account, keyed by their email (or by the invite, for invite links). The code is 
   may need a moment to see the latest place.
 - **Tests:** `WRANGLER=… node test_sync.mjs` (merge rules plus the API; must end "sync: 30/30") and
   `WRANGLER=… node test_sync_app.mjs` (two browsers, one standing in for the app; must end "sync app: 15/15").
+
+## When a merge to main doesn't deploy
+
+The Deployments page should show a new row for each commit on main. If it keeps showing an old commit, Cloudflare has
+lost access to the repository (the dashboard says "disconnected from Git account"). "Retry deployment" on an old row
+only rebuilds that old commit, so it won't help. Instead, open github.com/settings/installations, click Configure next
+to *Cloudflare Workers and Pages*, and make sure dendrito/pearls is in its repository list. Then push any commit to
+main to start a build.

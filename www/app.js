@@ -417,13 +417,19 @@ const cur = () => BYID[P.queue[P.idx]];
 /* Playback order (Now Playing → the order pill). Smart downloads follow it: they fetch what will actually play next. */
 const PLAY_MODES = [
   ["next", "In order", "The queue in order; when it ends, a recommendation", "order"],
-  ["book", "Continue the book", "After each chapter, the next chapter of the same book", "book"],
+  ["book", "Continue the book", "After each chapter, the next one in the book; at the end of a book, the next book", "book"],
   ["shuffle", "Shuffle", "The rest of the queue in random order", "shuffle"],
   ["repeat1", "Repeat chapter", "Hear this chapter again and again", "repeat1"],
   ["repeatAll", "Repeat queue", "Back to the first chapter when the queue ends", "repeat"],
   ["repeatSec", "Repeat section", "Loop the current section, to learn it by heart (chazara)", "repeat1"]
 ];
 const playMode = () => state.prefs.playMode || "next";
+function nextInOrder(t) {   // the next chapter with a recording, in book order; after a book's last chapter, the next book
+  const ts = TRACKS.filter(x => x.vol === t.vol).sort((a, b) => a.n - b.n);
+  for (const x of ts) if (x.n > t.n && (hasHe(x) || hasEn(x))) return x;
+  for (let i = VOLS.indexOf(t.vol) + 1; i < VOLS.length; i++) { const f = TRACKS.filter(x => x.vol === VOLS[i]).sort((a, b) => a.n - b.n).find(x => hasHe(x) || hasEn(x)); if (f) return f; }
+  return null;
+}
 function shuffleRest() {   // keep what's playing; shuffle what comes after it, remembering the order to go back to
   if (P.idx < 0) return; P.unshuffled = P.queue.slice();
   const rest = P.queue.slice(P.idx + 1);
@@ -441,7 +447,7 @@ function upcoming(n) {
   const t = cur(); if (!t) return [];
   const m = playMode(), out = [];
   if (m === "repeat1" || m === "repeatSec") return [t.id];
-  if (m === "book") { let x = t; while (out.length < n && (x = BYID[`${x.vol.book}-${String(x.n + 1).padStart(2, "0")}`])) out.push(x.id); return out; }
+  if (m === "book") { let x = t; while (out.length < n && (x = nextInOrder(x))) out.push(x.id); return out; }
   for (let k = P.idx + 1; out.length < n && k < P.queue.length; k++) out.push(P.queue[k]);
   if (m === "repeatAll") for (let k = 0; out.length < n && k < P.idx; k++) out.push(P.queue[k]);
   return out;
@@ -487,8 +493,8 @@ function nextTrack(skipped) {
   const t = cur(); if (t && skipped && audio.currentTime < 60 && P.part === 0) { state.skips[t.id] = (state.skips[t.id] || 0) + 1; save.skips(); }
   const m = playMode();
   if (m === "book" && t) {   // the next chapter of this book comes next, whatever the queue holds
-    const nx = BYID[`${t.vol.book}-${String(t.n + 1).padStart(2, "0")}`];
-    if (nx && (hasHe(nx) || hasEn(nx))) { if (P.queue[P.idx + 1] !== nx.id) P.queue.splice(P.idx + 1, 0, nx.id); P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); return; }
+    const nx = nextInOrder(t);
+    if (nx) { if (nx.vol !== t.vol) toast(`Next book: ${R(nx.vol.title)}`); if (P.queue[P.idx + 1] !== nx.id) P.queue.splice(P.idx + 1, 0, nx.id); P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); return; }
   }
   if (m === "repeatAll" && P.idx >= P.queue.length - 1 && P.queue.length) { P.idx = 0; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); toast("From the top"); return; }
   if (P.idx < P.queue.length - 1) { P.idx++; store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx: P.ctx }); load(true, true); }
@@ -796,6 +802,22 @@ const I = {
 const coverStyle = v => `--c1:${v.c1};--c2:${v.c2};--c3:${v.c3}`;
 const cover = (v, cls = "") => `<div class="cover ${cls}" style="${coverStyle(v)}"><div class="ring"></div><div class="glyph">${v.glyph}</div><div class="cap">${esc(R(v.short))}</div></div>`;
 const art = t => `<div class="art" style="${coverStyle(t.vol)}"><span>${t.vol.glyph}</span></div>`;
+/* ---------- what is translated: official English · AI translation · Hebrew only ---------- */
+const KINDS = [
+  { id: "official", label: "Official English", tag: "Official", h: "Official English translation",
+    desc: "Translated by Yeshivat Har Bracha and published by them." },
+  { id: "ai", label: "AI translation", tag: "AI", h: "AI translation",
+    desc: "No official English edition yet. Translated from Rabbi Melamed's Hebrew by Claude (Anthropic); not reviewed by Har Bracha or a rabbi." },
+  { id: "he", label: "Hebrew only", tag: "Hebrew", h: "Hebrew only",
+    desc: "Not translated yet. The text is Rabbi Melamed's Hebrew." } ];
+const KIND = Object.fromEntries(KINDS.map(k => [k.id, k]));
+const kindOf = t => !t.vol.he ? "official" : t.translated ? "ai" : "he";
+const volTracks = (v, k) => TRACKS.filter(x => x.vol === v && (!k || kindOf(x) === k));
+const volKinds = v => KINDS.map(k => k.id).filter(k => volTracks(v, k).length);
+const kindTag = k => `<span class="kindtag k-${k}">${KIND[k].tag}</span>`;
+const kindCounts = ts => { const c = { all: ts.length }; for (const t of ts) c[kindOf(t)] = (c[kindOf(t)] || 0) + 1; return c; };
+const kindChips = (on, counts, attr = "kind") => `<div class="chips kindchips" role="group" aria-label="Translation">${[["all", "All"]].concat(KINDS.map(k => [k.id, k.label]))
+  .filter(([id]) => id === "all" || counts[id]).map(([id, l]) => `<button class="chip ${on === id ? "on" : ""}" data-${attr}="${id}" aria-pressed="${on === id}">${l} <small>${counts[id]}</small></button>`).join("")}</div>`;
 function trackRow(t, o = {}) {
   const p = state.plays[t.id] || {}, d = dur(t), pct = !p.done && (p.part || p.pos > 30) ? Math.min(100, ((p.part || 0) + .5) / nSections(t) * 100) : 0;
   const playing = cur() && cur().id === t.id;
@@ -803,7 +825,7 @@ function trackRow(t, o = {}) {
     <button class="trk-play" data-act="play" data-id="${t.id}" aria-label="Play ${esc(R(t.title))}">${art(t)}</button>
     <button class="txt" data-act="${o.openChapter === false ? "play" : "chapter"}" data-id="${t.id}" style="text-align:left">
       <div class="t">${playing ? '<span class="eq"><i></i><i></i><i></i></span>' : ""}${esc(R(t.title))}${dlBadge(t)}</div>
-      <div class="m">${o.why ? `<span class="why">${esc(o.why)}</span> · ` : ""}${esc(R(t.vol.short))} · ch. ${t.n}${t.vol.he ? (t.translated ? " · AI translation" : " · Hebrew") : ""}${d ? ` · ${mins(d)}` : ""}${p.done ? " · ✓ heard" : ""}</div>
+      <div class="m">${o.why ? `<span class="why">${esc(o.why)}</span> · ` : ""}${kindTag(kindOf(t))} ${esc(R(t.vol.short))} · ch. ${t.n}${d ? ` · ${mins(d)}` : ""}${p.done ? " · ✓ heard" : ""}</div>
       ${pct ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}
     </button>
     <div class="end">${o.end || `<button class="iconbtn" style="background:none" data-act="trackmenu" data-id="${t.id}" aria-label="More options">${I.more}</button>`}</div>
@@ -815,8 +837,11 @@ function plArt(pl) {
   return `<div class="plart">${four.map((v, i) => `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
 }
 const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.id}">${plArt(pl)}<span>${pl.tracks.length} chapters · ${mins(plDur(pl.tracks)) || "–"}</span></button>`;
-const volCard = v => { const n = v.chapters.length, heard = TRACKS.filter(t => t.vol === v && (state.plays[t.id] || {}).done).length;
-  return `<button class="volcard" data-act="vol" data-id="${v.book}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta">${n} chapters${v.he ? (v.chapters.some(c => c.translated) ? " · AI translation" : " · Hebrew") : ""}${heard ? ` · ${heard} heard` : ""}</div></div></button>`; };
+const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
+  const all = volTracks(v), ts = k ? volTracks(v, k) : all, ks = volKinds(v), heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
+  const n = ts.length < all.length ? `${ts.length} of ${all.length} chapters` : `${all.length} chapters`;
+  const audible = all.filter(t => hasHe(t) || hasEn(t)), next = audible.find(t => !(state.plays[t.id] || {}).done) || audible[0];
+  return `<div class="volwrap"><button class="volcard" data-act="vol" data-id="${v.book}${k && ks.length > 1 ? `-${k}` : ""}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta"><span class="kinds">${(k ? [k] : ks).map(kindTag).join("")}</span>${n}${heard ? ` · ${heard} heard` : ""}</div></div></button>${next ? `<button class="volplay" data-act="playvol" data-id="${v.book}" data-start="${all.indexOf(next)}" aria-label="${heard ? "Continue" : "Play"} ${esc(R(v.title))}">${I.play}</button>` : ""}</div>`; };
 
 /* ---------- views ---------- */
 const view = $("#view"), topTitle = $("#topTitle"), backBtn = $("#backBtn"), brand = $("#brand");
@@ -828,6 +853,7 @@ function setTab(name) { document.querySelectorAll(".tabs button").forEach(b => b
 function vHome() {
   setTop(null); setTab("home");
   if (!state.interests) return vOnboard();
+  const along = alongCard();
   const recs = recommend(10), hero = recs[0];
   const lq = state.lastQueue && BYID[state.lastQueue.ids[state.lastQueue.idx]];
   const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 3).map(([id]) => BYID[id]);
@@ -838,13 +864,15 @@ function vHome() {
     <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}</div>
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
     ${offlineCard()}
+    ${along}
     ${todayCard()}
     ${hero ? `<section class="hero"><div class="orb"></div>
       <div class="eyebrow" style="position:relative;color:var(--gold-2)">Today's pearl</div>
       <h3>${esc(R(hero.t.title))}</h3>
       <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
       <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
-        <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}Read in English</button></div></section>` : ""}
+        <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}${hero.t.vol.he && !hero.t.translated ? "Read the Hebrew" : "Read in English"}</button></div>
+      <p class="note herohint">Every recording is a chapter you can read. Tap its name anywhere in Pearls, or <b>Read along</b> in the player to open the section you're hearing.</p></section>` : ""}
     ${calShelf()}
     ${resumeList.length || readHere ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div>${readHere ? `<button class="panel progresslink" data-act="resumeread" data-id="${readHere.id}" data-sec="${state.where.sec}"><span><span class="eyebrow">Continue reading</span><br><b>${esc(R(readHere.title))}</b><br><span class="note">${esc(R(readHere.vol.short))} ${readHere.n} · section ${state.where.sec}${readHere.sectionTitles[state.where.sec - 1] ? `: ${esc(R(readHere.sectionTitles[state.where.sec - 1]))}` : ""}</span></span><span class="dur">›</span></button>` : ""}<div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
     <section><div class="sec-h"><h2>Made for you</h2><button class="more" data-go="library">All playlists</button></div>
@@ -857,6 +885,45 @@ function vHome() {
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
   </div>`;
+}
+/* ---------- read along: the text of what's playing is one tap away ---------- */
+function alongCard() {
+  const t = cur(); if (!t) return "";
+  const n = nSections(t), st = t.sectionTitles[P.part];
+  return `<section class="panel along"><div class="along-txt"><div class="eyebrow">${audio.paused ? "In the player" : "Listening now"}</div>
+      <b>${esc(R(t.title))}</b><span class="note">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${n}${st ? `: ${esc(R(st))}` : ""}</span></div>
+    <button class="btn line" data-act="readalong" data-id="${t.id}">${I.read}Read along</button></section>`;
+}
+function goSection(id, sec) {   // open a chapter and bring section `sec` (1-based) into view once its text has loaded
+  const t = BYID[id]; if (!t) return;
+  go(`ch-${id}`);
+  let n = 0; const seek = () => { const s = $(`#sec-${sec}`); if (s) { s.scrollIntoView({ behavior: "smooth", block: "start" }); s.classList.add("flash"); setTimeout(() => s.classList.remove("flash"), 1600); } else if (n++ < 60) setTimeout(seek, 100); };
+  setTimeout(seek, 50);
+}
+function readAlong() {   // from the player: the chapter playing, at the section playing
+  const t = cur(); if (!t) return;
+  closeNP(); if (history.state && history.state.np) history.replaceState(null, "", location.href);
+  goSection(t.id, P.part + 1);
+}
+/* in the chapter view, mark the section the player is on; if you were reading the one before, follow it */
+let nowSecShown = null;
+function paintNowSec() {
+  const r = $("#reader"), t = cur();
+  const on = r && t && location.hash === `#ch-${t.id}` ? P.part + 1 : null;
+  const was = nowSecShown; nowSecShown = on ? `${t.id}:${on}` : null;
+  document.querySelectorAll(".reader section.nowsec").forEach(s => { if (!on || s.id !== `sec-${on}`) s.classList.remove("nowsec"); });
+  document.querySelectorAll(".toc button.nowsec").forEach(b => { if (!on || b.dataset.sec !== String(on)) b.classList.remove("nowsec"); });
+  const bar = $("#nowbar"); if (bar) bar.hidden = !on;
+  if (!on) return;
+  const s = $(`#sec-${on}`), b = $(`.toc button[data-sec="${on}"]`);
+  if (b) b.classList.add("nowsec");
+  if (bar) bar.querySelector("[data-n]").textContent = `section ${on}${t.sectionTitles[on - 1] ? `: ${R(t.sectionTitles[on - 1])}` : ""}`;
+  if (!s) return;
+  if (!s.classList.contains("nowsec")) {
+    s.classList.add("nowsec");
+    const prev = was && was.startsWith(t.id + ":") ? $(`#sec-${was.split(":")[1]}`) : null;
+    if (prev && prev !== s) { const rc = prev.getBoundingClientRect(); if (rc.bottom > 0 && rc.top < innerHeight) s.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }
 }
 function aboutFoot() {   // the short credit on Home; the full acknowledgement is the Credits page (#credits)
   return `<a class="credit" href="#credits">
@@ -1006,15 +1073,26 @@ function vOnboard() {
   $("#onbGo").onclick = () => { state.interests = [...picks]; save.interests(); render(); };
   $("#onbSkip").onclick = () => { state.interests = []; save.interests(); render(); };
 }
-function vBooks() {
+function vBooks(kind) {
   setTop(null); setTab("books");
-  const total = TRACKS.reduce((a, t) => a + (dur(t) || 0), 0);
+  if (kind) { state.prefs.booksKind = kind; save.prefs(); }
+  const on = KIND[state.prefs.booksKind] ? state.prefs.booksKind : "all";
+  const total = TRACKS.reduce((a, t) => a + (dur(t) || 0), 0), counts = kindCounts(TRACKS);
+  const shelf = k => { const vs = VOLS.filter(v => volTracks(v, k).length); return `<section class="kindsec" id="books-${k}">
+      <div class="sec-h"><h2>${KIND[k].h}</h2><span class="more">${vs.length} book${vs.length > 1 ? "s" : ""} · ${counts[k]} chapters</span></div>
+      <p class="note kinddesc">${kindTag(k)} ${KIND[k].desc}</p>
+      <div class="volgrid">${vs.map(v => volCard(v, k)).join("")}</div></section>`; };
   view.innerHTML = `<div class="view">
-    <div><h1 class="hello">The books</h1><p class="sub">${VOLS.length} volumes in English · ${TRACKS.length} chapters · ${Math.round(total / 3600)}+ hours of original Hebrew audio</p></div>
-    <div class="volgrid">${VOLS.map(volCard).join("")}</div>${aboutFoot()}</div>`;
+    <div><h1 class="hello">The books</h1><p class="sub">${VOLS.length} volumes · ${TRACKS.length} chapters · ${Math.round(total / 3600)}+ hours of original Hebrew audio</p></div>
+    ${kindChips(on, counts)}
+    ${(on === "all" ? KINDS.map(k => k.id) : [on]).filter(k => counts[k]).map(shelf).join("")}${aboutFoot()}</div>`;
+  view.querySelector(".kindchips").onclick = e => { const b = e.target.closest("[data-kind]"); if (!b) return;
+    const k = b.dataset.kind; history.replaceState(null, "", k === "all" ? "#books" : `#books-${k}`); vBooks(k); };
 }
-function vVol(book) {
+function vVol(book, kind) {
+  if (!kind && /-/.test(book)) [book, kind] = book.split("-");
   const v = VOLS.find(x => x.book === book); if (!v) return vBooks();
+  const ks = volKinds(v), only = ks.length > 1 && KIND[kind] ? kind : "all";
   setTop(v.short); setTab("books");
   const ts = TRACKS.filter(t => t.vol === v), total = ts.reduce((a, t) => a + (dur(t) || 0), 0);
   const heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
@@ -1022,13 +1100,16 @@ function vVol(book) {
   view.innerHTML = `<div class="view">
     <div class="vhead">${cover(v)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
       <div class="heb" lang="he" dir="rtl">${esc(v.heb)}</div><h1>${esc(R(v.title))}</h1>
-      <div class="stats"><span>${ts.length} chapters</span>${total ? `<span>${ts.every(dur) ? "" : "≈ "}${(total / 3600).toFixed(1)} h of audio${ts.every(dur) ? "" : "+"}</span>` : ""}${heard ? `<span>${heard}/${ts.length} heard</span>` : ""}</div></div></div>
+      <div class="stats"><span class="kinds">${ks.map(kindTag).join("")}</span><span>${ts.length} chapters</span>${total ? `<span>${ts.every(dur) ? "" : "≈ "}${(total / 3600).toFixed(1)} h of audio${ts.every(dur) ? "" : "+"}</span>` : ""}${heard ? `<span>${heard}/${ts.length} heard</span>` : ""}</div></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn gold" data-act="playvol" data-id="${v.book}" data-start="${ts.indexOf(firstUnheard)}">${I.play}${heard ? "Continue" : "Play the book"}</button>
       <button class="btn ghost" data-act="savevol" data-id="${v.book}">${I.plus}Save as playlist</button>${dlManyButton(ts.map(t => t.id))}</div>
-    <div class="list">${ts.map(t => trackRow(t)).join("")}</div>
+    ${ks.length > 1 ? kindChips(only, kindCounts(ts), "vkind") : `<p class="note kinddesc" style="margin:0">${kindTag(ks[0])} ${KIND[ks[0]].desc}</p>`}
+    <div class="list">${ts.filter(t => only === "all" || kindOf(t) === only).map(t => trackRow(t)).join("")}</div>
     ${v.book === "03" ? `<p class="note">Audio for this volume may not be available; the text is.</p>` : ""}
   </div>`;
+  const kc = view.querySelector(".kindchips"); if (kc) kc.onclick = e => { const b = e.target.closest("[data-vkind]"); if (!b) return;
+    history.replaceState(null, "", `#vol-${book}${b.dataset.vkind === "all" ? "" : "-" + b.dataset.vkind}`); vVol(book, b.dataset.vkind); };
 }
 /* In the Apple app the page runs from the pearls:// scheme; text requests go through its proxy (the site's CORS headers are malformed). */
 const net = u => window.PEARLS_PROXY ? window.PEARLS_PROXY + encodeURIComponent(u) : u;
@@ -1120,6 +1201,7 @@ function vChapter(id) {
       ${langBar(t)}
       <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
     </div>
+    <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
     ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</div></div>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -1136,6 +1218,7 @@ function vChapter(id) {
       `<p class="foot">Source: <a href="${esc(posts[0].link)}" target="_blank" rel="noopener">${esc(posts[0].link)}</a></p>`;
     citeClicks(r); jumpPending(t);
     applyReadLang(t, r);
+    nowSecShown = null; paintNowSec();
   }).catch(() => {
     const r = $("#reader"); if (r) r.innerHTML = `<div class="panel note">Couldn't load the text. You need a connection the first time a chapter opens. The audio may still play.
       <div style="margin-top:10px"><button class="btn ghost" data-act="chapter" data-id="${t.id}">Try again</button></div></div>`;
@@ -1163,6 +1246,7 @@ function renderHebrewChapter(t, d, r) {
   r.querySelectorAll('.heb-orig').forEach(h => hebDone(h, t));
   citeClicks(r); jumpPending(t);
   if (d.translated) applyReadLang(t, r);
+  nowSecShown = null; paintNowSec();
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
     if (!he.hidden && !he.innerHTML.trim()) {   // lite build: the Hebrew is fetched on demand
@@ -1743,33 +1827,55 @@ function vSearch(q = "") {
   view.innerHTML = `<div class="view">
     <h1 class="hello">Search</h1>
     <label class="search">${I.search}<input id="q" type="search" placeholder="Kiddush, shofar, rain, muktze…" value="${esc(q)}" autocomplete="off"><span class="sr">Search chapters</span></label>
+    ${kindChips(KIND[state.prefs.searchKind] ? state.prefs.searchKind : "all", kindCounts(TRACKS), "skind")}
     <div class="chips" id="topics">${Object.keys(TOPIC_LABEL).filter(g => TRACKS.some(t => t.tags.includes(g))).slice(0, 24).map(g => `<button class="chip" data-tag="${g}">${esc(TOPIC_LABEL[g])}</button>`).join("")}</div>
     <div class="list" id="results"></div></div>`;
   const run = () => {
-    const s = $("#q").value.trim().toLowerCase(), act = view.querySelector(".chip.on");
+    const s = $("#q").value.trim().toLowerCase(), act = view.querySelector("#topics .chip.on");
+    const k = KIND[state.prefs.searchKind] ? state.prefs.searchKind : null, okKind = t => !k || kindOf(t) === k;
     let res = [];
     if (s.length > 1) res = TRACKS.map(t => { const hay = `${t.title} ${R(t.title)} ${t.sectionTitles.join(" ")} ${t.sectionTitles.map(R).join(" ")} ${t.vol.title} ${t.tags.map(g => TOPIC_LABEL[g]).join(" ")}`.toLowerCase();
         const sc = ((t.title + " " + R(t.title)).toLowerCase().includes(s) ? 3 : 0) + (hay.includes(s) ? 1 : 0) + s.split(/\s+/).filter(w => hay.includes(w)).length * .5; return { t, sc }; })
       .filter(r => r.sc > .4).sort((a, b) => b.sc - a.sc).map(r => r.t);
     else if (act) res = TRACKS.filter(t => t.tags.includes(act.dataset.tag));
+    else if (k) res = TRACKS.slice();
+    res = res.filter(okKind);
     const sec = s.length > 1 ? TRACKS.flatMap(t => t.sectionTitles.map((x, i) => ({ t, x: R(x), i, raw: x })).filter(o => (o.x + ' ' + o.raw).toLowerCase().includes(s))).slice(0, 6) : [];
-    $("#results").innerHTML = res.length ? res.slice(0, 40).map(t => trackRow(t, { why: sec.find(o => o.t === t) ? `§${sec.find(o => o.t === t).i + 1} ${sec.find(o => o.t === t).x}` : "" })).join("")
-      : (s || act ? `<div class="empty">Nothing matches “${esc(s)}”. Try a broader word.</div>` : `<div class="empty"><div class="em-orb"></div>Search ${TRACKS.length} chapters by title, section or topic.</div>`);
+    $("#results").innerHTML = res.length ? res.slice(0, s.length > 1 || act ? 40 : 400).map(t => trackRow(t, { why: sec.find(o => o.t === t) ? `§${sec.find(o => o.t === t).i + 1} ${sec.find(o => o.t === t).x}` : "" })).join("")
+      : (s || act ? `<div class="empty">Nothing matches “${esc(s)}”${k ? ` in ${KIND[k].label}` : ""}. Try a broader word${k ? " or All" : ""}.</div>` : `<div class="empty"><div class="em-orb"></div>Search ${TRACKS.length} chapters by title, section or topic.</div>`);
   };
   $("#q").oninput = run;
+  view.querySelector(".kindchips").onclick = e => { const b = e.target.closest("[data-skind]"); if (!b) return;
+    state.prefs.searchKind = b.dataset.skind; save.prefs();
+    view.querySelectorAll(".kindchips .chip").forEach(c => { c.classList.toggle("on", c === b); c.setAttribute("aria-pressed", c === b); }); run(); };
   $("#topics").onclick = e => { const b = e.target.closest(".chip"); if (!b) return; const on = b.classList.contains("on"); view.querySelectorAll("#topics .chip").forEach(c => c.classList.remove("on")); if (!on) b.classList.add("on"); $("#q").value = ""; run(); };
   run();
 }
 
 /* ---------- mini player & now playing ---------- */
 const mini = $("#mini");
+const PLAY_ICON_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>';
+function modeToggle(m) { setPlayMode(m); renderMini(); toast(PLAY_MODES.find(x => x[0] === m)[1]); }
+function mTools(t, labelled) {   // the mini player's Read along / Favorite / Playlist / More; on phones a row of its own, on wider screens beside the title
+  const on = state.likes.has(t.id);
+  const m = playMode(), rep = { repeatAll: ["repeat", "Repeat: the queue"], repeat1: ["repeat1", "Repeat: this chapter"], repeatSec: ["repeat1", "Repeat: this section"] }[m];
+  return `<button class="${labelled ? "mreadl" : "iconbtn mread"}" data-act="readalong" data-id="${t.id}" aria-label="Read along: the text of section ${P.part + 1}" title="Read along: the text of section ${P.part + 1}">${I.read}${labelled ? "<span>Read along</span>" : ""}</button>
+      <button class="iconbtn mact ${m === "shuffle" ? "on" : ""}" data-act="mshuffle" aria-pressed="${m === "shuffle"}" aria-label="Shuffle" title="Shuffle">${I.shuffle}</button>
+      <button class="iconbtn mact ${rep ? "on" : ""} ${m === "repeatSec" ? "sec" : ""}" data-act="mrepeat" aria-pressed="${!!rep}" aria-label="${rep ? rep[1] : "Repeat: off"}" title="${rep ? rep[1] : "Repeat: off"}">${I[rep ? rep[0] : "repeat"]}</button>
+      <button class="iconbtn mact ${m === "book" ? "on" : ""}" data-act="mbook" aria-pressed="${m === "book"}" aria-label="Continue the book, then the next book" title="Continue the book, then the next book">${PLAY_ICON_BOOK}</button>
+      <button class="iconbtn mact ${on ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Favorite" title="Favorite">${on ? I.heartOn : I.heart}</button>
+      <button class="iconbtn mact" data-act="addto" data-id="${t.id}" aria-label="Add to playlist" title="Add to playlist">${I.plus}</button>
+      <button class="iconbtn mact" data-act="trackmenu" data-id="${t.id}" aria-label="More: Review, Study later, Play next" title="More: Review, Study later, Play next">${I.more}</button>`;
+}
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
   document.body.classList.add("has-mini");
   const both = hasEn(t) && hasHe(t);
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
+      <span class="mwide">${mTools(t)}</span>
       <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Audio language">${P.lang === "en" ? "EN" : "עב"}</button>
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
+    <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
     <div class="mctl">
       <button class="speedbtn" data-act="speed" aria-label="Speed">${state.speed}×</button>
@@ -1793,6 +1899,8 @@ function updateProgress() {
   const sl = $("#sleepPill"); if (sl && P.sleepAt) sl.textContent = `Sleep ${fmt((P.sleepAt - Date.now()) / 1000)}`;
 }
 function refreshPlaying() {
+  paintNowSec();
+  const al = $(".along"); if (al && location.hash.length < 2) al.outerHTML = alongCard() || "<span></span>";
   document.querySelectorAll(".trk[data-id]").forEach(el => {
     const on = cur() && el.dataset.id === cur().id; el.classList.toggle("playing", !!on); el.classList.toggle("paused", !!on && audio.paused);
     const t = el.querySelector(".t"); if (!t) return; const eq = t.querySelector(".eq");
@@ -1820,6 +1928,7 @@ function syncNP(full) {
           <div class="vv">${esc(R(t.vol.title))} · chapter ${t.n} · <span lang="he" dir="rtl">${esc(t.vol.heb)}</span></div>
           <div class="vv" style="color:var(--gold-2)">Section ${P.part + 1} of ${nSections(t)}${t.sectionTitles[P.part] ? ` · ${esc(R(t.sectionTitles[P.part]))}` : ""}</div></div>
           <button class="iconbtn ${liked ? "on" : ""}" id="npLike" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button></div>
+        <button class="btn line readalong" data-act="readalong" data-id="${t.id}">${I.read}<span>Read along<small>${t.vol.he && !t.translated ? "The Hebrew text" : "The text"} of section ${P.part + 1}, where you are</small></span></button>
         <div><input type="range" class="seek" id="seek" min="0" step="1" aria-label="Seek"><div class="times"><span id="tCur">0:00</span><span id="tLeft">–</span></div></div>
         <div class="ctrls"><button class="sm" data-act="prev" aria-label="Previous">${I.prev}</button>
           <button class="skip" data-act="b15" aria-label="Back 15 seconds">${I.back15}</button>
@@ -1833,8 +1942,7 @@ function syncNP(full) {
           <button class="pill" data-act="addto" data-id="${t.id}">${I.plus}Playlist</button>
           <button class="pill ${liked ? "on" : ""}" data-act="like" data-id="${t.id}">${liked ? I.heartOn : I.heart}Favorite</button>
           <button class="pill ${onList("review", t.id) ? "on" : ""}" data-act="togglelist" data-list="review" data-id="${t.id}" aria-pressed="${onList("review", t.id)}">${I.repeat}Review</button>
-          <button class="pill ${onList("later", t.id) ? "on" : ""}" data-act="togglelist" data-list="later" data-id="${t.id}" aria-pressed="${onList("later", t.id)}">${I.clock}Study later</button>
-          <button class="pill" data-act="readnp" data-id="${t.id}">${I.read}Read</button></div>
+          <button class="pill ${onList("later", t.id) ? "on" : ""}" data-act="togglelist" data-list="later" data-id="${t.id}" aria-pressed="${onList("later", t.id)}">${I.clock}Study later</button></div>
         ${upnext.length ? `<div><div class="eyebrow" style="margin-bottom:4px">Up next</div><div class="list">${upnext.map(u => trackRow(u, { openChapter: false })).join("")}</div></div>`
           : `<p class="note">${pm[0] === "repeat1" ? "This chapter will play again." : pm[0] === "repeatSec" ? "This section will play again." : "When this ends, Pearls keeps going with a recommendation."}</p>`}
       </div>`;
@@ -1887,7 +1995,7 @@ function trackMenu(id) {
     <button class="opt" data-a="like">${liked ? I.heartOn : I.heart}<b>${liked ? "Remove from liked" : "Like"}</b></button>
     <button class="opt" data-a="review">${I.repeat}<b>${onList("review", id) ? "Remove from Review" : "Add to Review"}</b></button>
     <button class="opt" data-a="later">${I.clock}<b>${onList("later", id) ? "Remove from Study later" : "Study later"}</b></button>
-    <button class="opt" data-a="read">${I.read}<b>Read in English</b></button>
+    <button class="opt" data-a="read">${I.read}<b>${cur() && cur().id === id ? `Read along · section ${P.part + 1}` : "Read the text"}</b></button>
     <button class="opt" data-a="radio">${I.shuffle}<b>Start a mix from this chapter</b></button>
     ${NATIVE && (hasHe(t) || hasEn(t)) ? (dlState(t).s === "none" ? `<button class="opt" data-a="dl">${DLI.get}<b>Download</b></button>` : `<button class="opt" data-a="undl">${I.x}<b>Remove download</b></button>`) : ""}
     ${(state.plays[id] || {}).done ? `<button class="opt" data-a="unheard">${I.x}<b>Mark as not heard</b></button>` : ""}`, (s, close) => {
@@ -1898,7 +2006,7 @@ function trackMenu(id) {
       if (a === "like") like(id);
       if (a === "review") toggleList("review", id);
       if (a === "later") toggleList("later", id);
-      if (a === "read") { closeNP(); go(`ch-${id}`); }
+      if (a === "read") { if (cur() && cur().id === id) readAlong(); else { closeNP(); go(`ch-${id}`); } }
       if (a === "radio") { playQueue([id, ...similar(t, 9).map(r => r.t.id)], 0, `Mix from ${t.title}`); toast("Mix started"); }
       if (a === "dl") { downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're online" : "Downloading"); }
       if (a === "undl") { removeDownload(t); toast("Download removed"); }
@@ -2035,7 +2143,7 @@ document.addEventListener("click", e => {
     case "togglelist": toggleList(b.dataset.list, id); break;
     case "playmode": dialog(`<h3>Playback order</h3>${PLAY_MODES.map(([k, n, d, ic]) => `<button class="opt" data-m="${k}"><span class="radio ${playMode() === k ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${n}</b><br><span class="note">${d}</span></span></button>`).join("")}
       <p class="foot" style="margin:0">${NATIVE ? "Smart downloads follow this order, so what plays next is already on the phone." : ""}</p>`, (s2, close) => {
-        s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
+        s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); renderMini(); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
     case "audiolang": { audioLang = (cur() ? P.lang : (audioLang === "auto" ? (wantsEnglish(BYID[id] || {}) ? "en" : "he") : audioLang)) === "en" ? "he" : "en"; store.set("audioLang", audioLang); const pos = audio.currentTime; load(!audio.paused);
       document.querySelectorAll('.chhead [data-act="audiolang"]').forEach(c => { if (BYID[c.dataset.id]) c.textContent = "Listen · " + (wantsEnglish(BYID[c.dataset.id]) ? "English" : "Hebrew"); });
@@ -2077,6 +2185,11 @@ document.addEventListener("click", e => {
     case "f30": audio.currentTime = Math.min(audio.duration || 1e9, audio.currentTime + 30); break;
     case "np": openNP(); break;
     case "npclose": history.back(); break;
+    case "readalong": readAlong(); break;
+    case "mshuffle": modeToggle(playMode() === "shuffle" ? "next" : "shuffle"); break;
+    case "mrepeat": { const order = ["repeatAll", "repeat1", "repeatSec"], i = order.indexOf(playMode()); modeToggle(i === order.length - 1 ? "next" : order[i + 1]); break; }
+    case "mbook": modeToggle(playMode() === "book" ? "next" : "book"); break;
+    case "tonowsec": { const s = cur() && $(`#sec-${P.part + 1}`); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); break; }
     case "readnp": closeNP(); history.replaceState(null, "", location.href); go(`ch-${id}`); break;
     case "speed": { const S = [.75, 1, 1.25, 1.5, 1.75, 2]; state.speed = S[(S.indexOf(state.speed) + 1) % S.length]; audio.playbackRate = state.speed; store.set("speed", state.speed); if (P.ctx) { state.speedBy[P.ctx] = state.speed; store.set("speedBy", state.speedBy); } b.textContent = state.speed + "×"; break; }
     case "sleep": {
@@ -2100,6 +2213,7 @@ function render() {
   else if (h.startsWith("ch-")) vChapter(h.slice(3));
   else if (h.startsWith("pl-")) vPlaylist(h.slice(3));
   else if (h === "books") vBooks();
+  else if (h.startsWith("books-")) vBooks(h.slice(6));
   else if (h === "library") vLibrary();
   else if (h === "progress") vProgress();
   else if (h === "search") vSearch();
