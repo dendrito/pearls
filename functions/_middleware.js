@@ -3,7 +3,8 @@
 // 2. The site is private: without a valid pass (see webauth/auth.js) only the sign-in routes answer.
 import { readPass, page } from "../webauth/auth.js";
 
-const OPEN = [/^\/signin$/, /^\/signout$/, /^\/admin(\/|$)/, /^\/i\/[^/]+$/];
+const OPEN = [/^\/signin$/, /^\/signout$/, /^\/admin(\/|$)/, /^\/i\/[^/]+$/,
+  /^\/api\/(sync|link|claim|devices)$/];   // the sync API checks the pass or a device token itself (webauth/sync.js)
 
 export async function onRequest({ request, env, next }) {
   const path = new URL(request.url).pathname;
