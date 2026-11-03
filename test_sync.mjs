@@ -2,6 +2,7 @@
 //   WRANGLER=/path/to/wrangler node test_sync.mjs     (must end "sync: N/N")
 import { spawn } from "node:child_process";
 import http from "node:http";
+import fs from "node:fs";
 import { webcrypto as C } from "node:crypto";
 import { createRequire } from "node:module";
 const M = createRequire(import.meta.url)("./www/pearls-sync-merge.js");
@@ -41,6 +42,7 @@ async function jwt(email) {
 }
 const vars = { SESSION_SECRET: "test-secret-0123456789", ACCESS_TEAM: "team", ACCESS_AUD: "AUD1", ADMIN_EMAILS: "admin@x.org", ACCESS_CERTS_URL: `http://localhost:${CERTS}/` };
 const args = ["pages", "dev", "www", "--port", String(PORT), "--kv", "INVITES", ...Object.entries(vars).flatMap(([k, v]) => ["--binding", `${k}=${v}`])];
+fs.rmSync(".wrangler/state", { recursive: true, force: true });   // start from empty KV, or "unchanged" checks see the last run
 const [cmd, ...pre] = W.split(" ");
 const dev = spawn(cmd, [...pre, ...args], { stdio: "ignore", env: { ...process.env, WRANGLER_SEND_METRICS: "false" } });
 for (let i = 0; i < 60; i++) { try { await fetch(base + "/signout"); break; } catch { await new Promise(r => setTimeout(r, 1000)); } }
