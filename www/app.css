@@ -210,6 +210,7 @@ h1,h2,h3{margin:0;font-weight:var(--dw)}
 .mini .mctl .iconbtn.big svg{width:26px;height:26px}
 .mini .speedbtn{min-width:48px;height:32px;border-radius:var(--r-pill);border:1px solid var(--line);background:transparent;color:var(--pearl);font-weight:600;font-size:13px}
 body.has-mini main{padding-bottom:calc(var(--tab-h) + 200px + env(safe-area-inset-bottom,0px))}
+@media (max-width:559px){body.has-mini main{padding-bottom:calc(var(--tab-h) + 248px + env(safe-area-inset-bottom,0px))}}
 body.hc .mini .mctl .iconbtn.big{background:#fff;color:#000}
 
 /* tabs */
@@ -457,3 +458,39 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .schemes-t tbody th{color:var(--pearl);font-weight:600}
 .schemes-t .he{font-family:var(--f-heb);font-size:18px;font-weight:400;text-align:right}
 .schemes-t tr:last-child>*{border-bottom:0}
+
+/* read along: the text of what's playing, one tap from the player and from Home */
+.along{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-left:3px solid var(--gold)}
+.along .along-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.along .along-txt b{font-size:16px;color:var(--pearl)}
+.herohint{position:relative;margin:2px 0 0}
+.np .readalong{width:100%;height:auto;min-height:52px;padding:8px 18px;justify-content:center;border-color:var(--gold-2);color:var(--pearl)}
+.np .readalong>span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25}
+.np .readalong small{font-weight:400;font-size:12px;color:var(--mist)}
+.mini .mrow{grid-template-columns:44px minmax(0,1fr);grid-auto-flow:column;grid-auto-columns:auto;gap:4px}
+.mini .mrow>.txtbtn{margin:0 4px}
+.mini .mact{width:36px;height:36px;background:none;color:var(--mist)}
+.mini .mact.on{color:var(--gold-2)}
+.mini .mact svg{width:19px;height:19px}
+.mini .mwide{display:contents}
+.mini .mtools{display:none}
+@media (max-width:559px){
+  .mini .mwide>*{display:none}
+  .mini .mtools{display:flex;align-items:center;gap:2px;border-top:1px solid var(--line);padding-top:4px;margin-top:2px}
+  .mini .mtools .mreadl{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;margin-right:auto;border-radius:var(--r-pill);border:1px solid var(--gold-2);color:var(--pearl);font-weight:600;font-size:13.5px}
+  .mini .mtools .mreadl svg{width:17px;height:17px;color:var(--gold-2)}
+}
+.mini .mread{width:36px;height:36px;background:none;color:var(--gold-2)}
+.mini .mread svg{width:20px;height:20px}
+.nowbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:5;display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border-radius:var(--r-pill);
+  border:1px solid var(--gold-2);background:var(--ink);color:var(--pearl);font-size:14px;text-align:left}
+.nowbar[hidden]{display:none}
+.nowbar svg{width:16px;height:16px;color:var(--gold-2);flex:none}
+.nowbar>span:nth-child(2){flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nowbar .go{color:var(--gold-2);font-weight:600;flex:none}
+.toc button.nowsec,.toc button.nowsec span:first-child{color:var(--gold-2)}
+.toc button.nowsec span:last-child{font-weight:600}
+.reader section.nowsec{border-left:3px solid var(--gold);padding-left:14px;margin-left:-17px}
+.reader section.flash{background:var(--chip-on-bg)}
+.reader section{transition:background .6s}
+@media (max-width:420px){.reader section.nowsec{margin-left:-12px;padding-left:9px}}

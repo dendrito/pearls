@@ -827,6 +827,7 @@ function setTab(name) { document.querySelectorAll(".tabs button").forEach(b => b
 function vHome() {
   setTop(null); setTab("home");
   if (!state.interests) return vOnboard();
+  const along = alongCard();
   const recs = recommend(10), hero = recs[0];
   const lq = state.lastQueue && BYID[state.lastQueue.ids[state.lastQueue.idx]];
   const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 3).map(([id]) => BYID[id]);
@@ -836,13 +837,15 @@ function vHome() {
     <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}</div>
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
     ${offlineCard()}
+    ${along}
     ${todayCard()}
     ${hero ? `<section class="hero"><div class="orb"></div>
       <div class="eyebrow" style="position:relative;color:var(--gold-2)">Today's pearl</div>
       <h3>${esc(R(hero.t.title))}</h3>
       <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
       <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
-        <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}Read in English</button></div></section>` : ""}
+        <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}${hero.t.vol.he && !hero.t.translated ? "Read the Hebrew" : "Read in English"}</button></div>
+      <p class="note herohint">Every recording is a chapter you can read. Tap its name anywhere in Pearls, or <b>Read along</b> in the player to open the section you're hearing.</p></section>` : ""}
     ${calShelf()}
     ${resumeList.length ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div><div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
     <section><div class="sec-h"><h2>Made for you</h2><button class="more" data-go="library">All playlists</button></div>
@@ -855,6 +858,45 @@ function vHome() {
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
   </div>`;
+}
+/* ---------- read along: the text of what's playing is one tap away ---------- */
+function alongCard() {
+  const t = cur(); if (!t) return "";
+  const n = nSections(t), st = t.sectionTitles[P.part];
+  return `<section class="panel along"><div class="along-txt"><div class="eyebrow">${audio.paused ? "In the player" : "Listening now"}</div>
+      <b>${esc(R(t.title))}</b><span class="note">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${n}${st ? `: ${esc(R(st))}` : ""}</span></div>
+    <button class="btn line" data-act="readalong" data-id="${t.id}">${I.read}Read along</button></section>`;
+}
+function goSection(id, sec) {   // open a chapter and bring section `sec` (1-based) into view once its text has loaded
+  const t = BYID[id]; if (!t) return;
+  go(`ch-${id}`);
+  let n = 0; const seek = () => { const s = $(`#sec-${sec}`); if (s) { s.scrollIntoView({ behavior: "smooth", block: "start" }); s.classList.add("flash"); setTimeout(() => s.classList.remove("flash"), 1600); } else if (n++ < 60) setTimeout(seek, 100); };
+  setTimeout(seek, 50);
+}
+function readAlong() {   // from the player: the chapter playing, at the section playing
+  const t = cur(); if (!t) return;
+  closeNP(); if (history.state && history.state.np) history.replaceState(null, "", location.href);
+  goSection(t.id, P.part + 1);
+}
+/* in the chapter view, mark the section the player is on; if you were reading the one before, follow it */
+let nowSecShown = null;
+function paintNowSec() {
+  const r = $("#reader"), t = cur();
+  const on = r && t && location.hash === `#ch-${t.id}` ? P.part + 1 : null;
+  const was = nowSecShown; nowSecShown = on ? `${t.id}:${on}` : null;
+  document.querySelectorAll(".reader section.nowsec").forEach(s => { if (!on || s.id !== `sec-${on}`) s.classList.remove("nowsec"); });
+  document.querySelectorAll(".toc button.nowsec").forEach(b => { if (!on || b.dataset.sec !== String(on)) b.classList.remove("nowsec"); });
+  const bar = $("#nowbar"); if (bar) bar.hidden = !on;
+  if (!on) return;
+  const s = $(`#sec-${on}`), b = $(`.toc button[data-sec="${on}"]`);
+  if (b) b.classList.add("nowsec");
+  if (bar) bar.querySelector("[data-n]").textContent = `section ${on}${t.sectionTitles[on - 1] ? `: ${R(t.sectionTitles[on - 1])}` : ""}`;
+  if (!s) return;
+  if (!s.classList.contains("nowsec")) {
+    s.classList.add("nowsec");
+    const prev = was && was.startsWith(t.id + ":") ? $(`#sec-${was.split(":")[1]}`) : null;
+    if (prev && prev !== s) { const rc = prev.getBoundingClientRect(); if (rc.bottom > 0 && rc.top < innerHeight) s.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }
 }
 function aboutFoot() {   // the short credit on Home; the full acknowledgement is the Credits page (#credits)
   return `<a class="credit" href="#credits">
@@ -1118,6 +1160,7 @@ function vChapter(id) {
       ${langBar(t)}
       <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button></div>
     </div>
+    <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
     ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</div></div>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -1134,6 +1177,7 @@ function vChapter(id) {
       `<p class="foot">Source: <a href="${esc(posts[0].link)}" target="_blank" rel="noopener">${esc(posts[0].link)}</a></p>`;
     citeClicks(r);
     applyReadLang(t, r);
+    nowSecShown = null; paintNowSec();
   }).catch(() => {
     const r = $("#reader"); if (r) r.innerHTML = `<div class="panel note">Couldn't load the text. You need a connection the first time a chapter opens. The audio may still play.
       <div style="margin-top:10px"><button class="btn ghost" data-act="chapter" data-id="${t.id}">Try again</button></div></div>`;
@@ -1161,6 +1205,7 @@ function renderHebrewChapter(t, d, r) {
   r.querySelectorAll('.heb-orig').forEach(h => hebDone(h, t));
   citeClicks(r);
   if (d.translated) applyReadLang(t, r);
+  nowSecShown = null; paintNowSec();
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
     if (!he.hidden && !he.innerHTML.trim()) {   // lite build: the Hebrew is fetched on demand
@@ -1554,13 +1599,22 @@ function vSearch(q = "") {
 
 /* ---------- mini player & now playing ---------- */
 const mini = $("#mini");
+function mTools(t, labelled) {   // the mini player's Read along / Favorite / Playlist / More; on phones a row of its own, on wider screens beside the title
+  const on = state.likes.has(t.id);
+  return `<button class="${labelled ? "mreadl" : "iconbtn mread"}" data-act="readalong" data-id="${t.id}" aria-label="Read along: the text of section ${P.part + 1}">${I.read}${labelled ? "<span>Read along</span>" : ""}</button>
+      <button class="iconbtn mact ${on ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Favorite">${on ? I.heartOn : I.heart}</button>
+      <button class="iconbtn mact" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
+      <button class="iconbtn mact" data-act="trackmenu" data-id="${t.id}" aria-label="More: Review, Study later, Play next">${I.more}</button>`;
+}
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
   document.body.classList.add("has-mini");
   const both = hasEn(t) && hasHe(t);
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
+      <span class="mwide">${mTools(t)}</span>
       <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Audio language">${P.lang === "en" ? "EN" : "עב"}</button>
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
+    <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
     <div class="mctl">
       <button class="speedbtn" data-act="speed" aria-label="Speed">${state.speed}×</button>
@@ -1584,6 +1638,8 @@ function updateProgress() {
   const sl = $("#sleepPill"); if (sl && P.sleepAt) sl.textContent = `Sleep ${fmt((P.sleepAt - Date.now()) / 1000)}`;
 }
 function refreshPlaying() {
+  paintNowSec();
+  const al = $(".along"); if (al && location.hash.length < 2) al.outerHTML = alongCard() || "<span></span>";
   document.querySelectorAll(".trk[data-id]").forEach(el => {
     const on = cur() && el.dataset.id === cur().id; el.classList.toggle("playing", !!on); el.classList.toggle("paused", !!on && audio.paused);
     const t = el.querySelector(".t"); if (!t) return; const eq = t.querySelector(".eq");
@@ -1611,6 +1667,7 @@ function syncNP(full) {
           <div class="vv">${esc(R(t.vol.title))} · chapter ${t.n} · <span lang="he" dir="rtl">${esc(t.vol.heb)}</span></div>
           <div class="vv" style="color:var(--gold-2)">Section ${P.part + 1} of ${nSections(t)}${t.sectionTitles[P.part] ? ` · ${esc(R(t.sectionTitles[P.part]))}` : ""}</div></div>
           <button class="iconbtn ${liked ? "on" : ""}" id="npLike" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button></div>
+        <button class="btn line readalong" data-act="readalong" data-id="${t.id}">${I.read}<span>Read along<small>${t.vol.he && !t.translated ? "The Hebrew text" : "The text"} of section ${P.part + 1}, where you are</small></span></button>
         <div><input type="range" class="seek" id="seek" min="0" step="1" aria-label="Seek"><div class="times"><span id="tCur">0:00</span><span id="tLeft">–</span></div></div>
         <div class="ctrls"><button class="sm" data-act="prev" aria-label="Previous">${I.prev}</button>
           <button class="skip" data-act="b15" aria-label="Back 15 seconds">${I.back15}</button>
@@ -1624,8 +1681,7 @@ function syncNP(full) {
           <button class="pill" data-act="addto" data-id="${t.id}">${I.plus}Playlist</button>
           <button class="pill ${liked ? "on" : ""}" data-act="like" data-id="${t.id}">${liked ? I.heartOn : I.heart}Favorite</button>
           <button class="pill ${onList("review", t.id) ? "on" : ""}" data-act="togglelist" data-list="review" data-id="${t.id}" aria-pressed="${onList("review", t.id)}">${I.repeat}Review</button>
-          <button class="pill ${onList("later", t.id) ? "on" : ""}" data-act="togglelist" data-list="later" data-id="${t.id}" aria-pressed="${onList("later", t.id)}">${I.clock}Study later</button>
-          <button class="pill" data-act="readnp" data-id="${t.id}">${I.read}Read</button></div>
+          <button class="pill ${onList("later", t.id) ? "on" : ""}" data-act="togglelist" data-list="later" data-id="${t.id}" aria-pressed="${onList("later", t.id)}">${I.clock}Study later</button></div>
         ${upnext.length ? `<div><div class="eyebrow" style="margin-bottom:4px">Up next</div><div class="list">${upnext.map(u => trackRow(u, { openChapter: false })).join("")}</div></div>`
           : `<p class="note">${pm[0] === "repeat1" ? "This chapter will play again." : pm[0] === "repeatSec" ? "This section will play again." : "When this ends, Pearls keeps going with a recommendation."}</p>`}
       </div>`;
@@ -1678,7 +1734,7 @@ function trackMenu(id) {
     <button class="opt" data-a="like">${liked ? I.heartOn : I.heart}<b>${liked ? "Remove from liked" : "Like"}</b></button>
     <button class="opt" data-a="review">${I.repeat}<b>${onList("review", id) ? "Remove from Review" : "Add to Review"}</b></button>
     <button class="opt" data-a="later">${I.clock}<b>${onList("later", id) ? "Remove from Study later" : "Study later"}</b></button>
-    <button class="opt" data-a="read">${I.read}<b>Read in English</b></button>
+    <button class="opt" data-a="read">${I.read}<b>${cur() && cur().id === id ? `Read along · section ${P.part + 1}` : "Read the text"}</b></button>
     <button class="opt" data-a="radio">${I.shuffle}<b>Start a mix from this chapter</b></button>
     ${NATIVE && (hasHe(t) || hasEn(t)) ? (dlState(t).s === "none" ? `<button class="opt" data-a="dl">${DLI.get}<b>Download</b></button>` : `<button class="opt" data-a="undl">${I.x}<b>Remove download</b></button>`) : ""}
     ${(state.plays[id] || {}).done ? `<button class="opt" data-a="unheard">${I.x}<b>Mark as not heard</b></button>` : ""}`, (s, close) => {
@@ -1689,7 +1745,7 @@ function trackMenu(id) {
       if (a === "like") like(id);
       if (a === "review") toggleList("review", id);
       if (a === "later") toggleList("later", id);
-      if (a === "read") { closeNP(); go(`ch-${id}`); }
+      if (a === "read") { if (cur() && cur().id === id) readAlong(); else { closeNP(); go(`ch-${id}`); } }
       if (a === "radio") { playQueue([id, ...similar(t, 9).map(r => r.t.id)], 0, `Mix from ${t.title}`); toast("Mix started"); }
       if (a === "dl") { downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're online" : "Downloading"); }
       if (a === "undl") { removeDownload(t); toast("Download removed"); }
@@ -1866,6 +1922,8 @@ document.addEventListener("click", e => {
     case "f30": audio.currentTime = Math.min(audio.duration || 1e9, audio.currentTime + 30); break;
     case "np": openNP(); break;
     case "npclose": history.back(); break;
+    case "readalong": readAlong(); break;
+    case "tonowsec": { const s = cur() && $(`#sec-${P.part + 1}`); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); break; }
     case "readnp": closeNP(); history.replaceState(null, "", location.href); go(`ch-${id}`); break;
     case "speed": { const S = [.75, 1, 1.25, 1.5, 1.75, 2]; state.speed = S[(S.indexOf(state.speed) + 1) % S.length]; audio.playbackRate = state.speed; store.set("speed", state.speed); if (P.ctx) { state.speedBy[P.ctx] = state.speed; store.set("speedBy", state.speedBy); } b.textContent = state.speed + "×"; break; }
     case "sleep": {
