@@ -104,6 +104,15 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   - **Favorites:** the liked chapters.
   - Now Playing and every chapter's ⋯ menu have Favorite, Playlist, Review and Study later. Finishing a chapter
     (`studied()`) advances its review and clears it from Study later.
+- **Read along** (2.7): the text of what's playing is one tap from everywhere you listen. Now Playing has a
+  full-width Read along button, the mini player a Read along button (its own row on phones, with Favorite, Add to
+  playlist and More), and Home a "Listening now" card. All open the chapter at the section playing (`readAlong()` →
+  `goSection()`). In the chapter view `paintNowSec()` marks that section and its TOC row, shows a "Playing now · Go
+  there" bar, and follows the next section only if you were reading the one before (it never yanks you back).
+- **Control bar and Books page** (2.7): the mini player also has Shuffle, Repeat (queue → chapter → section → off)
+  and Continue the book toggles, which set `prefs.playMode` like the order pill. Continue the book now runs on into the
+  next book (`nextInOrder()`, skipping chapters with no recording). Every book card has a play button that starts the
+  book at its first unheard chapter.
 - The Apple app and the web version have no bridge. They read the bundled English offline, but don't download audio.
 
 ## Where things are
