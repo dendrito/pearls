@@ -6,7 +6,7 @@
 /* ---------- storage ---------- */
 const store = {
   get(k, d) { try { const v = localStorage.getItem("pearls:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("pearls:" + k, JSON.stringify(v)); } catch {} }
+  set(k, v) { try { localStorage.setItem("pearls:" + k, JSON.stringify(v)); } catch {} syncTouched(k); }
 };
 const state = {
   plays: store.get("plays", {}),          // id -> {sec, pos, done, n, last}
@@ -23,7 +23,8 @@ const state = {
   plan: store.get("plan", null),          // {book:"01"|"all", per:1, start:ts}
   lists: Object.assign({ review: [], later: [] }, store.get("lists", {})),   // review: [{id, at, due, step}], later: [{id, part, pos, at}]
   prefs: Object.assign({ size: 1, hc: false, tint: false, read: "en", meldar: "https://meldar.pages.dev/?ref={ref}" }, store.get("prefs", {})),
-  speedBy: store.get("speedBy", {})
+  speedBy: store.get("speedBy", {}),
+  where: store.get("where", null)         // {id, sec, at}: the section you were reading last
 };
 const save = {
   plays: () => store.set("plays", Object.fromEntries(Object.entries(state.plays).map(([k, v]) => { const o = { ...v }; delete o._t; return [k, o]; }))), likes: () => store.set("likes", [...state.likes]),
@@ -856,6 +857,7 @@ function vHome() {
   const recs = recommend(10), hero = recs[0];
   const lq = state.lastQueue && BYID[state.lastQueue.ids[state.lastQueue.idx]];
   const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 3).map(([id]) => BYID[id]);
+  const readHere = state.where && BYID[state.where.id] && !state.read[state.where.id] && state.where.sec > 1 ? BYID[state.where.id] : null;
   const hr = new Date().getHours(), greet = hr < 12 ? "Boker tov" : hr < 18 ? "Good afternoon" : "Erev tov";
   view.innerHTML = `
   <div class="view">
@@ -872,7 +874,7 @@ function vHome() {
         <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}${hero.t.vol.he && !hero.t.translated ? "Read the Hebrew" : "Read in English"}</button></div>
       <p class="note herohint">Every recording is a chapter you can read. Tap its name anywhere in Pearls, or <b>Read along</b> in the player to open the section you're hearing.</p></section>` : ""}
     ${calShelf()}
-    ${resumeList.length ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div><div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
+    ${resumeList.length || readHere ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div>${readHere ? `<button class="panel progresslink" data-act="resumeread" data-id="${readHere.id}" data-sec="${state.where.sec}"><span><span class="eyebrow">Continue reading</span><br><b>${esc(R(readHere.title))}</b><br><span class="note">${esc(R(readHere.vol.short))} ${readHere.n} · section ${state.where.sec}${readHere.sectionTitles[state.where.sec - 1] ? `: ${esc(R(readHere.sectionTitles[state.where.sec - 1]))}` : ""}</span></span><span class="dur">›</span></button>` : ""}<div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
     <section><div class="sec-h"><h2>Made for you</h2><button class="more" data-go="library">All playlists</button></div>
       <div class="shelf">${madeForYou().map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>Recommended chapters</h2><button class="more" data-act="playrecs">${"Play all"}</button></div>
@@ -1197,7 +1199,7 @@ function vChapter(id) {
       ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."} ${hasHe(t) ? "The audio is the Hebrew reading." : "There is no recording of this chapter."}</div>`
         : `<p class="note">${hasEn(t) ? "This chapter has an English reading and the Hebrew original. Pick the audio language below or in the player." : "The audio is Rav Melamed's book read in <b>Hebrew</b>; follow along in English below."}</p>`}
       ${langBar(t)}
-      <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button></div>
+      <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
     </div>
     <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
     ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</div></div>` : ""}
@@ -1214,7 +1216,7 @@ function vChapter(id) {
     if (!posts.length) { r.innerHTML = `<p class="note">The English text for this chapter isn't published online yet. <a href="https://ph.yhb.org.il/en/" target="_blank" rel="noopener">Open the site</a></p>`; return; }
     r.innerHTML = posts.map((p, i) => `<section id="sec-${i + 1}"><div class="en-body"><h3>${R(p.title.rendered)}</h3>${cleanHTML(p.content.rendered, t)}</div><div class="hebslot" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i, { hebrew: true })}</section>`).join("") +
       `<p class="foot">Source: <a href="${esc(posts[0].link)}" target="_blank" rel="noopener">${esc(posts[0].link)}</a></p>`;
-    citeClicks(r);
+    citeClicks(r); jumpPending(t);
     applyReadLang(t, r);
     nowSecShown = null; paintNowSec();
   }).catch(() => {
@@ -1242,7 +1244,7 @@ function renderHebrewChapter(t, d, r) {
     }).join("") +
     `<p class="foot">From <i>Peninei Halakha</i> by Rabbi Eliezer Melamed — פניני הלכה, הרב אליעזר מלמד, מכון הר ברכה — licensed CC BY 4.0. ${d.translated ? "Translated into English by AI (changes: translation; footnote markers kept)." : ""}</p>`;
   r.querySelectorAll('.heb-orig').forEach(h => hebDone(h, t));
-  citeClicks(r);
+  citeClicks(r); jumpPending(t);
   if (d.translated) applyReadLang(t, r);
   nowSecShown = null; paintNowSec();
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
@@ -1519,6 +1521,211 @@ function vDownloads() {
   view.querySelectorAll("[data-limit]").forEach(b => b.onclick = () => { p.limitMB = +b.dataset.limit; saveDl(); view.querySelectorAll("[data-limit]").forEach(x => x.classList.toggle("on", x === b)); smartSoon(300); });
 }
 
+/* ---------- sync: pick up where you stopped on any device ----------
+   One saved copy per reader on pearls.pages.dev (functions/api/sync.js, KV). Who you are is the sign-in you already
+   have: in a browser on pearls.pages.dev the Pearls pass cookie; in the Android and Apple apps a device token, which
+   a signed-in browser hands over with a one-time code (Settings → Sync). The merge rules are pearls-sync-merge.js,
+   shared with the server. Device-only things stay on the device: downloads, text size and the Meldar study record.
+   `var`, not `let`: store.set() calls syncTouched() and may do so before this block has run. */
+var SM = window.PearlsSyncMerge || null;
+var SYNC_MAPS = ["plays", "read", "days", "measured"];
+var syncAt = store.get("syncAt", {}), syncGone = store.get("syncGone", { read: {} });
+var syncApplying = false, syncT = null, syncDue = 0, syncBusy = null, syncLastSent = "", syncPulledAt = 0;
+var SYNC = (() => {
+  if (!SM || typeof fetch !== "function") return null;
+  if (window.PEARLS_SYNC_MODE) return window.PEARLS_SYNC_MODE;                                                       // tests: {base, token}
+  if (/(^|\.)pearls\.pages\.dev$/.test(location.hostname)) return { base: "", token: false };                         // the web edition: the pass cookie
+  if (window.PearlsNative || location.protocol === "pearls:" || location.host === "appassets.androidplatform.net")
+    return { base: store.get("syncBase", "https://pearls.pages.dev"), token: true };                                // the apps: a device token
+  return null;                                                                                                       // elsewhere (the claude.ai artifact): no sync
+})();
+var syncInfo = store.get("syncInfo", { who: "", last: 0, err: "" });
+function syncTouched(k) {
+  if (syncApplying || !SM) return;
+  if (SM.WHOLE.includes(k)) { syncAt[k] = Date.now(); try { localStorage.setItem("pearls:syncAt", JSON.stringify(syncAt)); } catch {} }
+  if (SM.WHOLE.includes(k) || SYNC_MAPS.includes(k)) syncSoon();
+}
+function syncGoneRead(id) { syncGone.read[id] = Date.now(); store.set("syncGone", syncGone); }
+const syncOn = () => !!(SYNC && (!SYNC.token || store.get("syncToken", "")));
+function localDoc() {
+  const whole = {};
+  for (const k of SM.WHOLE) { const v = store.get(k, undefined); if (v !== undefined) whole[k] = { at: syncAt[k] || 0, val: k === "prefs" ? { ...v, size: undefined } : v }; }
+  return SM.merge({ plays: store.get("plays", {}), read: store.get("read", {}), days: store.get("days", {}), measured: store.get("measured", {}), gone: syncGone, whole }, {});
+}
+// Fold another copy into this device. Returns true if anything here changed.
+function applyDoc(remote) {
+  const mine = localDoc(), m = SM.merge(mine, remote);
+  if (SM.same(m, mine)) return false;
+  syncApplying = true;
+  try {
+    const t = cur(), playing = t && !audio.paused;
+    const plays = m.plays; if (playing && state.plays[t.id]) plays[t.id] = state.plays[t.id];   // the chapter playing here is ahead by definition
+    state.plays = plays; save.plays();
+    state.read = m.read; save.read(); state.days = m.days; save.days(); state.measured = m.measured; save.measured();
+    syncGone = m.gone; store.set("syncGone", syncGone);
+    let qChanged = false, look = false;
+    for (const k in m.whole) {
+      const w = m.whole[k]; if (SM.same(mine.whole[k], w)) continue;
+      let v = w.val; syncAt[k] = w.at;
+      if (k === "prefs") { v = { ...state.prefs, ...v, size: state.prefs.size }; state.prefs = v; look = true; }
+      else if (k === "likes") state.likes = new Set(v || []);
+      else if (k === "lists") state.lists = Object.assign({ review: [], later: [] }, v);
+      else if (k === "scheme") { if (SCHEMES[v]) setScheme(v); continue; }
+      else if (k === "enWords") { setEnWords(v === true); continue; }
+      else if (k === "audioLang") audioLang = v;
+      else if (k === "speed") { state.speed = v; audio.playbackRate = v; }
+      else if (k === "lastQueue") { state.lastQueue = v; qChanged = true; }
+      else state[k] = v;
+      store.set(k, v);
+    }
+    store.set("syncAt", syncAt);
+    if (look) applyPrefs();
+    // nothing has played on this device since it opened: get the player ready where the other device stopped
+    if (qChanged && !playing && !(P.started)) { restoreQueue(); renderMini(); }
+  } finally { syncApplying = false; }
+  const h = location.hash.slice(1);
+  if (!document.querySelector(".scrim") && !npEl && (!h || h === "library" || h === "progress")) { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  return true;
+}
+function syncHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (SYNC && SYNC.token) h.Authorization = "Bearer " + store.get("syncToken", "");
+  return h;
+}
+function syncNote(r) { syncInfo = { ...syncInfo, ...r }; store.set("syncInfo", syncInfo); const n = document.querySelector("[data-syncnote]"); if (n) n.textContent = syncStatus(); }
+async function syncCall(method, doc, keepalive) {
+  const r = await fetch(SYNC.base + "/api/sync", { method, headers: syncHeaders(), credentials: SYNC.token ? "omit" : "same-origin",
+    body: doc ? JSON.stringify({ doc }) : undefined, keepalive: !!keepalive, cache: "no-store" });
+  if (r.status === 401) {
+    if (SYNC.token) { store.set("syncToken", ""); toast("This device was unlinked from sync"); }
+    syncNote({ err: "Not signed in" }); return null;
+  }
+  if (!r.ok) { syncNote({ err: `Sync failed (${r.status})` }); return null; }
+  const j = await r.json(); syncNote({ who: j.who || syncInfo.who, last: Date.now(), err: "" }); return j;
+}
+function syncSoon(ms) {
+  if (!syncOn() || syncApplying) return;
+  if (ms == null) ms = audio && !audio.paused ? 120000 : 5000;   // while listening the position changes every second; send it every 2 minutes
+  const due = Date.now() + ms;
+  if (syncT && syncDue <= due) return;
+  clearTimeout(syncT); syncDue = due; syncT = setTimeout(() => { syncT = null; syncNow(); }, ms);
+}
+async function syncNow(keepalive) {
+  if (!syncOn()) return false;
+  if (syncBusy) return syncBusy;
+  clearTimeout(syncT); syncT = null;
+  syncBusy = (async () => {
+    try {
+      const doc = localDoc(), body = JSON.stringify(doc);
+      if (body === syncLastSent && Date.now() - syncPulledAt < 60000) return true;
+      if (keepalive && body.length > 60000) keepalive = false;   // the browser won't keep a bigger request alive
+      const j = await syncCall("POST", doc, keepalive);
+      if (!j) return false;
+      applyDoc(j.doc); syncLastSent = JSON.stringify(localDoc()); syncPulledAt = Date.now();
+      return true;
+    } catch { syncNote({ err: "Offline: will sync later" }); return false; }
+    finally { syncBusy = null; }
+  })();
+  return syncBusy;
+}
+async function syncPull() {
+  if (!syncOn()) return false;
+  try { const j = await syncCall("GET"); if (!j) return false; syncPulledAt = Date.now(); const ch = applyDoc(j.doc); syncSoon(1500); return ch; }
+  catch { syncNote({ err: "Offline: will sync later" }); return false; }
+}
+function syncStart() {
+  if (!SYNC) return;
+  audio.addEventListener("play", () => { P.started = true; });
+  audio.addEventListener("pause", () => syncSoon(3000));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) syncNow(true); else if (Date.now() - syncPulledAt > 30000) syncPull();
+  });
+  window.addEventListener("pagehide", () => syncNow(true));
+  window.addEventListener("online", () => syncPull());
+  setTimeout(syncPull, 800);
+}
+function syncStatus() {
+  if (!syncOn()) return "";
+  if (syncInfo.err) return syncInfo.err;
+  if (!syncInfo.last) return "Not synced yet";
+  const m = Math.round((Date.now() - syncInfo.last) / 60000);
+  return m < 1 ? "Synced just now" : m < 60 ? `Synced ${m} min ago` : `Synced ${new Date(syncInfo.last).toLocaleString()}`;
+}
+/* The section you're reading is the one whose heading has passed the top third of the screen. */
+var readTimer = null;
+window.addEventListener("scroll", () => {
+  if (!location.hash.startsWith("#ch-")) return;
+  clearTimeout(readTimer);
+  readTimer = setTimeout(() => {
+    const id = location.hash.slice(4), r = $("#reader"); if (!BYID[id] || !r) return;
+    let sec = 0; for (const s of r.querySelectorAll("section[id^='sec-']")) if (s.getBoundingClientRect().top < innerHeight / 3) sec = +s.id.slice(4);
+    if (!sec || (state.where && state.where.id === id && state.where.sec === sec)) return;
+    state.where = { id, sec, at: Date.now() }; store.set("where", state.where);
+  }, 700);
+}, { passive: true });
+var pendingSec = null;
+function jumpPending(t) {
+  if (!pendingSec || pendingSec.id !== t.id) return;
+  const el = document.getElementById(`sec-${pendingSec.sec}`); pendingSec = null;
+  if (el) setTimeout(() => el.scrollIntoView(), 50);
+}
+/* Settings → Sync */
+function syncField() {
+  if (!SYNC) return "";
+  const linked = syncOn();
+  return `<div class="field" data-sync><label>Sync across devices</label>${SYNC.token ? (linked
+    ? `<span class="note">This device keeps its place in sync with ${syncInfo.who ? `<b>${esc(syncInfo.who)}</b>'s` : "your"} Pearls on every other device: where you stopped reading and listening, finished chapters, lists, playlists, saved passages and settings. <span data-syncnote>${esc(syncStatus())}</span></span>
+       <div class="chips"><button class="chip" data-syncnow>Sync now</button><button class="chip" data-syncunlink>Unlink this device</button></div>`
+    : `<span class="note">Pick up where you stopped on any device. On a computer or phone browser, sign in at <b>pearls.pages.dev</b>, open Settings → Sync and tap <b>Link the app</b>. Type the code it shows here.</span>
+       <div style="display:flex;gap:8px"><input id="syncCode" maxlength="9" autocapitalize="characters" autocomplete="off" placeholder="ABCD-EFGH" style="flex:1"><button class="btn gold" data-synclink>Link</button></div>`)
+    : `<span class="note">You're signed in${syncInfo.who ? ` as <b>${esc(syncInfo.who)}</b>` : ""}, so Pearls keeps your place on every browser you sign in on: where you stopped reading and listening, finished chapters, lists, playlists, saved passages and settings. <span data-syncnote>${esc(syncStatus())}</span></span>
+       <div class="chips"><button class="chip" data-syncnow>Sync now</button><button class="chip" data-synccode>Link the Android or Apple app</button></div>
+       <div data-syncdevs></div>`}</div>`;
+}
+function syncWire(s) {
+  const q = sel => s.querySelector(sel);
+  if (q("[data-syncnow]")) q("[data-syncnow]").onclick = async () => { toast("Syncing…"); toast(await syncNow() ? "Synced" : syncInfo.err || "Couldn't sync"); };
+  if (q("[data-synclink]")) q("[data-synclink]").onclick = async () => {
+    const code = q("#syncCode").value.trim(); if (!code) return;
+    try {
+      const r = await fetch(SYNC.base + "/api/claim", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "omit",
+        body: JSON.stringify({ code, device: window.PearlsNative ? "Android app" : location.protocol === "pearls:" ? "Apple app" : "Pearls app" }) });
+      const j = await r.json();
+      if (!r.ok) { toast(j.error || "That code didn't work"); return; }
+      store.set("syncToken", j.token); syncNote({ who: j.who || "", err: "" });
+      await syncPull(); await syncNow();
+      toast("Linked: this device now syncs"); s.remove(); settingsDialog();
+    } catch { toast("Couldn't reach pearls.pages.dev. Check the connection."); }
+  };
+  if (q("[data-syncunlink]")) q("[data-syncunlink]").onclick = async () => {
+    try { await fetch(SYNC.base + "/api/devices", { method: "POST", headers: syncHeaders(), credentials: "omit", body: JSON.stringify({ remove: "self" }) }); } catch {}
+    store.set("syncToken", ""); syncNote({ who: "", last: 0, err: "" }); toast("Unlinked. Your progress stays on this device."); s.remove(); settingsDialog();
+  };
+  if (q("[data-synccode]")) q("[data-synccode]").onclick = async () => {
+    try {
+      const r = await fetch("/api/link", { method: "POST", headers: { "Content-Type": "application/json" } }), j = await r.json();
+      if (!r.ok) { toast(j.error || "Couldn't make a code"); return; }
+      dialog(`<h3>Link the app</h3><p class="note">In the Pearls app on your phone or iPad, open Settings → Sync across devices and type this code. It works once, for ${j.minutes} minutes.</p>
+        <p style="font:600 30px/1.2 ui-monospace,monospace;letter-spacing:.08em;text-align:center;margin:8px 0">${esc(j.code)}</p>
+        <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-ok>Done</button></div>`, (d, close) => { d.querySelector("[data-ok]").onclick = () => { close(); syncDevices(s); }; });
+    } catch { toast("Couldn't reach the server"); }
+  };
+  if (q("[data-syncdevs]")) syncDevices(s);
+}
+async function syncDevices(s) {
+  const box = s.querySelector("[data-syncdevs]"); if (!box) return;
+  try {
+    const r = await fetch("/api/devices"), j = await r.json(); if (!r.ok) return;
+    box.innerHTML = j.devices.length ? `<span class="note">Linked apps:</span>${j.devices.map(d => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0">
+      <span class="note"><b>${esc(d.name)}</b> · linked ${new Date(d.made).toLocaleDateString()}${d.last ? `, last synced ${new Date(d.last).toLocaleDateString()}` : ""}</span>
+      <button class="chip" data-unlinkdev="${esc(d.id)}">Unlink</button></div>`).join("")}` : "";
+    box.querySelectorAll("[data-unlinkdev]").forEach(b => b.onclick = async () => {
+      await fetch("/api/devices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ remove: b.dataset.unlinkdev }) });
+      syncDevices(s);
+    });
+  } catch {}
+}
+
 /* ---------- Settings ---------- */
 function settingsDialog() {
   dialog(`<h3>Settings</h3>
@@ -1538,12 +1745,14 @@ function settingsDialog() {
     <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the phone's speaker.${window.PearlsNative ? "" : " Works in the Android app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
+    ${syncField()}
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
       <span class="note">Use {ref} for the Sefaria reference, e.g. “Peninei Halakhah, Berakhot 4:2”. Leave empty to hide the Meldar button.</span></div>
     <p class="foot" style="margin:0">Neo-Classic S&amp;P re-spells ${LEX.length} recurring terms (${LEX.filter(e => e.st === "a").length} as Keter Shem Tob spells them, the rest derived by the same rules). Book and rabbi names keep their published spelling.</p>
     ${NATIVE ? `<a class="btn line" href="#downloads" data-credits>${DLI.get}Downloads &amp; offline</a>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><a class="btn line" href="#credits" data-credits>Credits &amp; licence</a><button class="btn gold" data-ok>Done</button></div>`, (s, close) => {
     s.querySelectorAll("[data-credits]").forEach(a => a.onclick = () => close());
+    syncWire(s);
     s.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { setScheme(b.dataset.s); s.querySelectorAll("[data-s] .radio").forEach(r => r.classList.toggle("on", r.parentNode.dataset.s === scheme)); });
     $("[data-enwords]", s).onclick = () => { setEnWords(!enWords); $("[data-enwords] .radio", s).classList.toggle("on", enWords); $("[data-enwords]", s).setAttribute("aria-pressed", enWords); };
     s.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { state.prefs.skin = b.dataset.skin; if (b.dataset.skin === "daf" && !state.prefs.readSet) state.prefs.read = "both"; save.prefs(); applyPrefs(); s.querySelectorAll("[data-skin]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
@@ -1801,7 +2010,7 @@ function trackMenu(id) {
       if (a === "radio") { playQueue([id, ...similar(t, 9).map(r => r.t.id)], 0, `Mix from ${t.title}`); toast("Mix started"); }
       if (a === "dl") { downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're online" : "Downloading"); }
       if (a === "undl") { removeDownload(t); toast("Download removed"); }
-      if (a === "unheard") { state.plays[id].done = false; state.plays[id].pos = 0; save.plays(); render(); }
+      if (a === "unheard") { state.plays[id].done = false; state.plays[id].pos = 0; state.plays[id].last = Date.now(); save.plays(); render(); }
     });
   });
 }
@@ -1917,6 +2126,8 @@ document.addEventListener("click", e => {
     case "recno": case "recoff": REC.setChoice("off"); render(); break;
     case "recsince": REC.setShowSince(!REC.state().showSince); render(); break;
     case "exportlog": copyText(JSON.stringify(studyLog(), null, 1)); break;
+    case "resumeread": pendingSec = { id, sec: +b.dataset.sec }; go(`ch-${id}`); break;
+    case "jumpsec": { const el = document.getElementById(`sec-${b.dataset.sec}`); if (el) el.scrollIntoView({ behavior: "smooth" }); break; }
     case "opensaved": { const s = state.saved[+b.dataset.i]; go(`ch-${s.ch}`); setTimeout(() => { const el = document.getElementById(`sec-${s.sec}`); if (el) el.scrollIntoView({ behavior: "smooth" }); }, 700); break; }
     case "notesaved": { const s = state.saved[+b.dataset.i];
       dialog(`<h3>Note</h3><p class="note" style="margin:0">${esc(R(s.title))}</p><div class="field"><label for="noteTxt">Your note</label><textarea id="noteTxt" class="ta" rows="4">${esc(s.note)}</textarea></div>
@@ -1928,7 +2139,7 @@ document.addEventListener("click", e => {
       slot.hidden = false; slot.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`;
       hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); })
         .catch(() => { slot.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew for this section. You need a connection.</p>`; }); break; }
-    case "markdone": { if (state.read[id]) { delete state.read[id]; } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
+    case "markdone": { if (state.read[id]) { delete state.read[id]; syncGoneRead(id); } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
     case "togglelist": toggleList(b.dataset.list, id); break;
     case "playmode": dialog(`<h3>Playback order</h3>${PLAY_MODES.map(([k, n, d, ic]) => `<button class="opt" data-m="${k}"><span class="radio ${playMode() === k ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${n}</b><br><span class="note">${d}</span></span></button>`).join("")}
       <p class="foot" style="margin:0">${NATIVE ? "Smart downloads follow this order, so what plays next is already on the phone." : ""}</p>`, (s2, close) => {
@@ -2024,15 +2235,18 @@ if (NATIVE) {   // finish downloads that completed while the app was closed; rea
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { dlPoll(); smartSoon(); } });
   setTimeout(() => { dlPoll(); smartSoon(0); }, 3000);
 }
-/* restore the last queue (paused) so the mini player is ready */
-if (state.lastQueue && state.lastQueue.ids && state.lastQueue.ids.length && !state.lastQueue.closed) {
+/* restore the last queue (paused) so the mini player is ready; sync calls it again when another device was further on */
+function restoreQueue() {
+  if (!(state.lastQueue && state.lastQueue.ids && state.lastQueue.ids.length && !state.lastQueue.closed)) return;
   P.queue = state.lastQueue.ids.filter(id => BYID[id]); P.idx = Math.min(state.lastQueue.idx || 0, P.queue.length - 1); P.ctx = state.lastQueue.ctx;
   if (cur()) { const p = state.plays[cur().id] || {}; P.part = !p.done && p.part != null ? Math.min(p.part, nSections(cur()) - 1) : 0;
     P.lang = playLang(cur()); audio.src = srcFor(cur(), P.part, P.lang);
     if (p.pos && !p.done) audio.addEventListener("loadedmetadata", () => { audio.currentTime = p.pos; }, { once: true }); mediaSession(cur()); }
 }
+restoreQueue();
 applyPrefs();
 renderMini();
 render();
-window.PEARLS = { playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
+syncStart();
+window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
 })();

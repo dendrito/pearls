@@ -62,6 +62,31 @@ give the same pass: a signed, HttpOnly cookie that lasts 90 days. The code is in
 Preview deployments have no `SESSION_SECRET` and answer "not set up", so they stay closed.
 
 
+## Sync: pick up where you stopped on any device
+
+Signing in is the sign-up: whoever can open pearls.pages.dev (Google, an email code or an invite link) has a sync
+account, keyed by their email (or by the invite, for invite links). The code is `functions/api/*.js`,
+`webauth/sync.js` and `www/pearls-sync-merge.js` (the merge rules, shared by the app and the server).
+
+- **What syncs:** where you stopped reading (chapter and section) and listening (chapter, section, position, the
+  queue), finished chapters, the study log, likes, Review / Study later lists, playlists, saved passages, the daily
+  plan and settings. Text size, downloads and the Meldar study record stay on each device.
+- **Browsers** on pearls.pages.dev sync on their own: the pass cookie says who you are.
+- **The Android and Apple apps** link once: in a signed-in browser, Settings → Sync across devices → *Link the
+  Android or Apple app* shows a code (10 minutes, one use); type it into the app's Settings. The app then holds its
+  own device token. The browser's Settings lists linked apps and can unlink them; cancelling an invite link closes
+  that person's apps too, and changing `SESSION_SECRET` closes every app.
+- **Storage:** nothing new to set up. It uses the `INVITES` KV namespace that sign-in already has, under its own
+  prefixes (`sync:`, `code:`, `dev:`). To keep it separate, create a KV namespace `pearls-sync` and bind it as `SYNC`;
+  it is used instead when present (existing copies stay in `INVITES`, so bind it before people start syncing).
+- **Limits:** KV's free plan allows 1,000 writes a day for the whole account. A device writes only when something
+  changed: every few seconds after you stop, at most every 2 minutes while audio plays, and when the app goes to the
+  background, so an hour of listening is about 30 writes. With more than a handful of daily readers, move to Workers
+  Paid or to D1. KV copies can take up to a minute to reach other parts of the world, so a device on another continent
+  may need a moment to see the latest place.
+- **Tests:** `WRANGLER=… node test_sync.mjs` (merge rules plus the API; must end "sync: 30/30") and
+  `WRANGLER=… node test_sync_app.mjs` (two browsers, one standing in for the app; must end "sync app: 15/15").
+
 ## When a merge to main doesn't deploy
 
 The Deployments page should show a new row for each commit on main. If it keeps showing an old commit, Cloudflare has
