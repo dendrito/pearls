@@ -65,6 +65,14 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   closing it.
 - **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
 
+## What is translated
+
+Every chapter is one of three kinds, from `kindOf(t)` in `www/app.js`: **Official English** (Har Bracha's translation,
+the volumes in `catalog.js`), **AI translation** (a Hebrew-only volume whose chapter has a bundled translation) or
+**Hebrew only** (not translated yet). Books (`#books`, `#books-official|ai|he`), a mixed book's page (`#vol-20-he`) and
+Search filter by it, and track rows and book cards carry a flat tag (`.kindtag`). The Books and Search filters are
+remembered in `prefs.booksKind` / `prefs.searchKind`.
+
 ## Offline and downloads (Android)
 
 - `android/java/.../PearlsBridge.java` is `window.PearlsNative`:
@@ -116,6 +124,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
 | `src/` | Scraped source data: ph.yhb.org.il and Sefaria. |
 | `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
 | Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
+| `functions/`, `webauth/`, `docs/cloudflare-pages.md` | The web edition on Cloudflare Pages (pearls.pages.dev): output dir `www`, no build. `proxy.js` fetches ph.yhb.org.il text (only that host). The site is private: `_middleware.js` requires a pass, which comes from Cloudflare Access (Google or an email code, on `/signin`) or from an invite link made on `/admin` (stored in KV, can be cancelled). It also adds noindex. Setup steps are in the doc. Test: `WRANGLER=… node test_webauth.mjs`, which must end "webauth: 23/23". |
 | `apple/` | Xcode project. One multiplatform target. The `pearls://` scheme handler also proxies ph.yhb.org.il, which sends duplicate CORS headers. Run `apple/sync_www.sh` after changing www. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
 | `docs/` | S&P house rules (KTS), the calendar readings method, and the notes on how Pearls links to Meldar. |

@@ -795,6 +795,22 @@ const I = {
 const coverStyle = v => `--c1:${v.c1};--c2:${v.c2};--c3:${v.c3}`;
 const cover = (v, cls = "") => `<div class="cover ${cls}" style="${coverStyle(v)}"><div class="ring"></div><div class="glyph">${v.glyph}</div><div class="cap">${esc(R(v.short))}</div></div>`;
 const art = t => `<div class="art" style="${coverStyle(t.vol)}"><span>${t.vol.glyph}</span></div>`;
+/* ---------- what is translated: official English · AI translation · Hebrew only ---------- */
+const KINDS = [
+  { id: "official", label: "Official English", tag: "Official", h: "Official English translation",
+    desc: "Translated by Yeshivat Har Bracha and published by them." },
+  { id: "ai", label: "AI translation", tag: "AI", h: "AI translation",
+    desc: "No official English edition yet. Translated from Rabbi Melamed's Hebrew by Claude (Anthropic); not reviewed by Har Bracha or a rabbi." },
+  { id: "he", label: "Hebrew only", tag: "Hebrew", h: "Hebrew only",
+    desc: "Not translated yet. The text is Rabbi Melamed's Hebrew." } ];
+const KIND = Object.fromEntries(KINDS.map(k => [k.id, k]));
+const kindOf = t => !t.vol.he ? "official" : t.translated ? "ai" : "he";
+const volTracks = (v, k) => TRACKS.filter(x => x.vol === v && (!k || kindOf(x) === k));
+const volKinds = v => KINDS.map(k => k.id).filter(k => volTracks(v, k).length);
+const kindTag = k => `<span class="kindtag k-${k}">${KIND[k].tag}</span>`;
+const kindCounts = ts => { const c = { all: ts.length }; for (const t of ts) c[kindOf(t)] = (c[kindOf(t)] || 0) + 1; return c; };
+const kindChips = (on, counts, attr = "kind") => `<div class="chips kindchips" role="group" aria-label="Translation">${[["all", "All"]].concat(KINDS.map(k => [k.id, k.label]))
+  .filter(([id]) => id === "all" || counts[id]).map(([id, l]) => `<button class="chip ${on === id ? "on" : ""}" data-${attr}="${id}" aria-pressed="${on === id}">${l} <small>${counts[id]}</small></button>`).join("")}</div>`;
 function trackRow(t, o = {}) {
   const p = state.plays[t.id] || {}, d = dur(t), pct = !p.done && (p.part || p.pos > 30) ? Math.min(100, ((p.part || 0) + .5) / nSections(t) * 100) : 0;
   const playing = cur() && cur().id === t.id;
@@ -802,7 +818,7 @@ function trackRow(t, o = {}) {
     <button class="trk-play" data-act="play" data-id="${t.id}" aria-label="Play ${esc(R(t.title))}">${art(t)}</button>
     <button class="txt" data-act="${o.openChapter === false ? "play" : "chapter"}" data-id="${t.id}" style="text-align:left">
       <div class="t">${playing ? '<span class="eq"><i></i><i></i><i></i></span>' : ""}${esc(R(t.title))}${dlBadge(t)}</div>
-      <div class="m">${o.why ? `<span class="why">${esc(o.why)}</span> · ` : ""}${esc(R(t.vol.short))} · ch. ${t.n}${t.vol.he ? (t.translated ? " · AI translation" : " · Hebrew") : ""}${d ? ` · ${mins(d)}` : ""}${p.done ? " · ✓ heard" : ""}</div>
+      <div class="m">${o.why ? `<span class="why">${esc(o.why)}</span> · ` : ""}${kindTag(kindOf(t))} ${esc(R(t.vol.short))} · ch. ${t.n}${d ? ` · ${mins(d)}` : ""}${p.done ? " · ✓ heard" : ""}</div>
       ${pct ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}
     </button>
     <div class="end">${o.end || `<button class="iconbtn" style="background:none" data-act="trackmenu" data-id="${t.id}" aria-label="More options">${I.more}</button>`}</div>
@@ -814,8 +830,10 @@ function plArt(pl) {
   return `<div class="plart">${four.map((v, i) => `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
 }
 const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.id}">${plArt(pl)}<span>${pl.tracks.length} chapters · ${mins(plDur(pl.tracks)) || "–"}</span></button>`;
-const volCard = v => { const n = v.chapters.length, heard = TRACKS.filter(t => t.vol === v && (state.plays[t.id] || {}).done).length;
-  return `<button class="volcard" data-act="vol" data-id="${v.book}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta">${n} chapters${v.he ? (v.chapters.some(c => c.translated) ? " · AI translation" : " · Hebrew") : ""}${heard ? ` · ${heard} heard` : ""}</div></div></button>`; };
+const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
+  const all = volTracks(v), ts = k ? volTracks(v, k) : all, ks = volKinds(v), heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
+  const n = ts.length < all.length ? `${ts.length} of ${all.length} chapters` : `${all.length} chapters`;
+  return `<button class="volcard" data-act="vol" data-id="${v.book}${k && ks.length > 1 ? `-${k}` : ""}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta"><span class="kinds">${(k ? [k] : ks).map(kindTag).join("")}</span>${n}${heard ? ` · ${heard} heard` : ""}</div></div></button>`; };
 
 /* ---------- views ---------- */
 const view = $("#view"), topTitle = $("#topTitle"), backBtn = $("#backBtn"), brand = $("#brand");
@@ -1046,15 +1064,26 @@ function vOnboard() {
   $("#onbGo").onclick = () => { state.interests = [...picks]; save.interests(); render(); };
   $("#onbSkip").onclick = () => { state.interests = []; save.interests(); render(); };
 }
-function vBooks() {
+function vBooks(kind) {
   setTop(null); setTab("books");
-  const total = TRACKS.reduce((a, t) => a + (dur(t) || 0), 0);
+  if (kind) { state.prefs.booksKind = kind; save.prefs(); }
+  const on = KIND[state.prefs.booksKind] ? state.prefs.booksKind : "all";
+  const total = TRACKS.reduce((a, t) => a + (dur(t) || 0), 0), counts = kindCounts(TRACKS);
+  const shelf = k => { const vs = VOLS.filter(v => volTracks(v, k).length); return `<section class="kindsec" id="books-${k}">
+      <div class="sec-h"><h2>${KIND[k].h}</h2><span class="more">${vs.length} book${vs.length > 1 ? "s" : ""} · ${counts[k]} chapters</span></div>
+      <p class="note kinddesc">${kindTag(k)} ${KIND[k].desc}</p>
+      <div class="volgrid">${vs.map(v => volCard(v, k)).join("")}</div></section>`; };
   view.innerHTML = `<div class="view">
-    <div><h1 class="hello">The books</h1><p class="sub">${VOLS.length} volumes in English · ${TRACKS.length} chapters · ${Math.round(total / 3600)}+ hours of original Hebrew audio</p></div>
-    <div class="volgrid">${VOLS.map(volCard).join("")}</div>${aboutFoot()}</div>`;
+    <div><h1 class="hello">The books</h1><p class="sub">${VOLS.length} volumes · ${TRACKS.length} chapters · ${Math.round(total / 3600)}+ hours of original Hebrew audio</p></div>
+    ${kindChips(on, counts)}
+    ${(on === "all" ? KINDS.map(k => k.id) : [on]).filter(k => counts[k]).map(shelf).join("")}${aboutFoot()}</div>`;
+  view.querySelector(".kindchips").onclick = e => { const b = e.target.closest("[data-kind]"); if (!b) return;
+    const k = b.dataset.kind; history.replaceState(null, "", k === "all" ? "#books" : `#books-${k}`); vBooks(k); };
 }
-function vVol(book) {
+function vVol(book, kind) {
+  if (!kind && /-/.test(book)) [book, kind] = book.split("-");
   const v = VOLS.find(x => x.book === book); if (!v) return vBooks();
+  const ks = volKinds(v), only = ks.length > 1 && KIND[kind] ? kind : "all";
   setTop(v.short); setTab("books");
   const ts = TRACKS.filter(t => t.vol === v), total = ts.reduce((a, t) => a + (dur(t) || 0), 0);
   const heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
@@ -1062,13 +1091,16 @@ function vVol(book) {
   view.innerHTML = `<div class="view">
     <div class="vhead">${cover(v)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
       <div class="heb" lang="he" dir="rtl">${esc(v.heb)}</div><h1>${esc(R(v.title))}</h1>
-      <div class="stats"><span>${ts.length} chapters</span>${total ? `<span>${ts.every(dur) ? "" : "≈ "}${(total / 3600).toFixed(1)} h of audio${ts.every(dur) ? "" : "+"}</span>` : ""}${heard ? `<span>${heard}/${ts.length} heard</span>` : ""}</div></div></div>
+      <div class="stats"><span class="kinds">${ks.map(kindTag).join("")}</span><span>${ts.length} chapters</span>${total ? `<span>${ts.every(dur) ? "" : "≈ "}${(total / 3600).toFixed(1)} h of audio${ts.every(dur) ? "" : "+"}</span>` : ""}${heard ? `<span>${heard}/${ts.length} heard</span>` : ""}</div></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn gold" data-act="playvol" data-id="${v.book}" data-start="${ts.indexOf(firstUnheard)}">${I.play}${heard ? "Continue" : "Play the book"}</button>
       <button class="btn ghost" data-act="savevol" data-id="${v.book}">${I.plus}Save as playlist</button>${dlManyButton(ts.map(t => t.id))}</div>
-    <div class="list">${ts.map(t => trackRow(t)).join("")}</div>
+    ${ks.length > 1 ? kindChips(only, kindCounts(ts), "vkind") : `<p class="note kinddesc" style="margin:0">${kindTag(ks[0])} ${KIND[ks[0]].desc}</p>`}
+    <div class="list">${ts.filter(t => only === "all" || kindOf(t) === only).map(t => trackRow(t)).join("")}</div>
     ${v.book === "03" ? `<p class="note">Audio for this volume may not be available; the text is.</p>` : ""}
   </div>`;
+  const kc = view.querySelector(".kindchips"); if (kc) kc.onclick = e => { const b = e.target.closest("[data-vkind]"); if (!b) return;
+    history.replaceState(null, "", `#vol-${book}${b.dataset.vkind === "all" ? "" : "-" + b.dataset.vkind}`); vVol(book, b.dataset.vkind); };
 }
 /* In the Apple app the page runs from the pearls:// scheme; text requests go through its proxy (the site's CORS headers are malformed). */
 const net = u => window.PEARLS_PROXY ? window.PEARLS_PROXY + encodeURIComponent(u) : u;
@@ -1579,20 +1611,27 @@ function vSearch(q = "") {
   view.innerHTML = `<div class="view">
     <h1 class="hello">Search</h1>
     <label class="search">${I.search}<input id="q" type="search" placeholder="Kiddush, shofar, rain, muktze…" value="${esc(q)}" autocomplete="off"><span class="sr">Search chapters</span></label>
+    ${kindChips(KIND[state.prefs.searchKind] ? state.prefs.searchKind : "all", kindCounts(TRACKS), "skind")}
     <div class="chips" id="topics">${Object.keys(TOPIC_LABEL).filter(g => TRACKS.some(t => t.tags.includes(g))).slice(0, 24).map(g => `<button class="chip" data-tag="${g}">${esc(TOPIC_LABEL[g])}</button>`).join("")}</div>
     <div class="list" id="results"></div></div>`;
   const run = () => {
-    const s = $("#q").value.trim().toLowerCase(), act = view.querySelector(".chip.on");
+    const s = $("#q").value.trim().toLowerCase(), act = view.querySelector("#topics .chip.on");
+    const k = KIND[state.prefs.searchKind] ? state.prefs.searchKind : null, okKind = t => !k || kindOf(t) === k;
     let res = [];
     if (s.length > 1) res = TRACKS.map(t => { const hay = `${t.title} ${R(t.title)} ${t.sectionTitles.join(" ")} ${t.sectionTitles.map(R).join(" ")} ${t.vol.title} ${t.tags.map(g => TOPIC_LABEL[g]).join(" ")}`.toLowerCase();
         const sc = ((t.title + " " + R(t.title)).toLowerCase().includes(s) ? 3 : 0) + (hay.includes(s) ? 1 : 0) + s.split(/\s+/).filter(w => hay.includes(w)).length * .5; return { t, sc }; })
       .filter(r => r.sc > .4).sort((a, b) => b.sc - a.sc).map(r => r.t);
     else if (act) res = TRACKS.filter(t => t.tags.includes(act.dataset.tag));
+    else if (k) res = TRACKS.slice();
+    res = res.filter(okKind);
     const sec = s.length > 1 ? TRACKS.flatMap(t => t.sectionTitles.map((x, i) => ({ t, x: R(x), i, raw: x })).filter(o => (o.x + ' ' + o.raw).toLowerCase().includes(s))).slice(0, 6) : [];
-    $("#results").innerHTML = res.length ? res.slice(0, 40).map(t => trackRow(t, { why: sec.find(o => o.t === t) ? `§${sec.find(o => o.t === t).i + 1} ${sec.find(o => o.t === t).x}` : "" })).join("")
-      : (s || act ? `<div class="empty">Nothing matches “${esc(s)}”. Try a broader word.</div>` : `<div class="empty"><div class="em-orb"></div>Search ${TRACKS.length} chapters by title, section or topic.</div>`);
+    $("#results").innerHTML = res.length ? res.slice(0, s.length > 1 || act ? 40 : 400).map(t => trackRow(t, { why: sec.find(o => o.t === t) ? `§${sec.find(o => o.t === t).i + 1} ${sec.find(o => o.t === t).x}` : "" })).join("")
+      : (s || act ? `<div class="empty">Nothing matches “${esc(s)}”${k ? ` in ${KIND[k].label}` : ""}. Try a broader word${k ? " or All" : ""}.</div>` : `<div class="empty"><div class="em-orb"></div>Search ${TRACKS.length} chapters by title, section or topic.</div>`);
   };
   $("#q").oninput = run;
+  view.querySelector(".kindchips").onclick = e => { const b = e.target.closest("[data-skind]"); if (!b) return;
+    state.prefs.searchKind = b.dataset.skind; save.prefs();
+    view.querySelectorAll(".kindchips .chip").forEach(c => { c.classList.toggle("on", c === b); c.setAttribute("aria-pressed", c === b); }); run(); };
   $("#topics").onclick = e => { const b = e.target.closest(".chip"); if (!b) return; const on = b.classList.contains("on"); view.querySelectorAll("#topics .chip").forEach(c => c.classList.remove("on")); if (!on) b.classList.add("on"); $("#q").value = ""; run(); };
   run();
 }
@@ -1947,6 +1986,7 @@ function render() {
   else if (h.startsWith("ch-")) vChapter(h.slice(3));
   else if (h.startsWith("pl-")) vPlaylist(h.slice(3));
   else if (h === "books") vBooks();
+  else if (h.startsWith("books-")) vBooks(h.slice(6));
   else if (h === "library") vLibrary();
   else if (h === "progress") vProgress();
   else if (h === "search") vSearch();

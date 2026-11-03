@@ -14,3 +14,4 @@ __pycache__/
 # signing keys: keep them out of git (see README)
 /signer/*.pem
 .DS_Store
+/.wrangler/
