@@ -85,7 +85,7 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
     // MARK: - the device's own voices, Premium and Enhanced included (AppleVoice)
 
     private func appleVoice(_ task: WKURLSchemeTask, _ url: URL, _ what: String) {
-        let q = Dictionary((URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { a, _ in a }
+        let q = Dictionary((URLComponents(string: url.absoluteString.replacingOccurrences(of: "+", with: "%20"))?.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { a, _ in a }
         switch what {
         case "list":
             let d = (try? JSONSerialization.data(withJSONObject: AppleVoice.shared.list())) ?? Data("[]".utf8)
@@ -111,7 +111,7 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
 
     private func kokoro(_ task: WKURLSchemeTask, _ url: URL, _ what: String) {
         let K = KokoroNative.shared
-        let q = Dictionary((URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { a, _ in a }
+        let q = Dictionary((URLComponents(string: url.absoluteString.replacingOccurrences(of: "+", with: "%20"))?.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { a, _ in a }
         let json = { (o: [String: Any], status: Int) in
             let d = (try? JSONSerialization.data(withJSONObject: o)) ?? Data("{}".utf8)
             DispatchQueue.main.async { self.respond(task, url: url, data: d, mime: "application/json", status: status) }

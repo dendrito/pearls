@@ -536,7 +536,9 @@ const Speaker = (() => {
    could leave silent. Neural has the parts of an <audio> element the player uses, like Speaker. */
 const VX = () => window.Voice || null;
 const vlog = (...a) => { if (window.PEARLS_LOG) try { window.PEARLS_LOG("voice:", ...a); } catch {} };   // Xcode's console in the Apple app
-const engineChoice = () => state.prefs.voiceEngine || "device";   // device | natural | piper
+/* device | natural | piper. Nothing chosen: the natural voice once it is on the device (Curió: the iPad's Premium
+   voices do not beat Kokoro), else the device's own voice */
+const engineChoice = () => { if (state.prefs.voiceEngine) return state.prefs.voiceEngine; try { return naturalHas() ? "natural" : "device"; } catch { return "device"; } };
 /* Kokoro's speakers, male first; George is the default (Curió: default voices are male). The first four of KOKORO_CORE
    come with the model; the others are a small file each (about 0.5 MB), downloaded only when the reader asks for one. */
 const KOKORO_VOICES = { bm_george: "George · UK", bm_lewis: "Lewis · UK", bm_fable: "Fable · UK", am_michael: "Michael · US", am_fenrir: "Fenrir · US", am_puck: "Puck · US",
@@ -589,6 +591,10 @@ async function checkVoices() {   // what is really on this device
 let neuralFailed = false;   // the natural voice would not start this session: the device voice reads instead
 /* In the Apple app the app runs Kokoro itself (apple/Pearls/KokoroNative.swift): no WebKit graphics-memory cap, Core ML
    where it takes the graph. The page only makes the phonemes (pearls-phonemes.js) and plays the WAV the app returns. */
+/* a query for the app's own pages: spaces as %20, never "+". URLSearchParams writes a space as "+", which Swift's
+   URLComponents keeps as a literal plus: the iPad voices then said "plus" between words, and Kokoro's phonemes lost
+   their word breaks (an unknown "+" is dropped), so its words ran together. */
+const qs = o => Object.entries(o).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
 const NK = (() => {
   const base = "pearls://app/native/kokoro/";
   /* the last status the app gave, kept so the first Read aloud after a launch knows the voice is here
@@ -631,7 +637,7 @@ const NK = (() => {
     vlog("phonemes for the app:", phonemes.slice(0, 120));
     const ac = new AbortController(), t = setTimeout(() => ac.abort(), 120000);
     let r;
-    try { r = await fetch(base + "say?" + new URLSearchParams({ ph: phonemes, v: voice, s: String(speed || 1) }), { signal: ac.signal }); }
+    try { r = await fetch(base + "say?" + qs({ ph: phonemes, v: voice, s: String(speed || 1) }), { signal: ac.signal }); }
     catch (e) { throw new Error(ac.signal.aborted ? "the app made no sound in 2 minutes" : e.message); }
     finally { clearTimeout(t); }
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
@@ -667,7 +673,7 @@ const AV = (() => {
   async function say(text, id, speed) {
     const ac = new AbortController(), t = setTimeout(() => ac.abort(), 90000);
     let r;
-    try { r = await fetch(base + "say?" + new URLSearchParams({ text, id, rate: String(speed || 1) }), { signal: ac.signal }); }
+    try { r = await fetch(base + "say?" + qs({ text, id, rate: String(speed || 1) }), { signal: ac.signal }); }
     catch (e) { throw new Error(ac.signal.aborted ? "the device voice made no sound" : e.message); }
     finally { clearTimeout(t); }
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
