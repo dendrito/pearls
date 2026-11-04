@@ -538,7 +538,12 @@ let neuralFailed = false;   // the natural voice would not start this session: t
    where it takes the graph. The page only makes the phonemes (pearls-phonemes.js) and plays the WAV the app returns. */
 const NK = (() => {
   const base = "pearls://app/native/kokoro/";
-  let st = null, pw = null, seq = 0, on = null;
+  /* the last status the app gave, kept so the first Read aloud after a launch knows the voice is here
+     before the app answers (without it the device voice started and Kokoro took over only later) */
+  const KEEP = "pearls.kokoroHas";
+  let st = (() => { try { return localStorage.getItem(KEEP) === "1" ? { downloaded: true } : null; } catch { return null; } })();
+  let pw = null, seq = 0, on = null;
+  const keep = x => { try { localStorage.setItem(KEEP, x && x.downloaded ? "1" : "0"); } catch {} return x; };
   const wait = new Map();
   const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).kokoro); } catch { on = false; } } return on; };
   async function get(p) {
@@ -546,7 +551,7 @@ const NK = (() => {
     if (!r.ok) throw new Error(j.error || `the app answered ${r.status}`);
     return j;
   }
-  async function status() { st = await get("status"); return st; }
+  async function status() { st = keep(await get("status")); return st; }
   function phon(text) {
     if (!pw) {
       pw = new Worker("pearls-phonemes.js", { type: "module" });
@@ -581,11 +586,16 @@ const NK = (() => {
     return { blob, dur: Math.max(0, blob.size - 44) / 2 / 24000, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
   }
   const SIZE_MB = 330;   // model 326 MB, four voices, eSpeak NG
-  return { on: isOn, status, phon, download, say, SIZE_MB, load: () => get("load"), remove: () => get("remove").then(x => (st = x)),
+  return { on: isOn, status, phon, download, say, SIZE_MB, load: () => get("load"), remove: () => get("remove").then(x => (st = keep(x))),
     get has() { return !!(st && st.downloaded); }, get bytes() { return st ? st.bytes : 0; } };
 })();
 vlog("app runs Kokoro:", NK.on());
-if (NK.on()) NK.status().then(x => { vlog("app Kokoro status", x); if (typeof refreshEngines === "function") refreshEngines(); }).catch(() => {});
+if (NK.on()) NK.status().then(x => {
+  vlog("app Kokoro status", x);
+  if (typeof refreshEngines === "function") refreshEngines();
+  /* if the device voice started reading before the app answered, hand over to the voice you chose */
+  if (audio.speaking && !audio.neural && neuralReady()) { vlog("the natural voice is here: switching from the device voice"); reloadVoice(); }
+}).catch(() => {});
 const naturalHas = () => NK.on() ? NK.has : !!VX() && !VX().needsDownload("natural", "eng");
 const engineHas = id => id === "natural" ? naturalHas() : !!VX() && !VX().needsDownload(id, "eng");
 const neuralReady = () => { const V = VX(), e = engineChoice(); return !neuralFailed && !!V && e !== "device" && engineHas(e); };
