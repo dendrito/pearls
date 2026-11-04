@@ -127,6 +127,18 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   srcs. The voice is `prefs.voice` (Settings → Voice, or "Change voice" by the player); the paragraph being read is
   highlighted in the reader and in Now Playing's text. A failed English recording falls back to the AI voice, then
   Hebrew; an engine with no voice is detected and treated as a failure. Play order defaults to Continue the book.
+- **Natural voices** (2.7): Settings → Voice offers three engines for the AI voice: **Natural (Kokoro)**, about
+  370 MB once, four voices (`prefs.kokoroVoice`), says the guttural ḥ; **Light (Piper)**, about 93 MB, keeps up on any
+  phone; and the device's own voice. They are chosen with `prefs.voiceEngine`. Both run on the device (WebGPU or
+  WebAssembly), download only when asked (Wi-Fi only by default) and can be removed.
+  - The engine is Estante's (github.com/dendrito/estantes): `www/voice.js`, `voice-*.js`, `*-worker.js` and
+    `www/voice/lexicon-*.tsv`, **shipped unmodified**. Upgrade it by copying Estante's files, never by editing them here.
+  - In `app.js`, `Neural` mimics `<audio>` the way `Speaker` does, and the `audio` facade picks it for `speech:` srcs
+    when `neuralReady()`. One shared AudioContext (`sharedCtx()`, unlocked on the first tap) is handed to
+    `Voice.player`, because a context made when the next section starts by itself stays muted on iOS.
+  - A natural voice that fails falls back to the device voice for the session (`neuralFailed`).
+  - Test: `python3 test_voice.py` (a stand-in for voice.js, since its models come from the network). It must end
+    "voice: 14/14".
 - The Apple app (2.7) has the same bridge: `apple/Pearls/PearlsNative.swift` plus `native-shim.js`, which gives the page
   Android's synchronous interface on top of WKWebView's asynchronous messages (state pushed by the app, requests posted to
   it, `readText` a synchronous read from `pearls://app/native/text/`). The web version has no bridge: it reads the bundled

@@ -414,7 +414,7 @@ const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AU
    English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
 const langPref = () => state.prefs.read || "en";
 const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
-const aiVoiceOn = () => state.prefs.aiVoice !== false && canSpeak();
+const aiVoiceOn = () => state.prefs.aiVoice !== false && (canSpeak() || (typeof neuralReady === "function" && neuralReady()));
 function listenLang(t) {
   const en = langPref() !== "he" || !hasHe(t);
   if (en && hasEn(t)) return "en";
@@ -520,30 +520,142 @@ const Speaker = (() => {
     stop() { want = false; job++; const was = !paused; paused = true; clearInterval(timer); stopSpeech(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
   };
 })();
+/* ---------- the natural voices, made on this device (Estante's engine: voice.js and its workers) ----------
+   Kokoro ("Natural", ~370 MB once, the most natural, says the guttural ḥ) and Piper ("Light", ~93 MB, any device,
+   more robotic). Both run here; nothing is sent anywhere. Downloaded only when you ask, on Wi-Fi unless you say
+   otherwise, and removable. voice.js and the workers are Estante's files, shipped unmodified: upgrade them by copying
+   Estante's, never by editing them here. Neural has the parts of an <audio> element the player uses, like Speaker.
+   A section is one Voice.player; its pieces are mapped to paragraphs so the reader can mark the one being read. */
+const VX = () => window.Voice || null;
+const engineChoice = () => state.prefs.voiceEngine || "device";   // device | natural | piper
+const KOKORO_VOICES = { bf_emma: "Emma · UK", bm_george: "George · UK", am_michael: "Michael · US", af_heart: "Heart · US" };
+let neuralFailed = false;   // the natural voice would not start this session: the device voice reads instead
+const neuralReady = () => { const V = VX(), e = engineChoice(); return !neuralFailed && !!V && e !== "device" && !V.needsDownload(e, "eng"); };
+const ENGINE_NAME = { natural: "Natural (Kokoro)", piper: "Light (Piper)" };
+function currentVoiceLabel() {
+  if (neuralReady()) return engineChoice() === "natural" ? `${ENGINE_NAME.natural}, ${KOKORO_VOICES[state.prefs.kokoroVoice] || KOKORO_VOICES.bf_emma}` : ENGINE_NAME.piper;
+  return voiceLabel(pickVoice());
+}
+/* one shared AudioContext, unlocked by the first tap: a context made later, when the next section starts on its own,
+   would stay muted on iPhone and iPad. Voice.player makes its own, so it is handed this one while it is made. */
+let NCTX = null;
+function sharedCtx() {
+  const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
+  if (!NCTX || NCTX.state === "closed") { NCTX = new A(); NCTX.close = () => Promise.resolve(); }
+  return NCTX;
+}
+function unlockAudio() { const c = sharedCtx(); if (c && c.state === "suspended") c.resume().catch(() => {}); }
+document.addEventListener("pointerdown", unlockAudio, { capture: true, passive: true });
+const lexCache = {};
+async function voiceLex(name) {   // the same lexicon voice.js loads, so its pieces can be predicted exactly
+  if (lexCache[name]) return lexCache[name];
+  let rows = [];
+  try { rows = (await (await fetch(`voice/lexicon-${name}.tsv`)).text()).split("\n").filter(l => l.trim() && !l.startsWith("#") && l.includes("\t")).map(l => l.split("\t").map(x => x.trim())); } catch {}
+  const q = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (lexCache[name] = rows.flatMap(([a, b]) => [[a, b], [a[0].toUpperCase() + a.slice(1), b[0].toUpperCase() + b.slice(1)]])
+    .map(([a, b]) => [new RegExp(`(?<![\\w-])${q(a)}(?![\\w-])`, "g"), b]).sort((x, y) => y[0].source.length - x[0].source.length));
+}
+const Neural = (() => {
+  const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
+  let src = "", text = "", parts = [], paraOf = [], secs = [], total = 0, idx = 0, began = 0, paused = true, ready = false, want = false,
+    rate = 1, pl = null, job = 0, speaking = false, timer = null, startAt = 0;
+  const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
+  const paint = () => { if (typeof paintSpokenPara === "function") paintSpokenPara(paraOf[idx] ?? null); };
+  function kill() { if (pl) { const p = pl; pl = null; try { p.stop(); } catch {} } speaking = false; }
+  async function load(v) {
+    const my = ++job; kill(); src = v; ready = false; parts = []; secs = []; total = 0; idx = 0;
+    const [, id, part] = v.split(":"), t = BYID[id], V = VX();
+    try {
+      if (!V) throw new Error("no engine");
+      const d = await fetchSections(t), k = +part;
+      const sec = Array.isArray(d) ? d[k] && { html: d[k].content.rendered, title: d[k].title.rendered } : d.sections[k] && { html: d.sections[k].body_en, title: d.sections[k].title_en };
+      if (!sec || !sec.html) throw new Error("no text");
+      const paras = speechParas(sec.html, sec.title);
+      const lex = await voiceLex(engineChoice() === "piper" ? "piper" : "kokoro");
+      if (my !== job) return;
+      /* each paragraph ends with a stop and sits on its own line: voice.js reads the text exactly as joined here */
+      const lines = paras.map(x => /[.!?…:;]["”’)]*$/.test(x.s) ? x.s : x.s + ".");
+      text = lines.join("\n");
+      parts = V.pieces(V.prepare(text, "eng", lex));
+      const ends = []; let acc = 0; lines.forEach((l, j) => { acc += V.prepare(l, "eng", lex).length + 1; ends[j] = acc; });
+      const whole = V.prepare(text, "eng", lex); let at = 0;
+      paraOf = parts.map(pc => { const f = whole.indexOf(pc, at); if (f >= 0) at = f + pc.length; const j = ends.findIndex(e => e > (f >= 0 ? f : at)); return paras[j < 0 ? paras.length - 1 : j].p; });
+      if (!parts.length) throw new Error("no text");
+    } catch (e) { if (my === job) emit("error"); return; }
+    secs = parts.map(pc => pc.split(/\s+/).length / WPS); total = secs.reduce((a, b) => a + b, 0);
+    ready = true; emit("loadedmetadata");
+    if (want) { want = false; play(); }
+  }
+  function start(from) {
+    kill(); const V = VX(), my = job; idx = Math.max(0, Math.min(from, parts.length - 1)); startAt = idx; began = Date.now(); speaking = false;
+    const A = window.AudioContext, ctx = sharedCtx();
+    if (ctx) window.AudioContext = function () { return ctx; };
+    try {
+      pl = V.player(engineChoice(), text, { lang: "eng", rate, start: idx, voice: state.prefs.kokoroVoice || "bf_emma", onState: (s, info) => {
+        if (my !== job || !pl) return;
+        if (s === "speaking") { speaking = true; began = Date.now(); }
+        else if (s === "piece" && info) { idx = info.index; began = Date.now(); speaking = true; paint(); emit("timeupdate"); }
+        else if (s === "done") { paused = true; clearInterval(timer); pl = null; emit("ended"); }
+        else if (s === "error") { paused = true; clearInterval(timer); pl = null; emit("error"); }
+        else if (s === "slow" && !Neural.warned) { Neural.warned = true; toast(`This ${DEVICE} makes the ${engineChoice() === "natural" ? "natural" : "light"} voice slower than speech, so expect pauses. The Light voice or the ${DEVICE} voice keeps up.`); }
+      } });
+    } finally { if (ctx) window.AudioContext = A; }
+    ctx && ctx.resume().catch(() => {});
+    paint();
+  }
+  function play() {
+    if (!VX()) return Promise.reject(new Error("no engine"));
+    if (!ready) { want = true; return Promise.resolve(); }
+    if (!paused) return Promise.resolve();
+    paused = false;
+    if (pl && pl.state === "paused") { pl.resume(); began = Date.now(); } else start(idx);
+    clearInterval(timer); timer = setInterval(() => emit("timeupdate"), 500); emit("play");
+    return Promise.resolve();
+  }
+  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); if (pl) pl.pause(); speaking = false; emit("pause"); }
+  return {
+    warned: false,
+    addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
+    removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
+    get src() { return src; }, set src(v) { pause(); load(String(v)); },
+    get paused() { return paused; },
+    get duration() { return ready ? total / rate : NaN; },
+    get currentTime() { if (!ready) return 0; const into = paused || !speaking ? 0 : Math.min(secs[idx] || 0, (Date.now() - began) / 1000 * rate); return (startOf(idx) + into) / rate; },
+    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } idx = k; if (!paused) start(k); else { kill(); paint(); emit("timeupdate"); } },
+    get playbackRate() { return rate; }, set playbackRate(r) { if (r === rate) return; rate = r; if (pl) { if (paused) kill(); else pl.setRate(r); } },
+    play, pause,
+    stop() { want = false; job++; const was = !paused; paused = true; clearInterval(timer); kill(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
+  };
+})();
 const audioEl = new Audio(); audioEl.preload = "metadata";
 /* the player's audio: a recording through audioEl, or the AI voice through Speaker (src "speech:<id>:<section>") */
 const audio = (() => {
   const L = {}; let on = audioEl;
-  ["timeupdate", "play", "pause", "ended", "error", "loadedmetadata"].forEach(ty => [audioEl, Speaker].forEach(b => b.addEventListener(ty, e => {
+  ["timeupdate", "play", "pause", "ended", "error", "loadedmetadata"].forEach(ty => [audioEl, Speaker, Neural].forEach(b => b.addEventListener(ty, e => {
     if (b === on) (L[ty] || []).slice().forEach(f => f.call(a, e)); })));
   const a = {
     addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
     removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
     get src() { return on.src; },
     set src(v) {
-      if (String(v).startsWith("speech:")) { if (on === audioEl) { audioEl.pause(); audioEl.removeAttribute("src"); } on = Speaker; Speaker.src = v; }
-      else { if (on === Speaker) Speaker.stop(); on = audioEl; audioEl.src = v; }
+      if (String(v).startsWith("speech:")) {
+        const nx = neuralReady() ? Neural : Speaker;
+        if (on === audioEl) { audioEl.pause(); audioEl.removeAttribute("src"); } else if (on !== nx) on.stop();
+        on = nx; nx.src = v;
+      }
+      else { if (on !== audioEl) on.stop(); on = audioEl; audioEl.src = v; }
     },
-    get speaking() { return on === Speaker; },
+    get speaking() { return on !== audioEl; },
+    get neural() { return on === Neural; },
     get paused() { return on.paused; },
     get duration() { return on.duration; },
     get currentTime() { return on.currentTime; }, set currentTime(s) { on.currentTime = s; },
-    get playbackRate() { return on.playbackRate; }, set playbackRate(r) { audioEl.playbackRate = r; Speaker.playbackRate = r; },
+    get playbackRate() { return on.playbackRate; }, set playbackRate(r) { audioEl.playbackRate = r; Speaker.playbackRate = r; Neural.playbackRate = r; },
     get preload() { return audioEl.preload; }, set preload(v) { audioEl.preload = v; },
     play() { return on.play(); }, pause() { on.pause(); },
     load() { if (on === audioEl) audioEl.load(); },
-    getAttribute(n) { return on === audioEl ? audioEl.getAttribute(n) : (n === "src" ? Speaker.src || null : null); },
-    removeAttribute(n) { if (on === Speaker) Speaker.stop(); audioEl.removeAttribute(n); on = audioEl; },
+    getAttribute(n) { return on === audioEl ? audioEl.getAttribute(n) : (n === "src" ? on.src || null : null); },
+    removeAttribute(n) { if (on !== audioEl) on.stop(); audioEl.removeAttribute(n); on = audioEl; },
   };
   return a;
 })();
@@ -704,6 +816,7 @@ audio.addEventListener("error", () => {
   }
   if (P.lang === "en" && enText(t) && aiVoiceOn()) { P.lang = "tts"; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast("The English recording didn't load: the AI voice is reading this section"); return; }
   if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("No English reading for this section — playing the Hebrew"); return; }
+  if (P.lang === "tts" && audio.neural && canSpeak()) { neuralFailed = true; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast(`The ${engineChoice() === "natural" ? "natural" : "light"} voice couldn't start, so your ${DEVICE}'s voice is reading. Settings → Voice to try again.`); return; }
   if (P.lang === "tts") { if (hasHe(t)) { P.lang = "he"; audio.src = srcFor(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("The AI voice couldn't read this section — playing the Hebrew"); return; }
     toast("The AI voice couldn't read this section."); P.fails++; if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); } return; }
   P.fails++;
@@ -1100,6 +1213,7 @@ function vCredits() {
         <li><b>Hebrew text</b>: the original, loaded from ${ext("https://ph.yhb.org.il/", "ph.yhb.org.il")}.</li>
         <li><b>Audio</b>: the Hebrew and English recordings Yeshivat Har Bracha publishes for each section.</li>
         <li><b>AI translations</b>: for volumes with no official English edition, Pearls includes its own English translation, made with AI (Claude, by Anthropic) from the Hebrew. These are not by Rabbi Melamed or Har Bracha, are not reviewed by them, and are labelled <span class="aitag sm">AI</span> wherever they appear.</li>
+        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} voices (MIT), run with ONNX Runtime Web and eSpeak NG. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
       </ul></section>
 
     <section><div class="sec-h"><h2>Licence</h2></div>
@@ -1500,15 +1614,69 @@ function audioNote(t) {   // under the language control: what you'll hear
   if (!playable(t)) return "No recording of this chapter yet.";
   const l = listenLang(t), en = langPref() !== "he";
   if (l === "en") return `You'll hear Har Bracha's English recording.`;
-  if (l === "tts") return `There's no English recording of this chapter, so the <b>AI voice</b> on your ${DEVICE} reads the English (voice: ${esc(voiceLabel(pickVoice()))}). <button class="linkbtn" data-act="voice">Change voice</button>`;
+  if (l === "tts") return `There's no English recording of this chapter, so the <b>AI voice</b> on your ${DEVICE} reads the English (voice: ${esc(currentVoiceLabel())}). <button class="linkbtn" data-act="voice">Change voice</button>`;
   return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
 }
 function voiceField() {
-  if (!canSpeak()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
   return `<div class="field" data-voicefield><label>AI voice</label>
-    <button class="opt" data-aivoice><span class="radio ${state.prefs.aiVoice !== false ? "on" : ""}"></span><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">Your ${DEVICE}'s own speech engine reads the translation, section by section. Labelled "AI voice".</span></span></button>
-    <div class="voicelist" data-voices>${voiceList()}</div>
-    <span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span></div>`;
+    <button class="opt" data-aivoice><span class="radio ${state.prefs.aiVoice !== false ? "on" : ""}"></span><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span></button>
+    <div data-engines>${engineList()}</div></div>`;
+}
+function mb(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB"; }
+let VSTAT = null;
+const DLP = {};   // engine -> {loaded, total} while downloading
+function engineList() {
+  const V = VX(), e = engineChoice(), st = VSTAT || {};
+  const has = id => !!V && !V.needsDownload(id, "eng");
+  const row = (id, title, text, extra) => `<div class="voicerow"><button class="opt ${e === id ? "on" : ""}" data-engine="${id}"><span class="radio ${e === id ? "on" : ""}"></span><span style="flex:1"><b>${title}</b><br><span class="note">${text}</span></span></button></div>${e === id && extra ? extra : ""}`;
+  const dl = (id, size) => {
+    if (DLP[id]) return `<div class="note dlvoice">Downloading… ${mb(DLP[id].loaded)}${DLP[id].total ? ` of ${mb(DLP[id].total)}` : ""}</div>`;
+    if (!has(id)) return `<div class="dlvoice"><button class="btn gold" data-vdl="${id}">Download (${size})</button> <span class="note">Until it's downloaded, your ${DEVICE}'s voice reads.</span></div>`;
+    return `<div class="dlvoice"><span class="note">On this ${DEVICE}${id === "natural" && st.bytes ? ` · ${mb(st.bytes)}` : ""}.</span> <button class="linkbtn" data-vrm="${id}">Remove</button></div>`;
+  };
+  let out = "";
+  if (V) {
+    const rtf = (() => { try { return (JSON.parse(localStorage.getItem("estante.voice")) || {}).rtf || {}; } catch { return {}; } })();
+    const sp = id => rtf[id] ? ` Measured here: ${rtf[id].toFixed(1)}× real time${rtf[id] < 1 ? ", too slow to read without pauses" : ""}.` : "";
+    out += row("natural", "Natural (Kokoro)", `The most natural voice, and it says the Hebrew guttural ḥ. Made on this ${DEVICE}, nothing is sent anywhere. Fast on a Mac or a recent iPad; on most phones expect pauses.${sp("natural")}`,
+      dl("natural", `about ${V.SIZE_MB} MB`) + (has("natural") ? `<div class="voicelist">${Object.entries(KOKORO_VOICES).map(([k, n]) => { const on = (state.prefs.kokoroVoice || "bf_emma") === k; return `<div class="voicerow"><button class="opt ${on ? "on" : ""}" data-kvoice="${k}"><span class="radio ${on ? "on" : ""}"></span><span style="flex:1"><b>${esc(n.split(" · ")[0])}</b> <span class="note">${esc(n.split(" · ")[1])}</span></span></button><button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(n)}">${I.play}</button></div>`; }).join("")}</div>` : ""));
+    out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ.${sp("piper")}`,
+      dl("piper", `about ${V.sizeMb("piper", "eng")} MB`) + (has("piper") ? `<div class="dlvoice"><button class="iconbtn" data-ktry="piper" aria-label="Hear the light voice">${I.play}</button> <span class="note">Hear it</span></div>` : ""));
+  }
+  if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
+    `<div class="voicelist" data-voices>${voiceList()}</div><span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`);
+  if (V) out += `<button class="opt" data-vwifi><span class="radio ${V.wifiOnly() ? "on" : ""}"></span><span style="flex:1"><b>Download voices on Wi-Fi only</b></span></button>`;
+  return out;
+}
+function refreshEngines() { document.querySelectorAll("[data-engines]").forEach(n => { n.innerHTML = engineList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
+function voiceStatus() { const V = VX(); if (V) V.status().then(x => { VSTAT = x; refreshEngines(); }).catch(() => {}); }
+function reloadVoice() { if (audio.speaking && cur()) load(!audio.paused); }
+function setEngine(id) { state.prefs.voiceEngine = id; neuralFailed = false; save.prefs(); refreshEngines(); setLang(langPref()); reloadVoice(); }
+async function downloadVoice(id) {
+  const V = VX(); if (!V || DLP[id]) return;
+  const ok = V.mayDownload(V.sizeMb(id, "eng"));
+  if (!ok.ok) { toast(ok.why.replace(/ in Aa → Voice downloads/, " below")); return; }
+  if (ok.ask && !confirm(`${ok.why} Download it now?`)) return;
+  DLP[id] = { loaded: 0, total: 0 }; refreshEngines();
+  try {
+    await V.download(id, p => { DLP[id] = p; document.querySelectorAll(".dlvoice").length && refreshEngines(); }, "eng");
+    delete DLP[id]; toast(`${ENGINE_NAME[id]} is on this ${DEVICE}`);
+    if (engineChoice() === id) { neuralFailed = false; setLang(langPref()); reloadVoice(); }
+  } catch (err) { delete DLP[id]; toast(`The download stopped: ${err.message}`); }
+  voiceStatus();
+}
+let trial = null;
+function tryNeural(k) {
+  const V = VX(); if (!V) return;
+  const id = k === "piper" ? "piper" : "natural";
+  if (audio.speaking && !audio.paused) audio.pause();
+  if (trial) { try { trial.stop(); } catch {} trial = null; }
+  const A = window.AudioContext, ctx = sharedCtx(); if (ctx) window.AudioContext = function () { return ctx; };
+  try {
+    trial = V.player(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.",
+      { lang: "eng", rate: state.speed || 1, voice: k === "piper" ? undefined : k, onState: (st, info) => { if (st === "error") toast(`Couldn't play the sample: ${info && info.message}`); } });
+  } finally { if (ctx) window.AudioContext = A; }
 }
 function voiceList() {
   const vs = voices(), on = pickVoice();
@@ -1523,18 +1691,26 @@ function tryVoice(uri) {
 }
 function wireVoiceField(s) {
   const f = $("[data-voicefield]", s); if (!f) return;
+  voiceStatus();
   $("[data-aivoice]", f).onclick = () => { state.prefs.aiVoice = state.prefs.aiVoice === false; save.prefs(); $("[data-aivoice] .radio", f).classList.toggle("on", state.prefs.aiVoice !== false); setLang(langPref()); };
   f.onclick = e => {
-    const tr = e.target.closest("[data-try]"); if (tr) { tryVoice(tr.dataset.try); return; }
-    const b = e.target.closest("[data-voice]"); if (!b) return;
+    const g = x => e.target.closest(x);
+    let b;
+    if ((b = g("[data-ktry]"))) { tryNeural(b.dataset.ktry); return; }
+    if ((b = g("[data-try]"))) { tryVoice(b.dataset.try); return; }
+    if ((b = g("[data-vdl]"))) { downloadVoice(b.dataset.vdl); return; }
+    if ((b = g("[data-vrm]"))) { const id = b.dataset.vrm; VX().remove(id, "eng").then(() => { toast(`${ENGINE_NAME[id]} removed from this ${DEVICE}`); voiceStatus(); setLang(langPref()); reloadVoice(); }); return; }
+    if ((b = g("[data-vwifi]"))) { VX().setWifiOnly(!VX().wifiOnly()); refreshEngines(); return; }
+    if ((b = g("[data-engine]"))) { if (b.dataset.engine !== engineChoice()) setEngine(b.dataset.engine); return; }
+    if ((b = g("[data-kvoice]"))) { state.prefs.kokoroVoice = b.dataset.kvoice; save.prefs(); refreshEngines(); tryNeural(b.dataset.kvoice); reloadVoice(); return; }
+    if (!(b = g("[data-voice]"))) return;
     state.prefs.voice = b.dataset.voice; save.prefs(); tryVoice(b.dataset.voice);
-    $("[data-voices]", f).innerHTML = voiceList(); setLang(langPref());
-    if (audio.speaking && cur()) { const was = !audio.paused; const at = audio.currentTime; load(was); }
+    refreshEngines(); setLang(langPref()); reloadVoice();
   };
 }
 function refreshVoiceUI() { document.querySelectorAll("[data-voices]").forEach(n => { n.innerHTML = voiceList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
 function voiceDialog() {
-  dialog(`<h3>AI voice</h3><p class="note">Chapters with no English recording are read aloud by your ${DEVICE}'s own speech engine. Pick the voice; ▶ plays a sample.</p>${voiceField()}
+  dialog(`<h3>AI voice</h3><p class="note">Chapters with no English recording are read aloud by an AI voice. Pick one; ▶ plays a sample.</p>${voiceField()}
     <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-x>Done</button></div>`, (s, close) => { wireVoiceField(s); $("[data-x]", s).onclick = close; });
 }
 /* while the AI voice reads, mark the paragraph it is on (chapter view of the chapter playing) */
@@ -2460,5 +2636,5 @@ applyPrefs();
 renderMini();
 render();
 syncStart();
-window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
+window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang };   // handy for debugging
 })();

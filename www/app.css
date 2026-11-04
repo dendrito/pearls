@@ -529,3 +529,5 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .nptext h3{font-size:1.05em;margin:0 0 8px}
 .nptext .spoken{outline-offset:3px}
 .nptext .heb{font-family:var(--f-heb,serif);font-size:1.15em}
+/* the natural voices: download, size and remove under the chosen engine */
+.dlvoice { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 10px 34px; }
