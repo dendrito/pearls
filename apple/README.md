@@ -56,7 +56,7 @@ iPad Pro 13-inch, then File → Save Screen), a privacy policy URL, and the priv
 |---|---|
 | `PearlsApp.swift` | Starts the app. iPhone/iPad: UIKit (AppDelegate, SceneDelegate, so iOS can wake Pearls to finish downloads). Mac: SwiftUI. |
 | `PearlsWebView.swift` | The web view. On iPhone/iPad `PearlsViewController` colours the status bar and the area behind it with the skin, and passes "headphones disconnected" to the page, which pauses if Settings says so. |
-| `PearlsScheme.swift` | Serves the app at `pearls://app/…` (so settings and progress persist), proxies ph.yhb.org.il (its CORS headers are malformed), serves downloaded audio at `/dl/NAME` with byte ranges and saved text at `/native/text/KEY`, and forwards sync (`/api/sync`, `/api/claim`, `/api/devices`) to pearls.pages.dev, which sends no CORS headers. |
+| `PearlsScheme.swift` | Serves the app at `pearls://app/…` (so settings and progress persist), proxies ph.yhb.org.il (its CORS headers are malformed), serves downloaded audio at `/dl/NAME` with byte ranges and saved text at `/native/text/KEY`. |
 | `PearlsNative.swift` + `native-shim.js` | `window.PearlsNative`, the same interface as Android's `PearlsBridge.java`. Downloads use a background URLSession, so they continue with the app closed; "Wi-Fi only" keeps them off mobile data and Low Data Mode. Files live in Application Support/Pearls (`dl/`, `text/`), excluded from iCloud backup. |
 | `Info.plist` | Background audio, the scene setup, status bar per view controller. |
 | `PrivacyInfo.xcprivacy` | No tracking, no data collected; free disk space is read only to show it on the Downloads page. |

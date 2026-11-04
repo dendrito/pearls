@@ -59,7 +59,7 @@ enum WebFactory {
         let shell = "mac"
         #endif
         let boot = WKUserScript(
-            source: "window.PEARLS_PROXY = '\(PearlsScheme.name)://app/proxy?u='; window.PEARLS_SHELL = '\(shell)'; window.PEARLS_SYNC_MODE = { base: '', token: true };",
+            source: "window.PEARLS_PROXY = '\(PearlsScheme.name)://app/proxy?u='; window.PEARLS_SHELL = '\(shell)';",
             injectionTime: .atDocumentStart, forMainFrameOnly: true)
         config.userContentController.addUserScript(boot)
         PearlsNative.shared.install(in: config)   // window.PearlsNative: downloads, offline text, bar colour

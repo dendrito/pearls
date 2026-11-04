@@ -10,10 +10,6 @@ import WebKit
 final class PearlsScheme: NSObject, WKURLSchemeHandler {
     static let name = "pearls"
     private static let allowedHosts: Set<String> = ["ph.yhb.org.il"]
-    /// Sync across devices (Settings → Sync): the page calls pearls://app/api/…, forwarded to pearls.pages.dev.
-    /// The server sends no CORS headers, so the page can't call it from the pearls:// origin directly.
-    static let syncPaths: Set<String> = ["/api/sync", "/api/claim", "/api/devices"]
-    static let syncHost = "https://pearls.pages.dev"
 
     private let root: URL = Bundle.main.resourceURL!.appendingPathComponent("www", isDirectory: true)
     private var stopped = Set<ObjectIdentifier>()
@@ -22,7 +18,6 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url else { return fail(task, URLError(.badURL)) }
         if url.path == "/proxy" { return proxy(task, url) }
-        if Self.syncPaths.contains(url.path) { return sync(task, url) }
         if url.path.hasPrefix("/dl/") { return download(task, url, name: String(url.path.dropFirst(4))) }
         if url.path.hasPrefix("/native/text/") {
             let key = String(url.path.dropFirst("/native/text/".count))
@@ -106,46 +101,6 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
                              mime: http?.mimeType ?? "application/json", status: http?.statusCode ?? 200)
             }
         }.resume()
-    }
-
-    // MARK: - sync
-
-    /// Forwards a sync request with its method, body and device token (Authorization). No cookies: the apps prove
-    /// who they are with the token a signed-in browser handed over, never the browser's pass.
-    private func sync(_ task: WKURLSchemeTask, _ url: URL) {
-        var comps = URLComponents(string: Self.syncHost + url.path)!
-        comps.query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.query
-        guard let remote = comps.url else { return fail(task, URLError(.badURL)) }
-        var request = URLRequest(url: remote, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 25)
-        request.httpMethod = task.request.httpMethod ?? "GET"
-        request.httpBody = task.request.httpBody ?? Self.readStream(task.request.httpBodyStream)
-        request.httpShouldHandleCookies = false
-        for h in ["Content-Type", "Authorization"] {
-            if let v = task.request.value(forHTTPHeaderField: h) { request.setValue(v, forHTTPHeaderField: h) }
-        }
-        request.setValue("Pearls (Apple)", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let error { return self.fail(task, error) }
-                let http = response as? HTTPURLResponse
-                self.respond(task, url: url, data: data ?? Data(),
-                             mime: http?.mimeType ?? "application/json", status: http?.statusCode ?? 200)
-            }
-        }.resume()
-    }
-
-    private static func readStream(_ stream: InputStream?) -> Data? {
-        guard let stream else { return nil }
-        stream.open(); defer { stream.close() }
-        var data = Data()
-        var buf = [UInt8](repeating: 0, count: 16384)
-        while stream.hasBytesAvailable {
-            let n = stream.read(&buf, maxLength: buf.count)
-            if n <= 0 { break }
-            data.append(buf, count: n)
-        }
-        return data
     }
 
     // MARK: - helpers

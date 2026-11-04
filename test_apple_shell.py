@@ -4,7 +4,7 @@ PEARLS_NATIVE_PUSH with an ack, a little later, like evaluateJavaScript does. Ch
 window.PearlsNative with Android's interface, that downloads go out and come back, that a push which has not seen
 the request yet does not wipe the page's own download, that setBars reaches the app, that the page says "iPad"
 on an iPad, and that the wide layout turns the tab bar into a side rail on an iPad but not on a phone.
-Also that linking for sync calls the app's own /api/claim. Must end "apple shell: N/N"."""
+Also that linking for sync calls pearls.pages.dev/api/claim. Must end "apple shell: N/N"."""
 import json, os
 from playwright.sync_api import sync_playwright
 
@@ -49,7 +49,7 @@ def run():
         pg = b.new_page(viewport={"width": 1180, "height": 820})
         pg.on("pageerror", lambda e: errors.append(str(e)))
         pg.add_init_script("localStorage.setItem('pearls:interests', JSON.stringify(['Shabbat','Prayer']));")
-        pg.add_init_script("window.PEARLS_SHELL = 'ipad'; window.PEARLS_SYNC_MODE = { base: '', token: true };")   # as PearlsWebView.swift injects
+        pg.add_init_script("window.PEARLS_SHELL = 'ipad';")
         pg.add_init_script(FAKE_APP)
         pg.add_init_script(shim.replace("__BOOT__", json.dumps(boot)))
         pg.goto(url); pg.wait_for_timeout(1200)
@@ -89,15 +89,15 @@ def run():
         check("readText fails soft without the scheme", pg.evaluate("PearlsNative.readText('he-01-01.json') === null"))
         pg.evaluate("PearlsNative.writeText('he-01-01.json', '[]')")
         check("writeText goes to the app", pg.evaluate("__app.msgs.some(m => m.m === 'writeText' && m.a.key === 'he-01-01.json')"))
-        # Sync: the app calls its own origin (pearls://app/api/…), which PearlsScheme forwards to pearls.pages.dev
+        # Sync: the app calls pearls.pages.dev directly (webauth/sync.js sends CORS headers for the apps)
         pg.evaluate("""window.__calls = []; const f0 = window.fetch; window.fetch = (u, o) => { u = String(u);
           if (!/\\/api\\//.test(u)) return f0(u, o); __calls.push(u);
           return Promise.resolve(new Response(JSON.stringify(/claim/.test(u) ? { token: 't0k', who: 'reader@x.org' } : {}), { status: 200, headers: { 'Content-Type': 'application/json' } })); }; 0""")
-        check("Settings offers Link the app", pg.evaluate("PEARLS.SYNC && PEARLS.SYNC.token === true && PEARLS.SYNC.base === ''"))
+        check("Settings offers Link the app", pg.evaluate("PEARLS.SYNC && PEARLS.SYNC.token === true && PEARLS.SYNC.base === 'https://pearls.pages.dev'"))
         pg.click("[data-act=spelling]"); pg.wait_for_timeout(400)
         pg.fill("#syncCode", "ABCD-EFGH"); pg.click("[data-synclink]"); pg.wait_for_timeout(800)
         calls = pg.evaluate("__calls")
-        check("linking calls the app's own /api/claim with no other host", calls[:1] == ["/api/claim"])
+        check("linking calls pearls.pages.dev/api/claim", calls[:1] == ["https://pearls.pages.dev/api/claim"])
         check("no page errors", not errors)
         if errors: print("   ", errors[:3])
         pg.close()

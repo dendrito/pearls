@@ -1691,7 +1691,7 @@ function syncWire(s) {
     const code = q("#syncCode").value.trim(); if (!code) return;
     try {
       const r = await fetch(SYNC.base + "/api/claim", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "omit",
-        body: JSON.stringify({ code, device: window.PearlsNative ? "Android app" : location.protocol === "pearls:" ? "Apple app" : "Pearls app" }) });
+        body: JSON.stringify({ code, device: location.protocol === "pearls:" ? (window.PEARLS_SHELL === "ipad" ? "iPad app" : window.PEARLS_SHELL === "mac" ? "Mac app" : "iPhone app") : window.PearlsNative ? "Android app" : "Pearls app" }) });
       const j = await r.json();
       if (!r.ok) { toast(j.error || "That code didn't work"); return; }
       store.set("syncToken", j.token); syncNote({ who: j.who || "", err: "" });
