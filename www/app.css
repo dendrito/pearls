@@ -366,7 +366,7 @@ body.hc .reader{color:#fff}
 
 /* language pickers (segmented controls) */
 .langbar{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:16px;background:var(--ink-2);border:1px solid var(--line)}
-.segrow{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:10px}
+.segrow{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px}
 .seglabel{font-family:var(--f-label);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
 .seg{display:flex;padding:3px;border-radius:var(--r-pill);background:var(--ink);border:1px solid var(--line)}
 .seg button{flex:1;min-height:38px;border-radius:var(--r-pill);color:var(--mist);font-size:14px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;background:transparent;border:0}
@@ -517,3 +517,15 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .mini .mact.sec{position:relative}
 .mini .mact.sec::after{content:"§";position:absolute;right:3px;bottom:2px;font-size:10px;font-weight:700;color:var(--gold-2)}
 @media (max-width:559px){.mini .mtools .mact{width:32px}}
+/* AI voice (2.7): the label in the player, the paragraph being read, the voice list */
+.mini .aipill{height:28px;padding:0 9px;border-radius:6px;border:0;font-family:var(--f-body);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ai-fg);background:var(--ai-tag);white-space:nowrap}
+.reader .spoken,.nptext .spoken{outline:2px solid var(--gold-2);outline-offset:6px;border-radius:4px}
+.langnote{margin:6px 2px 0}
+.linkbtn{background:none;border:0;padding:0;color:var(--gold-2);font:inherit;text-decoration:underline;cursor:pointer}
+.voicelist{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;margin:8px 0}
+.voicerow{display:flex;gap:6px;align-items:center}
+.voicerow .opt{flex:1;margin:0}
+.nptext{max-height:38vh;overflow:auto;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-card,14px);font-size:calc(15px * var(--size,1));line-height:1.6}
+.nptext h3{font-size:1.05em;margin:0 0 8px}
+.nptext .spoken{outline-offset:3px}
+.nptext .heb{font-family:var(--f-heb,serif);font-size:1.15em}

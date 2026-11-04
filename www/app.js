@@ -410,8 +410,143 @@ const partUrl = (t, i, lang) => {
 };
 const AUD = window.PH_AUDIO || {};
 const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AUD[t.id][1]);
-const wantsEnglish = t => hasEn(t) && (audioLang === "en" || !hasHe(t) || (audioLang === "auto" && (state.prefs.read || "en") !== "he"));
-const audio = new Audio(); audio.preload = "metadata";
+/* One language for reading and listening (state.prefs.read: en, he or both; "both" listens in English).
+   English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
+const langPref = () => state.prefs.read || "en";
+const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
+const aiVoiceOn = () => state.prefs.aiVoice !== false && canSpeak();
+function listenLang(t) {
+  const en = langPref() !== "he" || !hasHe(t);
+  if (en && hasEn(t)) return "en";
+  if (en && enText(t) && aiVoiceOn()) return "tts";
+  return hasHe(t) ? "he" : hasEn(t) ? "en" : "tts";
+}
+const playable = t => !!t && (hasHe(t) || hasEn(t) || (enText(t) && aiVoiceOn()));
+const LANG_NAME = { en: "English", he: "Hebrew", tts: "English · AI voice" };
+/* ---------- AI voice: the device reads the English aloud ----------
+   Har Bracha recorded English for some chapters only. Every other chapter with English text (the official
+   translation or an AI translation) is read by the device's own speech engine (speechSynthesis), section by section,
+   in the voice chosen in Settings → Voice. It plays through the same player as a recording: Speaker below has the
+   parts of an <audio> element the player uses, and `audio` hands each call to whichever of the two is playing.
+   Labelled "AI voice" everywhere, like the AI translations. Nothing leaves the device. */
+const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function";
+const enText = t => !!t && (!t.vol.he || !!t.translated);   // the chapter has English to read
+function voices() { return canSpeak() ? speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang)) : []; }
+function pickVoice() {
+  const vs = voices(); if (!vs.length) return null;
+  const want = state.prefs.voice;
+  return vs.find(v => v.voiceURI === want) || vs.find(v => /premium|enhanced|siri/i.test(v.name) && /en-(US|GB)/i.test(v.lang))
+    || vs.find(v => v.localService && /en-(US|GB)/i.test(v.lang)) || vs.find(v => v.default) || vs[0];
+}
+function voiceLabel(v) { return v ? `${v.name.replace(/\s*\(.*\)$/, "")} · ${v.lang.replace("_", "-")}` : "Device voice"; }
+if (canSpeak()) { try { speechSynthesis.getVoices(); speechSynthesis.addEventListener("voiceschanged", () => { if (typeof refreshVoiceUI === "function") refreshVoiceUI(); }); } catch {} }
+/* the words to say for one section: title, then each paragraph; footnotes, citations in brackets and Hebrew script left out */
+function speechParas(html, title) {
+  const d = document.createElement("div"); d.innerHTML = html || "";
+  const hr = d.querySelector("hr"); if (hr) { let n = hr; while (n) { const x = n.nextSibling; n.remove(); n = x; } }
+  d.querySelectorAll("sup,script,style,.footnotes,.fn").forEach(e => e.remove());
+  const say = s => (s || "").normalize("NFD").replace(/ḥ|ḥ/g, "kh").replace(/Ḥ|Ḥ/g, "Kh")
+    .replace(/\([^()]*\d[^()]*\)/g, "").replace(/\[[^\]]*\]/g, "").replace(/[֐-׿]+/g, "")
+    .replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  const out = [];
+  if (title) out.push({ p: -1, s: say(String(title).replace(/^\d+\.\s*/, "")) });
+  const blocks = d.querySelectorAll("p, li, h2, h3, h4");
+  (blocks.length ? [...blocks] : [d]).forEach((b, i) => { const s = say(b.textContent); if (s) out.push({ p: i, s }); });
+  return out.filter(x => x.s);
+}
+function speechChunks(paras) {   // short utterances: some engines stop a long one after ~15 seconds
+  const out = [];
+  for (const { p, s } of paras) {
+    const parts = s.match(/[^.!?;:]+[.!?;:]*["”’)]*\s*/g) || [s];
+    let buf = "";
+    for (const x of parts) { if ((buf + x).length > 220 && buf) { out.push({ p, s: buf.trim() }); buf = ""; } buf += x; }
+    if (buf.trim()) out.push({ p, s: buf.trim() });
+  }
+  return out;
+}
+const WPS = 2.6;   // words a second at 1×, to estimate a duration (speech engines report none)
+const Speaker = (() => {
+  const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
+  let fast = 0, src = "", chunks = [], secs = [], total = 0, i = 0, paused = true, rate = 1, ready = false, want = false, utt = null, began = 0, timer = null, job = 0;
+  const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
+  function stopSpeech() { utt = null; try { speechSynthesis.cancel(); } catch {} }
+  function speak() {
+    stopSpeech();
+    if (i >= chunks.length) { paused = true; clearInterval(timer); emit("ended"); return; }
+    const u = new SpeechSynthesisUtterance(chunks[i].s), v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+    u.rate = Math.max(0.5, Math.min(2, rate));
+    /* an engine with no voice "finishes" every sentence at once: two of those in a row is a failure, not speech */
+    const done = () => { if (Date.now() - began < 150 && secs[i] > 1) { if (++fast >= 2) { paused = true; clearInterval(timer); stopSpeech(); emit("error"); return; } } else fast = 0; i++; speak(); };
+    u.onend = () => { if (utt !== u || paused) return; done(); };
+    u.onerror = e => { if (utt !== u || paused) return; if (e.error === "interrupted" || e.error === "canceled") return; done(); };
+    utt = u; began = Date.now(); paintSpoken();
+    speechSynthesis.speak(u);
+  }
+  function paintSpoken() { if (typeof paintSpokenPara === "function") paintSpokenPara(chunks[i] ? chunks[i].p : null); }
+  async function load(v) {
+    const my = ++job; src = v; ready = false; chunks = []; secs = []; total = 0; i = 0;
+    const [, id, part] = v.split(":"), t = BYID[id];
+    try {
+      const d = await fetchSections(t), k = +part;
+      const sec = Array.isArray(d) ? d[k] && { html: d[k].content.rendered, title: d[k].title.rendered } : d.sections[k] && { html: d.sections[k].body_en, title: d.sections[k].title_en };
+      if (my !== job) return;
+      if (!sec || !sec.html) throw new Error("no text");
+      chunks = speechChunks(speechParas(sec.html, sec.title));
+      if (!chunks.length) throw new Error("no text");
+    } catch (e) { if (my === job) emit("error"); return; }
+    secs = chunks.map(c => c.s.split(/\s+/).length / WPS); total = secs.reduce((a, b) => a + b, 0);
+    ready = true; emit("loadedmetadata");
+    if (want) { want = false; play(); }
+  }
+  function play() {
+    if (!canSpeak()) return Promise.reject(new Error("no speech"));
+    if (!ready) { want = true; return Promise.resolve(); }
+    if (!paused) return Promise.resolve();
+    paused = false; fast = 0; speak(); clearInterval(timer); timer = setInterval(() => emit("timeupdate"), 500); emit("play");
+    return Promise.resolve();
+  }
+  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); stopSpeech(); emit("pause"); }
+  return {
+    addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
+    removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
+    get src() { return src; }, set src(v) { pause(); load(String(v)); },
+    get paused() { return paused; },
+    get duration() { return ready ? total / rate : NaN; },
+    get currentTime() { if (!ready) return 0; const into = paused || !utt ? 0 : Math.min(secs[i] || 0, (Date.now() - began) / 1000 * rate); return (startOf(i) + into) / rate; },
+    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < chunks.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } i = k; if (!paused) speak(); else { paintSpoken(); emit("timeupdate"); } },
+    get playbackRate() { return rate; }, set playbackRate(r) { if (r === rate) return; const at = this.currentTime; rate = r; if (!paused) { this.currentTime = at; } },
+    play, pause,
+    stop() { want = false; job++; const was = !paused; paused = true; clearInterval(timer); stopSpeech(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
+  };
+})();
+const audioEl = new Audio(); audioEl.preload = "metadata";
+/* the player's audio: a recording through audioEl, or the AI voice through Speaker (src "speech:<id>:<section>") */
+const audio = (() => {
+  const L = {}; let on = audioEl;
+  ["timeupdate", "play", "pause", "ended", "error", "loadedmetadata"].forEach(ty => [audioEl, Speaker].forEach(b => b.addEventListener(ty, e => {
+    if (b === on) (L[ty] || []).slice().forEach(f => f.call(a, e)); })));
+  const a = {
+    addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
+    removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
+    get src() { return on.src; },
+    set src(v) {
+      if (String(v).startsWith("speech:")) { if (on === audioEl) { audioEl.pause(); audioEl.removeAttribute("src"); } on = Speaker; Speaker.src = v; }
+      else { if (on === Speaker) Speaker.stop(); on = audioEl; audioEl.src = v; }
+    },
+    get speaking() { return on === Speaker; },
+    get paused() { return on.paused; },
+    get duration() { return on.duration; },
+    get currentTime() { return on.currentTime; }, set currentTime(s) { on.currentTime = s; },
+    get playbackRate() { return on.playbackRate; }, set playbackRate(r) { audioEl.playbackRate = r; Speaker.playbackRate = r; },
+    get preload() { return audioEl.preload; }, set preload(v) { audioEl.preload = v; },
+    play() { return on.play(); }, pause() { on.pause(); },
+    load() { if (on === audioEl) audioEl.load(); },
+    getAttribute(n) { return on === audioEl ? audioEl.getAttribute(n) : (n === "src" ? Speaker.src || null : null); },
+    removeAttribute(n) { if (on === Speaker) Speaker.stop(); audioEl.removeAttribute(n); on = audioEl; },
+  };
+  return a;
+})();
 const P = { queue: [], idx: -1, ctx: null, sleepAt: null, sleepEnd: false, part: 0, lang: "he", fails: 0 };
 const cur = () => BYID[P.queue[P.idx]];
 /* Playback order (Now Playing → the order pill). Smart downloads follow it: they fetch what will actually play next. */
@@ -423,11 +558,11 @@ const PLAY_MODES = [
   ["repeatAll", "Repeat queue", "Back to the first chapter when the queue ends", "repeat"],
   ["repeatSec", "Repeat section", "Loop the current section, to learn it by heart (chazara)", "repeat1"]
 ];
-const playMode = () => state.prefs.playMode || "next";
+const playMode = () => state.prefs.playMode || "book";   // default: through the book, then the next book
 function nextInOrder(t) {   // the next chapter with a recording, in book order; after a book's last chapter, the next book
   const ts = TRACKS.filter(x => x.vol === t.vol).sort((a, b) => a.n - b.n);
-  for (const x of ts) if (x.n > t.n && (hasHe(x) || hasEn(x))) return x;
-  for (let i = VOLS.indexOf(t.vol) + 1; i < VOLS.length; i++) { const f = TRACKS.filter(x => x.vol === VOLS[i]).sort((a, b) => a.n - b.n).find(x => hasHe(x) || hasEn(x)); if (f) return f; }
+  for (const x of ts) if (x.n > t.n && playable(x)) return x;
+  for (let i = VOLS.indexOf(t.vol) + 1; i < VOLS.length; i++) { const f = TRACKS.filter(x => x.vol === VOLS[i]).sort((a, b) => a.n - b.n).find(playable); if (f) return f; }
   return null;
 }
 function shuffleRest() {   // keep what's playing; shuffle what comes after it, remembering the order to go back to
@@ -452,8 +587,8 @@ function upcoming(n) {
   if (m === "repeatAll") for (let k = 0; out.length < n && k < P.idx; k++) out.push(P.queue[k]);
   return out;
 }
-function playQueue(ids, start = 0, ctx = null) {
-  const first = ids[start]; ids = ids.filter(id => BYID[id] && (hasHe(BYID[id]) || hasEn(BYID[id])));
+function playQueue(ids, start = 0, ctx = null, part = null) {
+  const first = ids[start]; ids = ids.filter(id => playable(BYID[id]));
   if (!ids.length) { toast("No recording of this yet. The text is here to read."); return; }
   if (NATIVE && !online()) {                 // offline: only what's on the phone can play
     const have = ids.filter(id => dlState(BYID[id]).s === "done" || (dlState(BYID[id]).s === "loading" && localSrc(BYID[id], 0, DL.idx[id].lang)));
@@ -466,6 +601,7 @@ function playQueue(ids, start = 0, ctx = null) {
   if (playMode() === "shuffle") shuffleRest();
   if (ctx && state.speedBy[ctx]) state.speed = state.speedBy[ctx];
   store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx }); load(true, true);
+  if (part != null && cur() && cur().id === first && part !== P.part) { P.part = Math.max(0, Math.min(part, nSections(cur()) - 1)); load(true); }
 }
 function load(autoplay, fresh) {
   const t = cur(); if (!t) return;
@@ -485,7 +621,7 @@ function load(autoplay, fresh) {
   mediaSession(t); renderMini(); refreshPlaying(); syncNP(); pushMedia();
 }
 function playLang(t) {                        // the language a chapter plays in; offline, whatever was downloaded
-  const want = wantsEnglish(t) ? "en" : "he", e = DL.idx[t.id];
+  const want = listenLang(t), e = DL.idx[t.id];
   return e && e.lang !== want && !online() && localSrc(t, 0, e.lang) ? e.lang : want;
 }
 function toggle() { if (!cur()) return; audio.paused ? audio.play().catch(() => {}) : audio.pause(); }
@@ -560,13 +696,16 @@ audio.addEventListener("error", () => {
     const n = dlName(t, P.part, P.lang); DL.files.delete(n);
     if (online()) { audio.src = partUrl(t, P.part, P.lang); audio.play().catch(() => {}); return; }
   }
-  if (!online() && !localSrc(t, P.part, P.lang)) {
+  if (P.lang !== "tts" && !online() && !localSrc(t, P.part, P.lang)) {
     const nx = P.queue.slice(P.idx + 1).findIndex(id => isDownloaded(BYID[id]));
     if (nx >= 0) { P.idx += nx + 1; load(true, true); toast("Offline: skipped to the next downloaded chapter"); }
     else { audio.pause(); toast("You're offline and this chapter isn't downloaded."); }
     return;
   }
-  if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); toast("No English reading for this section — playing the Hebrew"); return; }
+  if (P.lang === "en" && enText(t) && aiVoiceOn()) { P.lang = "tts"; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast("The English recording didn't load: the AI voice is reading this section"); return; }
+  if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("No English reading for this section — playing the Hebrew"); return; }
+  if (P.lang === "tts") { if (hasHe(t)) { P.lang = "he"; audio.src = srcFor(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("The AI voice couldn't read this section — playing the Hebrew"); return; }
+    toast("The AI voice couldn't read this section."); P.fails++; if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); } return; }
   P.fails++;
   if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); return; }   // a missing section file: skip it
   toast(`Couldn't load the audio for “${R(t.title)}”. Check your connection.`);
@@ -628,7 +767,7 @@ function dlState(t) {
 }
 const isDownloaded = t => dlState(t).s === "done";
 const localSrc = (t, i, lang) => { const n = dlName(t, i, lang); return DL.files.has(n) && DL.dir ? DL.dir + n : null; };
-const srcFor = (t, i, lang) => localSrc(t, i, lang) || partUrl(t, i, lang);
+const srcFor = (t, i, lang) => lang === "tts" ? `speech:${t.id}:${i}` : localSrc(t, i, lang) || partUrl(t, i, lang);
 function dlBytes(t, lang) {                    // what a chapter will take: Hebrew 64 kbit/s, English ~107 kbit/s
   const e = DL.idx[t.id]; if (e && e.lang === lang) { const s = dlNames(t, lang).reduce((a, n) => a + (DL.files.get(n) || 0), 0); if (s) return s; }
   const d = dur(t); return d ? d * (lang === "en" ? 16000 : 8000) : nSections(t) * 2e6;
@@ -755,7 +894,7 @@ function dlMany(ids) {
   if (!ts.length) { toast("Already downloaded"); return; }
   const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
   dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
-    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this ${DEVICE}` : ""}. Each chapter downloads in the language it plays in (${audioLang === "auto" ? "matching your reading language" : audioLang === "en" ? "English where recorded" : "Hebrew"}).
+    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this ${DEVICE}` : ""}. Each chapter downloads in the language it plays in (${langPref() === "he" ? "Hebrew" : "English where recorded, otherwise Hebrew"}).
     ${DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
@@ -842,7 +981,7 @@ const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.i
 const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
   const all = volTracks(v), ts = k ? volTracks(v, k) : all, ks = volKinds(v), heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
   const n = ts.length < all.length ? `${ts.length} of ${all.length} chapters` : `${all.length} chapters`;
-  const audible = all.filter(t => hasHe(t) || hasEn(t)), next = audible.find(t => !(state.plays[t.id] || {}).done) || audible[0];
+  const audible = all.filter(playable), next = audible.find(t => !(state.plays[t.id] || {}).done) || audible[0];
   return `<div class="volwrap"><button class="volcard" data-act="vol" data-id="${v.book}${k && ks.length > 1 ? `-${k}` : ""}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta"><span class="kinds">${(k ? [k] : ks).map(kindTag).join("")}</span>${n}${heard ? ` · ${heard} heard` : ""}</div></div></button>${next ? `<button class="volplay" data-act="playvol" data-id="${v.book}" data-start="${all.indexOf(next)}" aria-label="${heard ? "Continue" : "Play"} ${esc(R(v.title))}">${I.play}</button>` : ""}</div>`; };
 
 /* ---------- views ---------- */
@@ -1190,7 +1329,7 @@ function vChapter(id) {
       <div class="eyebrow">${esc(R(t.vol.title))} · Chapter ${t.n}</div><h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
       <div class="chips">${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        ${hasHe(t) || hasEn(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${wantsEnglish(t) ? "English" : "Hebrew"}</span></button>` : `<span class="note">No recording of this chapter</span>`}
+        ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
         <button class="btn ${isDone(t.id) ? "ghost" : "line"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button>
@@ -1198,8 +1337,7 @@ function vChapter(id) {
       ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
         <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
         ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
-      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."} ${hasHe(t) ? "The audio is the Hebrew reading." : "There is no recording of this chapter."}</div>`
-        : `<p class="note">${hasEn(t) ? "This chapter has an English reading and the Hebrew original. Pick the audio language below or in the player." : "The audio is Rav Melamed's book read in <b>Hebrew</b>; follow along in English below."}</p>`}
+      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
       ${langBar(t)}
       <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
     </div>
@@ -1312,6 +1450,7 @@ function citeSheet(h) {
 function secTools(t, i, opts = {}) {
   const ref = sefRef(t, i + 1), slug = `${t.id}-${String(i + 1).padStart(2, "0")}`, saved = state.saved.some(s => s.id === slug);
   return `<div class="sectools" data-slug="${slug}" data-sec="${i + 1}">
+    ${playable(t) ? `<button class="tool" data-act="playsec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Listen from this section">${I.play}<span>Listen from here</span></button>` : ""}
     <button class="tool ${saved ? "on" : ""}" data-act="savesec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Save this section">${saved ? I.bookOn : I.book}<span>${saved ? "Saved" : "Save"}</span></button>
     <button class="tool" data-act="sharesec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Share this section">${I.share}<span>Share</span></button>
     ${opts.hebrew ? `<button class="tool" data-act="hebsec" data-id="${t.id}" data-sec="${i + 1}">${I.heb}<span>Hebrew</span></button>` : ""}
@@ -1328,20 +1467,98 @@ async function hebrewFor(t, sec) {           // official English books: the Hebr
   return hebCache[slug];
 }
 async function hebrewChapter(t) { await hebrewPosts(t); }   // all sections of a chapter in one request
-/* language pickers: segmented controls on the chapter page and in the player */
-function listenSeg(t, current) {
-  const he = hasHe(t), en = hasEn(t); if (!he && !en) return "";
-  const cur = current || (wantsEnglish(t) ? "en" : "he");
-  return `<div class="segrow"><span class="seglabel">Audio</span><div class="seg" role="radiogroup" aria-label="Audio language">
-    <button role="radio" aria-checked="${cur === "en"}" class="${cur === "en" ? "on" : ""}" data-act="setlisten" data-v="en" data-id="${t.id}" ${en ? "" : "disabled"}>English${en ? "" : "<small>no recording</small>"}</button>
-    <button role="radio" aria-checked="${cur === "he"}" class="${cur === "he" ? "on" : ""}" data-act="setlisten" data-v="he" data-id="${t.id}" ${he ? "" : "disabled"} lang="he">עברית${he ? "" : "<small>no recording</small>"}</button></div></div>`;
+/* Now Playing shows the text of the section playing, in the reading language: listening and reading on one screen */
+async function fillNPText(t, part) {
+  const box = $("#npText"); if (!box) return;
+  const key = `${t.id}:${part}:${langPref()}`; box.dataset.k = key;
+  const put = html => { if (box.dataset.k === key) { box.innerHTML = html; paintSpokenPara(audio.speaking ? box.dataset.p : null); } };
+  try {
+    if (langPref() === "he" || kindOf(t) === "he") {
+      const h = await hebrewFor(t, part + 1).catch(() => null);
+      if (h) return put(`<div class="heb" lang="he" dir="rtl"><h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}</div>`);
+      if (kindOf(t) === "he") return put(`<p class="note">The Hebrew text needs a connection the first time. <button class="linkbtn" data-act="readalong">Open the chapter</button></p>`);
+    }
+    const d = await fetchSections(t);
+    const sec = Array.isArray(d) ? d[part] && { html: d[part].content.rendered, title: R(d[part].title.rendered) } : d.sections[part] && { html: d.sections[part].body_en, title: esc(R(d.sections[part].title_en || "")) };
+    if (!sec || !sec.html) return put(`<p class="note">No text for this section.</p>`);
+    put(`<div class="en-body"><h3>${sec.title}</h3>${cleanHTML(sec.html, t)}</div>`);
+  } catch { put(`<p class="note">Couldn't load the text. <button class="linkbtn" data-act="readalong">Open the chapter</button></p>`); }
 }
+/* One language for reading and listening, set from the chapter, the player or Settings */
+function setLang(v) {
+  state.prefs.read = v; state.prefs.readSet = true; save.prefs();
+  document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === v; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
+  const m = location.hash.match(/^#ch-(\d\d-\d\d)/), rt = m && BYID[m[1]], r = $("#reader");
+  if (r && rt) applyReadLang(rt, r);
+  document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); });
+  document.querySelectorAll('[data-act="playch"] .plang').forEach(pl => { const x = BYID[pl.parentNode.dataset.id]; if (x) pl.textContent = ` · ${LANG_NAME[listenLang(x)]}`; });
+  const t = cur();
+  if (t && listenLang(t) !== P.lang && (online() || listenLang(t) === "tts")) load(!audio.paused);
+  renderMini(); syncNP(true);
+}
+function audioNote(t) {   // under the language control: what you'll hear
+  if (!playable(t)) return "No recording of this chapter yet.";
+  const l = listenLang(t), en = langPref() !== "he";
+  if (l === "en") return `You'll hear Har Bracha's English recording.`;
+  if (l === "tts") return `There's no English recording of this chapter, so the <b>AI voice</b> on your ${DEVICE} reads the English (voice: ${esc(voiceLabel(pickVoice()))}). <button class="linkbtn" data-act="voice">Change voice</button>`;
+  return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
+}
+function voiceField() {
+  if (!canSpeak()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  return `<div class="field" data-voicefield><label>AI voice</label>
+    <button class="opt" data-aivoice><span class="radio ${state.prefs.aiVoice !== false ? "on" : ""}"></span><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">Your ${DEVICE}'s own speech engine reads the translation, section by section. Labelled "AI voice".</span></span></button>
+    <div class="voicelist" data-voices>${voiceList()}</div>
+    <span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span></div>`;
+}
+function voiceList() {
+  const vs = voices(), on = pickVoice();
+  if (!vs.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  const rank = v => (/premium/i.test(v.name) ? 0 : /enhanced|siri/i.test(v.name) ? 1 : 2) * 10 + (/en-(US|GB)/i.test(v.lang) ? 0 : 1);
+  return vs.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).map(v => `<div class="voicerow"><button class="opt ${on && v.voiceURI === on.voiceURI ? "on" : ""}" data-voice="${esc(v.voiceURI)}"><span class="radio ${on && v.voiceURI === on.voiceURI ? "on" : ""}"></span><span style="flex:1"><b>${esc(v.name.replace(/\s*\(.*\)$/, ""))}</b> <span class="note">${esc(v.lang.replace("_", "-"))}${v.localService ? "" : " · online"}</span></span></button><button class="iconbtn" data-try="${esc(v.voiceURI)}" aria-label="Hear ${esc(v.name)}">${I.play}</button></div>`).join("");
+}
+function tryVoice(uri) {
+  const v = voices().find(x => x.voiceURI === uri); if (!v) return;
+  const wasPlaying = audio.speaking && !audio.paused; if (wasPlaying) audio.pause();
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance("Shabbat is a day of rest, blessing and holiness."); u.voice = v; u.lang = v.lang; u.rate = state.speed || 1; speechSynthesis.speak(u); } catch {}
+}
+function wireVoiceField(s) {
+  const f = $("[data-voicefield]", s); if (!f) return;
+  $("[data-aivoice]", f).onclick = () => { state.prefs.aiVoice = state.prefs.aiVoice === false; save.prefs(); $("[data-aivoice] .radio", f).classList.toggle("on", state.prefs.aiVoice !== false); setLang(langPref()); };
+  f.onclick = e => {
+    const tr = e.target.closest("[data-try]"); if (tr) { tryVoice(tr.dataset.try); return; }
+    const b = e.target.closest("[data-voice]"); if (!b) return;
+    state.prefs.voice = b.dataset.voice; save.prefs(); tryVoice(b.dataset.voice);
+    $("[data-voices]", f).innerHTML = voiceList(); setLang(langPref());
+    if (audio.speaking && cur()) { const was = !audio.paused; const at = audio.currentTime; load(was); }
+  };
+}
+function refreshVoiceUI() { document.querySelectorAll("[data-voices]").forEach(n => { n.innerHTML = voiceList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
+function voiceDialog() {
+  dialog(`<h3>AI voice</h3><p class="note">Chapters with no English recording are read aloud by your ${DEVICE}'s own speech engine. Pick the voice; ▶ plays a sample.</p>${voiceField()}
+    <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-x>Done</button></div>`, (s, close) => { wireVoiceField(s); $("[data-x]", s).onclick = close; });
+}
+/* while the AI voice reads, mark the paragraph it is on (chapter view of the chapter playing) */
+function paintSpokenPara(p) {
+  document.querySelectorAll(".reader .spoken, .nptext .spoken").forEach(e => e.classList.remove("spoken"));
+  const npb = $("#npText"); if (npb) npb.dataset.p = p == null ? "" : p;
+  const t = cur(); if (p == null || p === "" || +p < 0 || !t) return; p = +p;
+  const nb = npb && npb.querySelector(".en-body");
+  if (nb) { const ttl = nb.querySelector(":scope > h3"), ls = [...nb.querySelectorAll("p, li, h2, h3, h4")].filter(b => b !== ttl), e = ls[p]; if (e) { e.classList.add("spoken"); const br = npb.getBoundingClientRect(), er = e.getBoundingClientRect(); if (er.top < br.top || er.bottom > br.bottom) npb.scrollTop += er.top - br.top - 40; } }
+  if (location.hash !== `#ch-${t.id}`) return;
+  const sec = $(`#sec-${P.part + 1}`); if (!sec) return;
+  const body = sec.querySelector(".en-body, .ai-sec"); if (!body) return;
+  const blocks = body.querySelectorAll("p, li, h2, h3, h4"), title = body.querySelector(":scope > h3"), list = [...blocks].filter(b => b !== title && !b.closest(".sectools"));
+  const el = list[p]; if (!el) return;
+  el.classList.add("spoken");
+  const rc = el.getBoundingClientRect(); if (rc.top > innerHeight * .8 || rc.bottom < 80) { const prev = list[p - 1]; const pr = prev && prev.getBoundingClientRect(); if (!prev || (pr.bottom > 0 && pr.top < innerHeight)) el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+}
+/* language picker: one segmented control on the chapter page and in the player */
 function langBar(t) {
   const r = state.prefs.read || "en";
   const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"]];
-  return `<div class="langbar"><div class="segrow"><span class="seglabel">Read</span><div class="seg" role="radiogroup" aria-label="Reading language">
+  return `<div class="langbar"><div class="segrow"><span class="seglabel">Language</span><div class="seg" role="radiogroup" aria-label="Reading language">
     ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div></div>
-    ${listenSeg(t)}</div>`;
+    <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
 const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew" };
 /* Show the chapter in the reader's language: English, Hebrew, or both (Hebrew under each English section). */
@@ -1740,10 +1957,9 @@ function settingsDialog() {
       <a class="note" href="#spelling" data-credits style="color:var(--gold-2)">All spelling schemes, compared</a></div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
-    <div class="field"><label>Read in</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${(state.prefs.read || "en") === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
-      <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il. ${NATIVE ? `Once a chapter's Hebrew has loaded it stays on the ${DEVICE} for offline reading.` : "It needs a connection."}</span></div>
-    <div class="field"><label>Listen in</label><div class="chips">${[["auto", "Match my reading"], ["he", "Hebrew"], ["en", "English"]].map(([v, l]) => `<button class="chip ${audioLang === v ? "on" : ""}" data-alang="${v}">${l}</button>`).join("")}</div>
-      <span class="note">"Match my reading" plays the English reading when you read in English and one exists, and the Hebrew otherwise. English readings exist for Shabbat, Prayer, Zemanim and Festivals, and parts of Pesach, Sukkot and Days of Awe; elsewhere the Hebrew plays.</span></div>
+    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
+      <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English. ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
+    ${voiceField()}
     <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
@@ -1760,8 +1976,8 @@ function settingsDialog() {
     s.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { state.prefs.skin = b.dataset.skin; if (b.dataset.skin === "daf" && !state.prefs.readSet) state.prefs.read = "both"; save.prefs(); applyPrefs(); s.querySelectorAll("[data-skin]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
     s.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { state.prefs.mode = b.dataset.mode; save.prefs(); applyPrefs(); s.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b)); });
     s.querySelectorAll("[data-hefont]").forEach(b => b.onclick = () => { state.prefs.hefont = b.dataset.hefont; save.prefs(); applyHebFont(); s.querySelectorAll("[data-hefont]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
-    s.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { state.prefs.read = b.dataset.read; save.prefs(); s.querySelectorAll("[data-read]").forEach(x => x.classList.toggle("on", x === b)); });
-    s.querySelectorAll("[data-alang]").forEach(b => b.onclick = () => { audioLang = b.dataset.alang; store.set("audioLang", audioLang); s.querySelectorAll("[data-alang]").forEach(x => x.classList.toggle("on", x === b)); if (P.queue && P.queue.length) load(!audio.paused); });
+    s.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { setLang(b.dataset.read); s.querySelectorAll("[data-read]").forEach(x => x.classList.toggle("on", x === b)); });
+    wireVoiceField(s);
     s.querySelectorAll("[data-size]").forEach(b => b.onclick = () => { state.prefs.size = +b.dataset.size; save.prefs(); applyPrefs(); s.querySelectorAll("[data-size]").forEach(x => x.classList.toggle("on", x === b)); });
     $("[data-unplug]", s).onclick = () => { state.prefs.unplugPause = state.prefs.unplugPause === false; save.prefs();
       $("[data-unplug] .radio", s).classList.toggle("on", state.prefs.unplugPause); toast(state.prefs.unplugPause ? "Pauses when headphones disconnect" : "Keeps playing when headphones disconnect"); };
@@ -1872,10 +2088,10 @@ function mTools(t, labelled) {   // the mini player's Read along / Favorite / Pl
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
   document.body.classList.add("has-mini");
-  const both = hasEn(t) && hasHe(t);
+  const both = hasHe(t) && (hasEn(t) || (enText(t) && aiVoiceOn()));
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
       <span class="mwide">${mTools(t)}</span>
-      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Audio language">${P.lang === "en" ? "EN" : "עב"}</button>
+      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening">${P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
     <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
@@ -1922,6 +2138,7 @@ function syncNP(full) {
   const liked = state.likes.has(t.id);
   if (full || npEl.dataset.id !== t.id + ':' + P.part + ':' + P.lang) {
     npEl.dataset.id = t.id + ':' + P.part + ':' + P.lang;
+    setTimeout(() => fillNPText(t, P.part), 0);
     const upnext = upcoming(3).filter(i => i !== t.id).map(i => BYID[i]).filter(Boolean), pm = PLAY_MODES.find(x => x[0] === playMode());
     npEl.innerHTML = `<div class="sheet-h"><button class="iconbtn" data-act="npclose" aria-label="Close">${I.down}</button>
         <div class="eyebrow">${P.ctx ? esc(P.ctx) : "Now playing"}</div><button class="iconbtn" data-act="trackmenu" data-id="${t.id}" aria-label="More">${I.more}</button></div>
@@ -1937,7 +2154,8 @@ function syncNP(full) {
           <button class="play" data-act="toggle" id="npPlay" aria-label="Play or pause">${audio.paused ? I.play : I.pause}</button>
           <button class="skip" data-act="f30" aria-label="Forward 30 seconds">${I.fwd30}</button>
           <button class="sm" data-act="next" aria-label="Next">${I.next}</button></div>
-        ${listenSeg(t, P.lang)}
+        ${langBar(t)}
+        <div class="nptext" id="npText" aria-label="The text of this section"><div class="loading"><div class="spin"></div></div></div>
         <div class="np-tools"><button class="pill ${pm[0] !== "next" ? "on" : ""}" data-act="playmode">${I[pm[3]] || I.order}${pm[1]}</button>
           <button class="pill" data-act="speed" id="speedPill">${state.speed}×</button>
           <button class="pill ${P.sleepAt || P.sleepEnd ? "on" : ""}" data-act="sleep" id="sleepPill">${I.moon}${P.sleepEnd ? "End of chapter" : P.sleepAt ? "Sleep" : "Sleep timer"}</button>
@@ -2110,14 +2328,9 @@ document.addEventListener("click", e => {
     case "addto": addTo(id); break;
     case "trackmenu": trackMenu(id); break;
     case "spelling": settingsDialog(); break;
-    case "setread": { state.prefs.read = b.dataset.v; state.prefs.readSet = true; save.prefs();
-      document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === state.prefs.read; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
-      const r = $("#reader"); if (r && BYID[id]) applyReadLang(BYID[id], r); break; }
-    case "setlisten": { audioLang = b.dataset.v; store.set("audioLang", audioLang);
-      document.querySelectorAll('[data-act="setlisten"]').forEach(x => { const on = x.dataset.v === audioLang; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
-      const pl = document.querySelector('[data-act="playch"] .plang'); if (pl && BYID[id]) pl.textContent = ` · ${wantsEnglish(BYID[id]) ? "English" : "Hebrew"}`;
-      if (cur() && cur().id === id) { load(!audio.paused); renderMini(); }
-      toast(audioLang === "en" ? "English audio" : "Hebrew audio"); break; }
+    case "setread": setLang(b.dataset.v); break;
+    case "voice": voiceDialog(); break;
+    case "playsec": { const t = BYID[id]; const ids = TRACKS.filter(x => x.vol === t.vol).map(x => x.id); playQueue(ids, ids.indexOf(id), t.vol.title, +b.dataset.sec - 1); break; }
     case "readlang": { const order = ["en", "he", "both"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % 3]; save.prefs();
       b.textContent = "Read · " + READ_LABEL[state.prefs.read]; const r = $("#reader"); if (r && BYID[id || (location.hash.match(/ch-(\d\d-\d\d)/) || [])[1]]) applyReadLang(BYID[id || location.hash.match(/ch-(\d\d-\d\d)/)[1]], r);
       toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : "Reading in English"); break; }
@@ -2147,10 +2360,7 @@ document.addEventListener("click", e => {
       <p class="foot" style="margin:0">${NATIVE ? `Smart downloads follow this order, so what plays next is already on the ${DEVICE}.` : ""}</p>`, (s2, close) => {
         s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); renderMini(); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
-    case "audiolang": { audioLang = (cur() ? P.lang : (audioLang === "auto" ? (wantsEnglish(BYID[id] || {}) ? "en" : "he") : audioLang)) === "en" ? "he" : "en"; store.set("audioLang", audioLang); const pos = audio.currentTime; load(!audio.paused);
-      document.querySelectorAll('.chhead [data-act="audiolang"]').forEach(c => { if (BYID[c.dataset.id]) c.textContent = "Listen · " + (wantsEnglish(BYID[c.dataset.id]) ? "English" : "Hebrew"); });
-      const pb = document.querySelector('[data-act="playch"] .plang'), pid = pb && pb.parentNode.dataset.id; if (pb && BYID[pid]) pb.textContent = ` · ${wantsEnglish(BYID[pid]) ? "English" : "Hebrew"}`;
-      toast(audioLang === "en" ? "English reading where available; Hebrew otherwise" : "Hebrew reading"); break; }
+    case "audiolang": { const t = cur() || BYID[id]; setLang(t && listenLang(t) === "he" ? "en" : "he"); toast(langPref() === "he" ? "Hebrew: reading and listening" : t && listenLang(t) === "tts" ? "English: the AI voice reads it" : "English: reading and listening"); break; }
     case "dl": { const t = BYID[id], st = dlState(t);
       if (st.s === "none") { if (!DL.ok) { toast("Storage isn't available for downloads"); break; }
         downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're back online" : `Downloading in ${dlLang(t) === "en" ? "English" : "Hebrew"} · about ${fmtMB(dlBytes(t, dlLang(t)))}`); }

@@ -119,6 +119,14 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   and Continue the book toggles, which set `prefs.playMode` like the order pill. Continue the book now runs on into the
   next book (`nextInOrder()`, skipping chapters with no recording). Every book card has a play button that starts the
   book at its first unheard chapter.
+- **One language, AI voice** (2.7): `prefs.read` (en, he, both) sets reading and listening together; `setLang()` is
+  the one switch (Settings, the chapter page, Now Playing, the mini player's EN/עב pill), and changing it reloads the
+  audio. `listenLang(t)` picks the audio: the English recording, else the **AI voice** (`tts`: the device's speech
+  engine reading the bundled English, labelled as AI) for AI-translated chapters, else Hebrew. The `Speaker` engine
+  mimics an `<audio>` element and the `audio` facade switches between it and the real one on `speech:<id>:<section>`
+  srcs. The voice is `prefs.voice` (Settings → Voice, or "Change voice" by the player); the paragraph being read is
+  highlighted in the reader and in Now Playing's text. A failed English recording falls back to the AI voice, then
+  Hebrew; an engine with no voice is detected and treated as a failure. Play order defaults to Continue the book.
 - The Apple app (2.7) has the same bridge: `apple/Pearls/PearlsNative.swift` plus `native-shim.js`, which gives the page
   Android's synchronous interface on top of WKWebView's asynchronous messages (state pushed by the app, requests posted to
   it, `readText` a synchronous read from `pearls://app/native/text/`). The web version has no bridge: it reads the bundled

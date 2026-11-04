@@ -35,5 +35,7 @@
   .sheet-h{max-width:1000px}
   .np{max-width:1000px;display:grid;grid-template-columns:minmax(260px,400px) minmax(0,1fr);column-gap:48px;row-gap:18px;align-content:start;margin-top:8px}
   .np > *{grid-column:2}
-  .np > .bigart{grid-column:1;grid-row:1 / span 12;width:100%;margin:0;align-self:start;position:sticky;top:0}
+  .np > .bigart{grid-column:1;grid-row:1;width:min(100%,220px);margin:0;align-self:start}
+  /* the text being read sits under the cover, beside the controls: listening and reading side by side */
+  .np > .nptext{grid-column:1;grid-row:2 / span 11;max-height:calc(100vh - 360px);min-height:240px;align-self:start}
 }
