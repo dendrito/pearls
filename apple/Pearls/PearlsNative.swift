@@ -106,7 +106,8 @@ final class PearlsNative: NSObject, WKScriptMessageHandler, URLSessionDownloadDe
         if let v = try? Self.dlDir.resourceValues(forKeys: keys) {
             free = v.volumeAvailableCapacityForImportantUsage ?? Int64(v.volumeAvailableCapacity ?? 0)
         }
-        return ["ok": true, "dir": "\(PearlsScheme.name)://app/dl/", "free": free, "online": true, "metered": false]
+        return ["ok": true, "dir": "\(PearlsScheme.name)://app/dl/", "free": free, "online": true, "metered": false,
+                "kokoro": true]   // the app runs the natural voice itself (KokoroNative)
     }
 
     private func list(_ dir: URL) -> [[String: Any]] {

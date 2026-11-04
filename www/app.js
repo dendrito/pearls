@@ -520,50 +520,196 @@ const Speaker = (() => {
     stop() { want = false; job++; const was = !paused; paused = true; clearInterval(timer); stopSpeech(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
   };
 })();
-/* ---------- the natural voices, made on this device (Estante's engine: voice.js and its workers) ----------
+/* ---------- the natural voices, made on this device (Estante's engine: its workers) ----------
    Kokoro ("Natural", ~370 MB once, the most natural, says the guttural ḥ) and Piper ("Light", ~93 MB, any device,
    more robotic). Both run here; nothing is sent anywhere. Downloaded only when you ask, on Wi-Fi unless you say
    otherwise, and removable. voice.js and the workers are Estante's files, shipped unmodified: upgrade them by copying
-   Estante's, never by editing them here. Neural has the parts of an <audio> element the player uses, like Speaker.
-   A section is one Voice.player; its pieces are mapped to paragraphs so the reader can mark the one being read. */
+   Estante's, never by editing them here. Pearls talks to the workers itself (NE below), for two reasons found on an
+   iPad: the full Kokoro model can run the iPad's WebGPU out of memory, so NE steps down (full model on the GPU → the
+   half-precision model on the GPU → the full model on the processor) and remembers what worked; and each piece is
+   played as a WAV through an <audio> element, like the recordings, rather than through Web Audio, which an iPad
+   could leave silent. Neural has the parts of an <audio> element the player uses, like Speaker. */
 const VX = () => window.Voice || null;
 const engineChoice = () => state.prefs.voiceEngine || "device";   // device | natural | piper
 const KOKORO_VOICES = { bf_emma: "Emma · UK", bm_george: "George · UK", am_michael: "Michael · US", af_heart: "Heart · US" };
 let neuralFailed = false;   // the natural voice would not start this session: the device voice reads instead
-const neuralReady = () => { const V = VX(), e = engineChoice(); return !neuralFailed && !!V && e !== "device" && !V.needsDownload(e, "eng"); };
+/* In the Apple app the app runs Kokoro itself (apple/Pearls/KokoroNative.swift): no WebKit graphics-memory cap, Core ML
+   where it takes the graph. The page only makes the phonemes (pearls-phonemes.js) and plays the WAV the app returns. */
+const NK = (() => {
+  const base = "pearls://app/native/kokoro/";
+  let st = null, pw = null, seq = 0, on = null;
+  const wait = new Map();
+  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).kokoro); } catch { on = false; } } return on; };
+  async function get(p) {
+    const r = await fetch(base + p), j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `the app answered ${r.status}`);
+    return j;
+  }
+  async function status() { st = await get("status"); return st; }
+  function phon(text) {
+    if (!pw) {
+      pw = new Worker("pearls-phonemes.js", { type: "module" });
+      pw.onmessage = ({ data: m }) => { const x = wait.get(m.id); if (!x) return; wait.delete(m.id); m.error ? x.rej(new Error(m.error)) : x.res(m.phonemes); };
+      pw.onerror = e => { for (const x of wait.values()) x.rej(new Error(e.message || "the phonemes could not be made")); wait.clear(); pw = null; };
+    }
+    return new Promise((res, rej) => { const id = ++seq; wait.set(id, { res, rej }); pw.postMessage({ id, text }); });
+  }
+  async function download(wifiOnly, onBytes) {
+    await get("download?wifi=" + (wifiOnly ? 1 : 0));
+    for (;;) {
+      await new Promise(r => setTimeout(r, 600));
+      const s = await status();
+      if (s.progress && onBytes) onBytes({ url: "kokoro", loaded: s.progress.loaded, total: s.progress.total });
+      if (!s.downloading) { if (s.error) throw new Error(s.error); if (!s.downloaded) throw new Error("the download stopped"); return s; }
+    }
+  }
+  async function say(phonemes, voice, speed) {
+    const r = await fetch(base + "say?" + new URLSearchParams({ ph: phonemes, v: voice, s: String(speed || 1) }));
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
+    const blob = await r.blob();
+    return { blob, dur: Math.max(0, blob.size - 44) / 2 / 24000, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
+  }
+  const SIZE_MB = 330;   // model 326 MB, four voices, eSpeak NG
+  return { on: isOn, status, phon, download, say, SIZE_MB, load: () => get("load"), remove: () => get("remove").then(x => (st = x)),
+    get has() { return !!(st && st.downloaded); }, get bytes() { return st ? st.bytes : 0; } };
+})();
+if (NK.on()) NK.status().then(() => { if (typeof refreshEngines === "function") refreshEngines(); }).catch(() => {});
+const naturalHas = () => NK.on() ? NK.has : !!VX() && !VX().needsDownload("natural", "eng");
+const engineHas = id => id === "natural" ? naturalHas() : !!VX() && !VX().needsDownload(id, "eng");
+const neuralReady = () => { const V = VX(), e = engineChoice(); return !neuralFailed && !!V && e !== "device" && engineHas(e); };
 const ENGINE_NAME = { natural: "Natural (Kokoro)", piper: "Light (Piper)" };
 function currentVoiceLabel() {
   if (neuralReady()) return engineChoice() === "natural" ? `${ENGINE_NAME.natural}, ${KOKORO_VOICES[state.prefs.kokoroVoice] || KOKORO_VOICES.bf_emma}` : ENGINE_NAME.piper;
   return voiceLabel(pickVoice());
 }
-/* one shared AudioContext, unlocked by the first tap: a context made later, when the next section starts on its own,
-   would stay muted on iPhone and iPad. Voice.player makes its own, so it is handed this one while it is made. */
-let NCTX = null;
-function sharedCtx() {
-  const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
-  if (!NCTX || NCTX.state === "closed") { NCTX = new A(); NCTX.close = () => Promise.resolve(); }
-  return NCTX;
+function wav(samples, rate) {   // 16-bit mono WAV
+  const n = samples.length, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([b], { type: "audio/wav" });
 }
-function unlockAudio() { const c = sharedCtx(); if (c && c.state === "suspended") c.resume().catch(() => {}); }
-document.addEventListener("pointerdown", unlockAudio, { capture: true, passive: true });
+const SILENT = URL.createObjectURL(wav(new Float32Array(2400), 24000));
+const RTF_KEY = "pearls.voiceRtf", KDEV_KEY = "pearls.kokoroRun";   // measured speed; how Kokoro last ran here
+const rtfs = () => { try { return JSON.parse(localStorage.getItem(RTF_KEY)) || {}; } catch { return {}; } };
+const NE = (() => {
+  let w = null, kind = "", ready = null, pending = null, seq = 0, cb = null, q = Promise.resolve(), how = "";
+  const wait = new Map();
+  function stop() { if (w) w.terminate(); w = null; kind = ""; ready = null; how = ""; for (const x of wait.values()) x.rej(new Error("stopped")); wait.clear(); }
+  function boot(k, msg) {
+    stop(); kind = k;
+    w = new Worker(k === "natural" ? "voice-worker.js" : "piper-worker.js", { type: "module" });
+    w.onmessage = ({ data: m }) => {
+      if (m.type === "bytes") { if (cb) cb(m); }
+      else if (m.type === "ready") { const p = pending; pending = null; if (p) p.res(m); }
+      else if (m.id && wait.has(m.id)) { const x = wait.get(m.id); wait.delete(m.id); m.type === "error" ? x.rej(new Error(m.message)) : x.res(m); }
+      else if (m.type === "error") { const p = pending; pending = null; if (p) p.rej(new Error(m.message)); }
+    };
+    w.onerror = e => { const p = pending; pending = null; if (p) p.rej(new Error(e.message || "the voice could not start")); };
+    return new Promise((res, rej) => { pending = { res, rej }; w.postMessage(msg); });
+  }
+  const ask = msg => new Promise((res, rej) => { const id = ++seq; wait.set(id, { res, rej }); w.postMessage({ ...msg, id }); });
+  const FP16_URL = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model_fp16.onnx";
+  const hasFile = async u => { try { return await (await import("./voice-store.js")).has(u); } catch { return false; } };
+  const RUNS = [["webgpu", "fp32"], ["webgpu", "fp16"], ["wasm", "fp32"]];
+  async function bootKokoro(net) {
+    const voices = Object.keys(KOKORO_VOICES);
+    let runs = RUNS.filter(([d]) => d !== "webgpu" || navigator.gpu);
+    const saved = localStorage.getItem(KDEV_KEY); if (saved) runs = runs.filter(r => r.join(":") === saved).concat(runs.filter(r => r.join(":") !== saved));
+    let last = null;
+    for (const [device, dtype] of runs) {
+      /* the half-precision model is a second download (~163 MB): only when downloading is allowed now */
+      const extra = dtype === "fp16" && !(await hasFile(FP16_URL));
+      if (extra) { const ok = VX().mayDownload(163); if (!ok.ok) continue; toast("The full model doesn't fit this graphics chip: fetching the half-size one (about 163 MB, once)…"); }
+      try {
+        const r = await boot("natural", { type: "load", device, dtype, net: net || extra || device === "wasm" && navigator.onLine, voices });
+        how = `${device === "webgpu" ? "graphics chip" : "processor"}${dtype === "fp16" ? ", half precision" : ""}`;
+        try { localStorage.setItem(KDEV_KEY, device + ":" + dtype); } catch {}
+        return r;
+      } catch (e) { last = e; if (/not downloaded/.test(e.message)) throw e; }
+    }
+    throw last || new Error("no way to run the natural voice here");
+  }
+  async function bootNative(net, onBytes) {
+    if (net) await NK.download(VX() ? VX().wifiOnly() : true, onBytes);
+    else if (!(await NK.status()).downloaded) throw new Error("the natural voice is not downloaded on this device");
+    const r = await NK.load(); how = r.how || "app"; return r;
+  }
+  const native = k => k === "natural" && NK.on();
+  function load(k, { net = false, onBytes } = {}) {
+    if (ready && kind === k && !net) return ready;
+    cb = onBytes || null;
+    if (native(k)) { if (w) stop(); kind = k; ready = bootNative(net, onBytes); const mine = ready; ready.catch(() => { if (ready === mine) { ready = null; kind = ""; } }); return ready; }
+    ready = k === "piper" ? boot("piper", { type: "load", voice: VX().LANGS.eng.piper, net }).then(r => { how = "processor"; return r; }) : bootKokoro(net);
+    const mine = ready; ready.catch(() => { if (ready === mine) { ready = null; kind = ""; } });
+    return ready;
+  }
+  const HEB_WORD = /[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|[Kk]h)[A-Za-zḤḥĥĤ'’]*(?:-[A-Za-zḤḥĥĤ'’]+)*|[A-Za-z]+-[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|kh)[A-Za-zḤḥĥĤ'’]*/g;
+  async function phonemes(text, nat) {   // English through eSpeak, Hebrew words sound by sound (as voice.js does)
+    const eng = async t => nat ? NK.phon(t) : (await ask({ type: "english", text: t })).phonemes;
+    const out = []; let pos = 0;
+    for (const m of text.matchAll(HEB_WORD)) {
+      if (m.index > pos) out.push(await eng(text.slice(pos, m.index)));
+      out.push(VX().hebIpa(m[0])); pos = m.index + m[0].length;
+    }
+    if (pos < text.length) out.push(await eng(text.slice(pos)));
+    return out.map(x => x.trim()).filter(Boolean).join(" ").replace(/\s+([;:,.!?])/g, "$1");
+  }
+  /* one piece at a time: the worker runs one model */
+  function say(k, text, voice) {
+    const run = async () => {
+      await load(k);
+      const v = KOKORO_VOICES[voice] ? voice : "bf_emma";
+      let a;
+      if (native(k)) a = await NK.say(await phonemes(text, true), v, 1);
+      else {
+        a = k === "piper" ? await ask({ type: "say", text, rate: 1 }) : await ask({ type: "say", phonemes: await phonemes(text), voice: v, speed: 1 });
+        a = { blob: wav(a.samples, a.rate), dur: a.samples.length / a.rate, genS: a.genS };
+      }
+      const r = rtfs(); r[k] = a.dur / Math.max(0.01, a.genS); try { localStorage.setItem(RTF_KEY, JSON.stringify(r)); } catch {}
+      return a;   // {blob: a WAV, dur: seconds, genS}
+    };
+    const p = q.then(run, run); q = p.catch(() => {}); return p;
+  }
+  return { load, say, stop, get kind() { return kind; }, get how() { return how; }, get loaded() { return !!ready; } };
+})();
 const lexCache = {};
-async function voiceLex(name) {   // the same lexicon voice.js loads, so its pieces can be predicted exactly
+async function voiceLex(name) {   // the same lexicon voice.js uses, so its pieces read the same
   if (lexCache[name]) return lexCache[name];
   let rows = [];
   try { rows = (await (await fetch(`voice/lexicon-${name}.tsv`)).text()).split("\n").filter(l => l.trim() && !l.startsWith("#") && l.includes("\t")).map(l => l.split("\t").map(x => x.trim())); } catch {}
-  const q = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const qq = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return (lexCache[name] = rows.flatMap(([a, b]) => [[a, b], [a[0].toUpperCase() + a.slice(1), b[0].toUpperCase() + b.slice(1)]])
-    .map(([a, b]) => [new RegExp(`(?<![\\w-])${q(a)}(?![\\w-])`, "g"), b]).sort((x, y) => y[0].source.length - x[0].source.length));
+    .map(([a, b]) => [new RegExp(`(?<![\\w-])${qq(a)}(?![\\w-])`, "g"), b]).sort((x, y) => y[0].source.length - x[0].source.length));
 }
+const neuralEl = new Audio(); neuralEl.preload = "auto";
 const Neural = (() => {
   const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
-  let src = "", text = "", parts = [], paraOf = [], secs = [], total = 0, idx = 0, began = 0, paused = true, ready = false, want = false,
-    rate = 1, pl = null, job = 0, speaking = false, timer = null, startAt = 0;
+  let src = "", parts = [], paraOf = [], secs = [], total = 0, idx = 0, paused = true, ready = false, want = false,
+    rate = 1, job = 0, turn = 0, live = false, timer = null, cache = new Map();
   const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
   const paint = () => { if (typeof paintSpokenPara === "function") paintSpokenPara(paraOf[idx] ?? null); };
-  function kill() { if (pl) { const p = pl; pl = null; try { p.stop(); } catch {} } speaking = false; }
+  function clear() { for (const p of cache.values()) p.then(r => URL.revokeObjectURL(r.url), () => {}); cache = new Map(); }
+  function gen(i) {
+    if (!cache.has(i)) { const p = NE.say(engineChoice(), parts[i], state.prefs.kokoroVoice).then(a => ({ url: URL.createObjectURL(a.blob), dur: a.dur })); p.catch(() => {}); cache.set(i, p); }
+    return cache.get(i);
+  }
+  function unlock() { if (!live) { neuralEl.src = SILENT; neuralEl.play().catch(() => {}); } }   // inside the tap, so later pieces may play
+  async function playAt(i) {
+    const my = ++turn; idx = i; live = false; paint(); emit("timeupdate");
+    let r; try { r = await gen(i); } catch (e) { if (my === turn) { Neural.lastError = e.message; paused = true; clearInterval(timer); emit("error"); } return; }
+    if (my !== turn || paused) return;
+    for (let k = 1; k <= 2 && i + k < parts.length; k++) gen(i + k);
+    secs[i] = r.dur; total = secs.reduce((a, b) => a + b, 0);
+    live = true; neuralEl.src = r.url; neuralEl.playbackRate = rate;
+    neuralEl.play().catch(e => { if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
+  }
+  neuralEl.addEventListener("ended", () => {
+    if (!live || paused) return;
+    if (idx + 1 < parts.length) playAt(idx + 1); else { live = false; paused = true; clearInterval(timer); emit("ended"); }
+  });
   async function load(v) {
-    const my = ++job; kill(); src = v; ready = false; parts = []; secs = []; total = 0; idx = 0;
+    const my = ++job; turn++; clear(); src = v; ready = false; live = false; parts = []; secs = []; total = 0; idx = 0;
     const [, id, part] = v.split(":"), t = BYID[id], V = VX();
     try {
       if (!V) throw new Error("no engine");
@@ -573,58 +719,38 @@ const Neural = (() => {
       const paras = speechParas(sec.html, sec.title);
       const lex = await voiceLex(engineChoice() === "piper" ? "piper" : "kokoro");
       if (my !== job) return;
-      /* each paragraph ends with a stop and sits on its own line: voice.js reads the text exactly as joined here */
-      const lines = paras.map(x => /[.!?…:;]["”’)]*$/.test(x.s) ? x.s : x.s + ".");
-      text = lines.join("\n");
-      parts = V.pieces(V.prepare(text, "eng", lex));
-      const ends = []; let acc = 0; lines.forEach((l, j) => { acc += V.prepare(l, "eng", lex).length + 1; ends[j] = acc; });
-      const whole = V.prepare(text, "eng", lex); let at = 0;
-      paraOf = parts.map(pc => { const f = whole.indexOf(pc, at); if (f >= 0) at = f + pc.length; const j = ends.findIndex(e => e > (f >= 0 ? f : at)); return paras[j < 0 ? paras.length - 1 : j].p; });
+      /* pieces as voice.js makes them (a sentence or two, short at first so the first is ready quickly), each mapped to its paragraph */
+      parts = []; paraOf = [];
+      for (const x of paras) for (const pc of V.pieces(V.prepare(/[.!?…:;]["”’)]*$/.test(x.s) ? x.s : x.s + ".", "eng", lex))) { parts.push(pc); paraOf.push(x.p); }
       if (!parts.length) throw new Error("no text");
-    } catch (e) { if (my === job) emit("error"); return; }
+    } catch (e) { if (my === job) { Neural.lastError = e.message; emit("error"); } return; }
     secs = parts.map(pc => pc.split(/\s+/).length / WPS); total = secs.reduce((a, b) => a + b, 0);
     ready = true; emit("loadedmetadata");
+    gen(0);
     if (want) { want = false; play(); }
-  }
-  function start(from) {
-    kill(); const V = VX(), my = job; idx = Math.max(0, Math.min(from, parts.length - 1)); startAt = idx; began = Date.now(); speaking = false;
-    const A = window.AudioContext, ctx = sharedCtx();
-    if (ctx) window.AudioContext = function () { return ctx; };
-    try {
-      pl = V.player(engineChoice(), text, { lang: "eng", rate, start: idx, voice: state.prefs.kokoroVoice || "bf_emma", onState: (s, info) => {
-        if (my !== job || !pl) return;
-        if (s === "speaking") { speaking = true; began = Date.now(); }
-        else if (s === "piece" && info) { idx = info.index; began = Date.now(); speaking = true; paint(); emit("timeupdate"); }
-        else if (s === "done") { paused = true; clearInterval(timer); pl = null; emit("ended"); }
-        else if (s === "error") { paused = true; clearInterval(timer); pl = null; emit("error"); }
-        else if (s === "slow" && !Neural.warned) { Neural.warned = true; toast(`This ${DEVICE} makes the ${engineChoice() === "natural" ? "natural" : "light"} voice slower than speech, so expect pauses. The Light voice or the ${DEVICE} voice keeps up.`); }
-      } });
-    } finally { if (ctx) window.AudioContext = A; }
-    ctx && ctx.resume().catch(() => {});
-    paint();
   }
   function play() {
     if (!VX()) return Promise.reject(new Error("no engine"));
-    if (!ready) { want = true; return Promise.resolve(); }
+    if (!ready) { want = true; unlock(); return Promise.resolve(); }
     if (!paused) return Promise.resolve();
     paused = false;
-    if (pl && pl.state === "paused") { pl.resume(); began = Date.now(); } else start(idx);
+    if (live && neuralEl.src && !neuralEl.ended) neuralEl.play().catch(() => {}); else { unlock(); playAt(idx); }
     clearInterval(timer); timer = setInterval(() => emit("timeupdate"), 500); emit("play");
     return Promise.resolve();
   }
-  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); if (pl) pl.pause(); speaking = false; emit("pause"); }
+  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); neuralEl.pause(); emit("pause"); }
   return {
-    warned: false,
+    lastError: "",
     addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
     removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
     get src() { return src; }, set src(v) { pause(); load(String(v)); },
     get paused() { return paused; },
     get duration() { return ready ? total / rate : NaN; },
-    get currentTime() { if (!ready) return 0; const into = paused || !speaking ? 0 : Math.min(secs[idx] || 0, (Date.now() - began) / 1000 * rate); return (startOf(idx) + into) / rate; },
-    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } idx = k; if (!paused) start(k); else { kill(); paint(); emit("timeupdate"); } },
-    get playbackRate() { return rate; }, set playbackRate(r) { if (r === rate) return; rate = r; if (pl) { if (paused) kill(); else pl.setRate(r); } },
+    get currentTime() { if (!ready) return 0; return (startOf(idx) + (live ? Math.min(secs[idx] || 0, neuralEl.currentTime || 0) : 0)) / rate; },
+    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } if (!paused) playAt(k); else { turn++; idx = k; live = false; neuralEl.pause(); paint(); emit("timeupdate"); } },
+    get playbackRate() { return rate; }, set playbackRate(r) { rate = r; neuralEl.playbackRate = r; },
     play, pause,
-    stop() { want = false; job++; const was = !paused; paused = true; clearInterval(timer); kill(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
+    stop() { want = false; job++; turn++; const was = !paused; paused = true; clearInterval(timer); neuralEl.pause(); neuralEl.removeAttribute("src"); live = false; clear(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
   };
 })();
 const audioEl = new Audio(); audioEl.preload = "metadata";
@@ -816,7 +942,7 @@ audio.addEventListener("error", () => {
   }
   if (P.lang === "en" && enText(t) && aiVoiceOn()) { P.lang = "tts"; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast("The English recording didn't load: the AI voice is reading this section"); return; }
   if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("No English reading for this section — playing the Hebrew"); return; }
-  if (P.lang === "tts" && audio.neural && canSpeak()) { neuralFailed = true; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast(`The ${engineChoice() === "natural" ? "natural" : "light"} voice couldn't start, so your ${DEVICE}'s voice is reading. Settings → Voice to try again.`); return; }
+  if (P.lang === "tts" && audio.neural && canSpeak()) { neuralFailed = true; const why = Neural.lastError ? ` (${Neural.lastError.slice(0, 120)})` : ""; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast(`The ${engineChoice() === "natural" ? "natural" : "light"} voice couldn't start${why}, so your ${DEVICE}'s voice is reading. Settings → Voice to try again.`); return; }
   if (P.lang === "tts") { if (hasHe(t)) { P.lang = "he"; audio.src = srcFor(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("The AI voice couldn't read this section — playing the Hebrew"); return; }
     toast("The AI voice couldn't read this section."); P.fails++; if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); } return; }
   P.fails++;
@@ -1619,34 +1745,38 @@ function audioNote(t) {   // under the language control: what you'll hear
 }
 function voiceField() {
   if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
-  return `<div class="field" data-voicefield><label>AI voice</label>
-    <button class="opt" data-aivoice><span class="radio ${state.prefs.aiVoice !== false ? "on" : ""}"></span><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span></button>
-    <div data-engines>${engineList()}</div></div>`;
+  const on = state.prefs.aiVoice !== false;
+  return `<div data-voicefield><div class="field"><label>AI voice</label>
+    <button class="opt" data-aivoice aria-pressed="${on}"><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span><span class="switch ${on ? "on" : ""}" aria-hidden="true"></span></button></div>
+    <div class="field" data-enginefield ${on ? "" : "hidden"}><label>Which voice</label><div data-engines>${engineList()}</div></div></div>`;
 }
 function mb(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB"; }
 let VSTAT = null;
 const DLP = {};   // engine -> {loaded, total} while downloading
 function engineList() {
   const V = VX(), e = engineChoice(), st = VSTAT || {};
-  const has = id => !!V && !V.needsDownload(id, "eng");
-  const row = (id, title, text, extra) => `<div class="voicerow"><button class="opt ${e === id ? "on" : ""}" data-engine="${id}"><span class="radio ${e === id ? "on" : ""}"></span><span style="flex:1"><b>${title}</b><br><span class="note">${text}</span></span></button></div>${e === id && extra ? extra : ""}`;
+  const has = engineHas;
+  const row = (id, title, text, extra) => `<div class="voicerow"><button class="opt ${e === id ? "on" : ""}" data-engine="${id}"><span class="radio ${e === id ? "on" : ""}"></span><span style="flex:1"><b>${title}</b><br><span class="note">${text}</span></span></button></div>${e === id && extra ? `<div class="enginesub">${extra}</div>` : ""}`;
   const dl = (id, size) => {
     if (DLP[id]) return `<div class="note dlvoice">Downloading… ${mb(DLP[id].loaded)}${DLP[id].total ? ` of ${mb(DLP[id].total)}` : ""}</div>`;
     if (!has(id)) return `<div class="dlvoice"><button class="btn gold" data-vdl="${id}">Download (${size})</button> <span class="note">Until it's downloaded, your ${DEVICE}'s voice reads.</span></div>`;
-    return `<div class="dlvoice"><span class="note">On this ${DEVICE}${id === "natural" && st.bytes ? ` · ${mb(st.bytes)}` : ""}.</span> <button class="linkbtn" data-vrm="${id}">Remove</button></div>`;
+    const how = NE.kind === id && NE.how ? ` · runs on the ${NE.how}` : "";
+    const bytes = id === "natural" ? (NK.on() ? NK.bytes : st.bytes) : 0;
+    return `<div class="dlvoice"><span class="note">On this ${DEVICE}${bytes ? ` · ${mb(bytes)}` : ""}${how}.</span> <button class="linkbtn" data-vrm="${id}">Remove</button></div>`;
   };
+  const tri = (k, label) => `<button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(label)}">${I.play}</button>`;
   let out = "";
   if (V) {
-    const rtf = (() => { try { return (JSON.parse(localStorage.getItem("estante.voice")) || {}).rtf || {}; } catch { return {}; } })();
+    const rtf = rtfs();
     const sp = id => rtf[id] ? ` Measured here: ${rtf[id].toFixed(1)}× real time${rtf[id] < 1 ? ", too slow to read without pauses" : ""}.` : "";
     out += row("natural", "Natural (Kokoro)", `The most natural voice, and it says the Hebrew guttural ḥ. Made on this ${DEVICE}, nothing is sent anywhere. Fast on a Mac or a recent iPad; on most phones expect pauses.${sp("natural")}`,
-      dl("natural", `about ${V.SIZE_MB} MB`) + (has("natural") ? `<div class="voicelist">${Object.entries(KOKORO_VOICES).map(([k, n]) => { const on = (state.prefs.kokoroVoice || "bf_emma") === k; return `<div class="voicerow"><button class="opt ${on ? "on" : ""}" data-kvoice="${k}"><span class="radio ${on ? "on" : ""}"></span><span style="flex:1"><b>${esc(n.split(" · ")[0])}</b> <span class="note">${esc(n.split(" · ")[1])}</span></span></button><button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(n)}">${I.play}</button></div>`; }).join("")}</div>` : ""));
+      dl("natural", `about ${NK.on() ? NK.SIZE_MB : V.SIZE_MB} MB`) + (has("natural") ? `<div class="note sublabel">Speaker</div>${Object.entries(KOKORO_VOICES).map(([k, n]) => { const on = (state.prefs.kokoroVoice || "bf_emma") === k; return `<div class="voicerow"><button class="opt pick ${on ? "on" : ""}" data-kvoice="${k}"><span style="flex:1"><b>${esc(n.split(" · ")[0])}</b> <span class="note">${esc(n.split(" · ")[1])}</span></span>${on ? `<span class="tick" aria-label="chosen">✓</span>` : ""}</button>${tri(k, n)}</div>`; }).join("")}` : ""));
     out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ.${sp("piper")}`,
-      dl("piper", `about ${V.sizeMb("piper", "eng")} MB`) + (has("piper") ? `<div class="dlvoice"><button class="iconbtn" data-ktry="piper" aria-label="Hear the light voice">${I.play}</button> <span class="note">Hear it</span></div>` : ""));
+      dl("piper", `about ${V.sizeMb("piper", "eng")} MB`) + (has("piper") ? `<div class="dlvoice">${tri("piper", "the light voice")} <span class="note">Hear it</span></div>` : ""));
   }
   if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
     `<div class="voicelist" data-voices>${voiceList()}</div><span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`);
-  if (V) out += `<button class="opt" data-vwifi><span class="radio ${V.wifiOnly() ? "on" : ""}"></span><span style="flex:1"><b>Download voices on Wi-Fi only</b></span></button>`;
+  if (V) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
   return out;
 }
 function refreshEngines() { document.querySelectorAll("[data-engines]").forEach(n => { n.innerHTML = engineList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
@@ -1655,28 +1785,30 @@ function reloadVoice() { if (audio.speaking && cur()) load(!audio.paused); }
 function setEngine(id) { state.prefs.voiceEngine = id; neuralFailed = false; save.prefs(); refreshEngines(); setLang(langPref()); reloadVoice(); }
 async function downloadVoice(id) {
   const V = VX(); if (!V || DLP[id]) return;
-  const ok = V.mayDownload(V.sizeMb(id, "eng"));
+  const size = id === "natural" && NK.on() ? NK.SIZE_MB : V.sizeMb(id, "eng"), ok = V.mayDownload(size);
   if (!ok.ok) { toast(ok.why.replace(/ in Aa → Voice downloads/, " below")); return; }
   if (ok.ask && !confirm(`${ok.why} Download it now?`)) return;
-  DLP[id] = { loaded: 0, total: 0 }; refreshEngines();
+  const files = new Map(); DLP[id] = { loaded: 0, total: size * 1e6 }; refreshEngines();
   try {
-    await V.download(id, p => { DLP[id] = p; document.querySelectorAll(".dlvoice").length && refreshEngines(); }, "eng");
+    await NE.load(id, { net: true, onBytes: m => { files.set(m.url, m.loaded); let n = 0; for (const x of files.values()) n += x; DLP[id] = { loaded: n, total: size * 1e6 }; refreshEngines(); } });
+    VSTAT = await V.status().catch(() => VSTAT);
+    if (NK.on()) await NK.status().catch(() => {});
     delete DLP[id]; toast(`${ENGINE_NAME[id]} is on this ${DEVICE}`);
     if (engineChoice() === id) { neuralFailed = false; setLang(langPref()); reloadVoice(); }
-  } catch (err) { delete DLP[id]; toast(`The download stopped: ${err.message}`); }
-  voiceStatus();
+  } catch (err) { delete DLP[id]; VSTAT = await V.status().catch(() => VSTAT); toast(`The ${ENGINE_NAME[id]} voice didn't start: ${err.message}`); }
+  refreshEngines();
 }
-let trial = null;
+const trialEl = new Audio(); let trialTurn = 0;
 function tryNeural(k) {
-  const V = VX(); if (!V) return;
-  const id = k === "piper" ? "piper" : "natural";
+  const id = k === "piper" ? "piper" : "natural", my = ++trialTurn;
   if (audio.speaking && !audio.paused) audio.pause();
-  if (trial) { try { trial.stop(); } catch {} trial = null; }
-  const A = window.AudioContext, ctx = sharedCtx(); if (ctx) window.AudioContext = function () { return ctx; };
-  try {
-    trial = V.player(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.",
-      { lang: "eng", rate: state.speed || 1, voice: k === "piper" ? undefined : k, onState: (st, info) => { if (st === "error") toast(`Couldn't play the sample: ${info && info.message}`); } });
-  } finally { if (ctx) window.AudioContext = A; }
+  trialEl.src = SILENT; trialEl.play().catch(() => {});   // inside the tap, so the sample may play when it's ready
+  if (!(NE.loaded && NE.kind === id)) toast(`Loading the ${id === "natural" ? "natural" : "light"} voice…`);
+  NE.say(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.", k).then(a => {
+    if (my !== trialTurn) return;
+    trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = state.speed || 1;
+    trialEl.play().catch(e => toast(`Couldn't play the sample: ${e.message}`)); refreshEngines();
+  }).catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); refreshEngines(); });
 }
 function voiceList() {
   const vs = voices(), on = pickVoice();
@@ -1692,14 +1824,15 @@ function tryVoice(uri) {
 function wireVoiceField(s) {
   const f = $("[data-voicefield]", s); if (!f) return;
   voiceStatus();
-  $("[data-aivoice]", f).onclick = () => { state.prefs.aiVoice = state.prefs.aiVoice === false; save.prefs(); $("[data-aivoice] .radio", f).classList.toggle("on", state.prefs.aiVoice !== false); setLang(langPref()); };
+  $("[data-aivoice]", f).onclick = () => { state.prefs.aiVoice = state.prefs.aiVoice === false; save.prefs(); const on = state.prefs.aiVoice !== false;
+    $("[data-aivoice] .switch", f).classList.toggle("on", on); $("[data-aivoice]", f).setAttribute("aria-pressed", on); $("[data-enginefield]", f).hidden = !on; setLang(langPref()); };
   f.onclick = e => {
     const g = x => e.target.closest(x);
     let b;
     if ((b = g("[data-ktry]"))) { tryNeural(b.dataset.ktry); return; }
     if ((b = g("[data-try]"))) { tryVoice(b.dataset.try); return; }
     if ((b = g("[data-vdl]"))) { downloadVoice(b.dataset.vdl); return; }
-    if ((b = g("[data-vrm]"))) { const id = b.dataset.vrm; VX().remove(id, "eng").then(() => { toast(`${ENGINE_NAME[id]} removed from this ${DEVICE}`); voiceStatus(); setLang(langPref()); reloadVoice(); }); return; }
+    if ((b = g("[data-vrm]"))) { const id = b.dataset.vrm; if (NE.kind === id) NE.stop(); (id === "natural" && NK.on() ? NK.remove() : VX().remove(id, "eng")).then(() => { toast(`${ENGINE_NAME[id]} removed from this ${DEVICE}`); voiceStatus(); setLang(langPref()); reloadVoice(); }); return; }
     if ((b = g("[data-vwifi]"))) { VX().setWifiOnly(!VX().wifiOnly()); refreshEngines(); return; }
     if ((b = g("[data-engine]"))) { if (b.dataset.engine !== engineChoice()) setEngine(b.dataset.engine); return; }
     if ((b = g("[data-kvoice]"))) { state.prefs.kokoroVoice = b.dataset.kvoice; save.prefs(); refreshEngines(); tryNeural(b.dataset.kvoice); reloadVoice(); return; }
@@ -2636,5 +2769,5 @@ applyPrefs();
 renderMini();
 render();
 syncStart();
-window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang };   // handy for debugging
+window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang, NE, NK, Neural };   // handy for debugging
 })();

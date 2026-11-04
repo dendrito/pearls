@@ -58,6 +58,7 @@ iPad Pro 13-inch, then File → Save Screen), a privacy policy URL, and the priv
 | `PearlsWebView.swift` | The web view. On iPhone/iPad `PearlsViewController` colours the status bar and the area behind it with the skin, and passes "headphones disconnected" to the page, which pauses if Settings says so. |
 | `PearlsScheme.swift` | Serves the app at `pearls://app/…` (so settings and progress persist), proxies ph.yhb.org.il (its CORS headers are malformed), serves downloaded audio at `/dl/NAME` with byte ranges and saved text at `/native/text/KEY`. |
 | `PearlsNative.swift` + `native-shim.js` | `window.PearlsNative`, the same interface as Android's `PearlsBridge.java`. Downloads use a background URLSession, so they continue with the app closed; "Wi-Fi only" keeps them off mobile data and Low Data Mode. Files live in Application Support/Pearls (`dl/`, `text/`), excluded from iCloud backup. |
+| `KokoroNative.swift` | The natural voice run by the app: ONNX Runtime (Swift package, fetched by Xcode on the first build) runs Kokoro through Core ML where it can, else on the processor. Downloads its files into Application Support/Pearls/kokoro/ and answers the page at `pearls://app/native/kokoro/`. The page makes the phonemes; the app makes the sound. |
 | `Info.plist` | Background audio, the scene setup, status bar per view controller. |
 | `PrivacyInfo.xcprivacy` | No tracking, no data collected; free disk space is read only to show it on the Downloads page. |
 | `build_ios.sh`, `ExportOptions.plist` | Sync and open; or archive and export an .ipa for App Store Connect. |
@@ -80,4 +81,6 @@ These can't be tested without a Mac and a device:
 - a download started with the app open finishes after you leave the app;
 - reading a chapter's Hebrew offline after it has loaded once (if WebKit refuses the synchronous read from the
   `pearls://` scheme, the page simply fetches it again online);
-- the status bar text is dark on light skins and light on dark ones.
+- the status bar text is dark on light skins and light on dark ones;
+- Settings → Voice → Natural (Kokoro): Download, then ▶ on a voice. Settings says where it runs ("Neural Engine and
+  graphics chip (Core ML)" or "processor") and, after a sample, how fast.

@@ -133,12 +133,22 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   WebAssembly), download only when asked (Wi-Fi only by default) and can be removed.
   - The engine is Estante's (github.com/dendrito/estantes): `www/voice.js`, `voice-*.js`, `*-worker.js` and
     `www/voice/lexicon-*.tsv`, **shipped unmodified**. Upgrade it by copying Estante's files, never by editing them here.
-  - In `app.js`, `Neural` mimics `<audio>` the way `Speaker` does, and the `audio` facade picks it for `speech:` srcs
-    when `neuralReady()`. One shared AudioContext (`sharedCtx()`, unlocked on the first tap) is handed to
-    `Voice.player`, because a context made when the next section starts by itself stays muted on iOS.
-  - A natural voice that fails falls back to the device voice for the session (`neuralFailed`).
+  - In `app.js`, `NE` talks to Estante's workers directly and `Neural` mimics `<audio>` the way `Speaker` does; the
+    `audio` facade picks it for `speech:` srcs when `neuralReady()`. Each piece is made in the worker and played as a
+    WAV through its own `<audio>` element (`neuralEl`), not Web Audio, because an iPad left Web Audio silent.
+  - Kokoro steps down when the full model doesn't fit (measured on an iPad: "[webgpu] RangeError: Out of memory"):
+    fp32 on WebGPU, then fp16 on WebGPU (a second ~163 MB download), then fp32 on the processor. What worked is kept
+    in `pearls.kokoroRun`; Settings says where it runs.
+  - A natural voice that fails falls back to the device voice for the session (`neuralFailed`), and the toast says why.
+  - **In the Apple app Kokoro runs natively** (`apple/Pearls/KokoroNative.swift`): ONNX Runtime (Swift package
+    `onnxruntime-swift-package-manager`) runs the same fp32 model through Core ML where Core ML takes the graph, else on
+    the processor, with no WebKit memory cap. The app downloads the model, the four voices, `tokenizer.json` and eSpeak
+    (`phonemizer.js`) into Application Support/Pearls/kokoro/ and serves `pearls://app/native/kokoro/`
+    (status · download · load · say · remove · phonemizer.js). The page still makes the phonemes (`www/pearls-phonemes.js`,
+    Estante's `english()` plus Pearls' Hebrew rule, so the ḥ stays) and plays the WAV the app returns. `NK` in app.js is
+    the client; the page uses it when `PearlsNative.info().kokoro` is true. Piper stays in the web worker.
   - Test: `python3 test_voice.py` (a stand-in for voice.js, since its models come from the network). It must end
-    "voice: 14/14".
+    "voice: 25/25".
 - The Apple app (2.7) has the same bridge: `apple/Pearls/PearlsNative.swift` plus `native-shim.js`, which gives the page
   Android's synchronous interface on top of WKWebView's asynchronous messages (state pushed by the app, requests posted to
   it, `readText` a synchronous read from `pearls://app/native/text/`). The web version has no bridge: it reads the bundled

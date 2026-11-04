@@ -19,6 +19,7 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
         guard let url = task.request.url else { return fail(task, URLError(.badURL)) }
         if url.path == "/proxy" { return proxy(task, url) }
         if url.path.hasPrefix("/dl/") { return download(task, url, name: String(url.path.dropFirst(4))) }
+        if url.path.hasPrefix("/native/kokoro/") { return kokoro(task, url, String(url.path.dropFirst("/native/kokoro/".count))) }
         if url.path.hasPrefix("/native/text/") {
             let key = String(url.path.dropFirst("/native/text/".count))
             guard let data = PearlsNative.readText(key) else {
@@ -78,6 +79,42 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
         guard let start = Int(parts[0]), start < size else { return nil }
         let end = Int(parts[1]).map { min($0, size - 1) } ?? size - 1
         return end >= start ? (start, end) : nil
+    }
+
+    // MARK: - the natural voice (KokoroNative)
+
+    private func kokoro(_ task: WKURLSchemeTask, _ url: URL, _ what: String) {
+        let K = KokoroNative.shared
+        let q = Dictionary((URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { a, _ in a }
+        let json = { (o: [String: Any], status: Int) in
+            let d = (try? JSONSerialization.data(withJSONObject: o)) ?? Data("{}".utf8)
+            DispatchQueue.main.async { self.respond(task, url: url, data: d, mime: "application/json", status: status) }
+        }
+        switch what {
+        case "status": json(K.status(), 200)
+        case "download": K.download(wifiOnly: q["wifi"] != "0"); json(K.status(), 200)
+        case "remove": K.remove(); json(K.status(), 200)
+        case "load":
+            K.load { r in
+                switch r { case .success(let how): json(["how": how], 200); case .failure(let e): json(["error": e.localizedDescription], 500) }
+            }
+        case "say":
+            K.say(phonemes: q["ph"] ?? "", voice: q["v"] ?? "", speed: Float(q["s"] ?? "") ?? 1) { r in
+                switch r {
+                case .success(let (wav, secs)):
+                    DispatchQueue.main.async {
+                        self.respond(task, url: url, data: wav, mime: "audio/wav", status: 200,
+                                     extra: ["X-Gen-Seconds": String(secs), "X-How": K.how,
+                                             "Access-Control-Expose-Headers": "X-Gen-Seconds, X-How"])
+                    }
+                case .failure(let e): json(["error": e.localizedDescription], 500)
+                }
+            }
+        case "phonemizer.js":
+            guard let d = KokoroNative.phonemizer() else { return respond(task, url: url, data: Data(), mime: "text/plain", status: 404) }
+            respond(task, url: url, data: d, mime: "text/javascript", status: 200)
+        default: respond(task, url: url, data: Data(), mime: "text/plain", status: 404)
+        }
     }
 
     // MARK: - proxy
@@ -143,6 +180,7 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
         case "jpg", "jpeg": return "image/jpeg"
         case "svg": return "image/svg+xml"
         case "mp3": return "audio/mpeg"
+        case "wav": return "audio/wav"
         case "woff2": return "font/woff2"
         default: return "application/octet-stream"
         }
