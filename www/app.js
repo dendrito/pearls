@@ -544,16 +544,21 @@ const KOKORO_VOICES = { bm_george: "George · UK", bm_daniel: "Daniel · UK", bm
 const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_DEFAULT = "bm_george";
 /* Piper's English voices (rhasspy/piper-voices), each its own download, nothing in bulk. Licences, from each MODEL_CARD:
    Ryan CC BY-NC-SA 4.0 (RyanSpeech), Northern English Male CC BY-SA 4.0 (OpenSLR 83), LJSpeech and Cori public domain.
-   Left out: Lessac (its recordings are licensed for research only) and Alan (all rights reserved). A Lessac medium already
-   downloaded under the old default keeps working, listed, until it is removed. Male first; Ryan is the default. */
+   Left out: Lessac (its recordings are licensed for research only) and Alan (all rights reserved). Male first; Ryan is the
+   default. Medium quality: Piper runs here on one processor core (ONNX Runtime Web without threads), where an iPad made
+   the "high" voices at 0.7× real time (Ryan high: 17.8 s of speech in 24.5 s), so reading stalled; the medium ones keep
+   up about five times over. Voices already downloaded under an earlier list (Lessac medium, the high ones) stay listed,
+   marked, and keep working until they are removed. */
 const PIPER_VOICES = {
-  "en_US-ryan-high": { name: "Ryan", note: "US · high quality", mb: 121 },
+  "en_US-ryan-medium": { name: "Ryan", note: "US", mb: 63 },
   "en_GB-northern_english_male-medium": { name: "Northern English Male", note: "UK", mb: 63 },
-  "en_US-ljspeech-high": { name: "LJSpeech", note: "US · high quality, an audiobook reader", mb: 114 },
-  "en_GB-cori-high": { name: "Cori", note: "UK · high quality", mb: 114 },
+  "en_US-ljspeech-medium": { name: "LJSpeech", note: "US · an audiobook reader", mb: 64 },
+  "en_GB-cori-medium": { name: "Cori", note: "UK", mb: 64 },
 };
-const PIPER_OLD = "en_US-lessac-medium", PIPER_DEFAULT = "en_US-ryan-high";
+const PIPER_OLD = "en_US-lessac-medium", PIPER_DEFAULT = "en_US-ryan-medium";
 PIPER_VOICES[PIPER_OLD] = { name: "Lessac", note: "US · the earlier default", mb: 63, old: true };
+for (const [v, n] of [["en_US-ryan-high", "Ryan"], ["en_US-ljspeech-high", "LJSpeech"], ["en_GB-cori-high", "Cori"]])
+  PIPER_VOICES[v] = { name: `${n}, high quality`, note: "too slow to keep up on most devices", mb: v.includes("ryan") ? 121 : 114, old: true };
 /* which voices are on this device: kept between launches (so Read aloud knows before anything answers) and checked again
    against the device store (web) or the app (Apple app) */
 const VHAVE = (() => {
