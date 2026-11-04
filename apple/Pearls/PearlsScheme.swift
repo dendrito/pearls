@@ -20,6 +20,7 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
         if url.path == "/proxy" { return proxy(task, url) }
         if url.path.hasPrefix("/dl/") { return download(task, url, name: String(url.path.dropFirst(4))) }
         if url.path.hasPrefix("/native/kokoro/") { return kokoro(task, url, String(url.path.dropFirst("/native/kokoro/".count))) }
+        if url.path.hasPrefix("/native/apple-voice/") { return appleVoice(task, url, String(url.path.dropFirst("/native/apple-voice/".count))) }
         if url.path.hasPrefix("/native/text/") {
             let key = String(url.path.dropFirst("/native/text/".count))
             guard let data = PearlsNative.readText(key) else {
@@ -79,6 +80,31 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
         guard let start = Int(parts[0]), start < size else { return nil }
         let end = Int(parts[1]).map { min($0, size - 1) } ?? size - 1
         return end >= start ? (start, end) : nil
+    }
+
+    // MARK: - the device's own voices, Premium and Enhanced included (AppleVoice)
+
+    private func appleVoice(_ task: WKURLSchemeTask, _ url: URL, _ what: String) {
+        let q = Dictionary((URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") }) { a, _ in a }
+        switch what {
+        case "list":
+            let d = (try? JSONSerialization.data(withJSONObject: AppleVoice.shared.list())) ?? Data("[]".utf8)
+            respond(task, url: url, data: d, mime: "application/json", status: 200)
+        case "say":
+            AppleVoice.shared.say(q["text"] ?? "", id: q["id"] ?? "", rate: Float(q["rate"] ?? "") ?? 1) { r in
+                DispatchQueue.main.async {
+                    switch r {
+                    case .success(let (wav, secs)):
+                        self.respond(task, url: url, data: wav, mime: "audio/wav", status: 200,
+                                     extra: ["X-Gen-Seconds": String(secs), "Access-Control-Expose-Headers": "X-Gen-Seconds"])
+                    case .failure(let e):
+                        let d = (try? JSONSerialization.data(withJSONObject: ["error": e.localizedDescription])) ?? Data()
+                        self.respond(task, url: url, data: d, mime: "application/json", status: 500)
+                    }
+                }
+            }
+        default: respond(task, url: url, data: Data(), mime: "text/plain", status: 404)
+        }
     }
 
     // MARK: - the natural voice (KokoroNative)

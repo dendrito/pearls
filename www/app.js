@@ -651,11 +651,48 @@ if (NK.on()) NK.status().then(x => {
   /* if the device voice started reading before the app answered, hand over to the voice you chose */
   if (audio.speaking && !audio.neural && neuralReady()) { vlog("the natural voice is here: switching from the device voice"); reloadVoice(); }
 }).catch(() => {});
+/* In the Apple app the device's voices come from the app (apple/Pearls/AppleVoice.swift): there the page's own
+   speechSynthesis lists only the compact voices, never the Premium and Enhanced ones the reader installed. Each piece
+   comes back as a WAV and plays through Neural's two players, like the natural voices, so pause, the lock screen, the
+   paragraph highlight and the reading speed work the same. The web and Android keep speechSynthesis (Speaker). */
+const AV = (() => {
+  const base = "pearls://app/native/apple-voice/", KEEP = "pearls.appleVoices";
+  let on = null, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
+  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).appleVoices); } catch { on = false; } } return on; };
+  async function refresh() {
+    if (!isOn()) return [];
+    try { list = await (await fetch(base + "list")).json(); localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
+    return list;
+  }
+  async function say(text, id, speed) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 90000);
+    let r;
+    try { r = await fetch(base + "say?" + new URLSearchParams({ text, id, rate: String(speed || 1) }), { signal: ac.signal }); }
+    catch (e) { throw new Error(ac.signal.aborted ? "the device voice made no sound" : e.message); }
+    finally { clearTimeout(t); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
+    const blob = await r.blob(), rate = new DataView(await blob.slice(0, 44).arrayBuffer()).getUint32(24, true) || 22050;
+    return { blob, dur: Math.max(0, blob.size - 44) / 2 / rate, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
+  }
+  return { on: isOn, refresh, say, get list() { return list; } };
+})();
+const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+/* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
+   itself once it is installed, unless the reader chose another */
+const appleChoice = () => { const L = AV.list, want = state.prefs.voice; return (L.find(v => v.id === want) || L[0] || {}).id || ""; };
+if (AV.on()) {
+  const fresh = () => AV.refresh().then(() => {
+    if (typeof refreshEngines === "function") refreshEngines();
+    if (audio.speaking && !audio.neural && neuralReady()) { vlog("the device voices are listed: switching to them"); reloadVoice(); }
+  });
+  fresh(); document.addEventListener("visibilitychange", () => { if (!document.hidden) fresh(); });   // a voice installed meanwhile
+}
 const naturalHas = () => NK.on() ? NK.has : !!VX() && !VX().needsDownload("natural", "eng");
 const engineHas = id => id === "natural" ? naturalHas() : id === "piper" ? !!VX() && piperHas(piperChoice()) : !!VX() && !VX().needsDownload(id, "eng");
-const neuralReady = () => { const V = VX(), e = engineChoice(); return !neuralFailed && !!V && e !== "device" && engineHas(e); };
+const neuralReady = () => { const V = VX(), e = engineChoice(); if (neuralFailed || !V) return false; return e === "device" ? AV.on() && AV.list.length > 0 : engineHas(e); };
 const ENGINE_NAME = { natural: "Natural (Kokoro)", piper: "Light (Piper)" };
 function currentVoiceLabel() {
+  if (neuralReady() && engineChoice() === "device") { const v = AV.list.find(x => x.id === appleChoice()); return v ? `${v.name}${QUALITY[v.quality] ? ` (${QUALITY[v.quality]})` : ""} · ${v.lang}` : "Device voice"; }
   if (neuralReady()) return engineChoice() === "natural" ? `${ENGINE_NAME.natural}, ${KOKORO_VOICES[kokoroChoice()]}` : `${ENGINE_NAME.piper}, ${PIPER_VOICES[piperChoice()].name}`;
   return voiceLabel(pickVoice());
 }
@@ -738,6 +775,11 @@ const NE = (() => {
   function say(k, text, voice, speed) {
     const sp = Math.min(2, Math.max(0.5, +speed || 1));   // made at this speed: stretching a made piece afterwards sounds robotic
     const run = async () => {
+      if (k === "device") {
+        const a = await AV.say(text, voice || appleChoice(), sp);
+        vlog("device voice made", a.dur.toFixed(1) + "s in", a.genS.toFixed(2) + "s,", a.blob.size, "bytes");
+        a.speed = sp; return a;
+      }
       await load(k, { voice: k === "piper" && PIPER_VOICES[voice] && piperHas(voice) ? voice : undefined });
       const v = KOKORO_VOICES[voice] && kokoroHas(voice) ? voice : kokoroChoice();
       let a;
@@ -804,7 +846,7 @@ const Neural = (() => {
   function gen(i) {
     if (!cache.has(i)) {
       const endsPara = i + 1 < parts.length && paraOf[i + 1] !== paraOf[i];
-      const p = NE.say(engineChoice(), parts[i], engineChoice() === "piper" ? piperChoice() : kokoroChoice(), rate).then(async a => {
+      const p = NE.say(engineChoice(), parts[i], engineChoice() === "piper" ? piperChoice() : engineChoice() === "device" ? appleChoice() : kokoroChoice(), rate).then(async a => {
         const blob = endsPara ? await padWav(a.blob, PARA_GAP) : a.blob, sp = a.speed || 1;
         return { url: URL.createObjectURL(blob), dur: a.dur + (endsPara ? PARA_GAP : 0), speed: sp };
       });
@@ -854,7 +896,7 @@ const Neural = (() => {
       const sec = Array.isArray(d) ? d[k] && { html: d[k].content.rendered, title: d[k].title.rendered } : d.sections[k] && { html: d.sections[k].body_en, title: d.sections[k].title_en };
       if (!sec || !sec.html) throw new Error("no text");
       const paras = speechParas(sec.html, sec.title);
-      const lex = await voiceLex(engineChoice() === "piper" ? "piper" : "kokoro");
+      const lex = await voiceLex(engineChoice() === "natural" ? "kokoro" : "piper");   // plain English respellings for Piper and the device voices
       if (my !== job) return;
       /* pieces as voice.js makes them (a sentence or two, short at first so the first is ready quickly), each mapped to its paragraph */
       parts = []; paraOf = [];
@@ -1084,7 +1126,7 @@ audio.addEventListener("error", () => {
   }
   if (P.lang === "en" && enText(t) && aiVoiceOn()) { P.lang = "tts"; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast("The English recording didn't load: the AI voice is reading this section"); return; }
   if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("No English reading for this section — playing the Hebrew"); return; }
-  if (P.lang === "tts" && audio.neural && canSpeak()) { neuralFailed = true; const why = Neural.lastError ? ` (${Neural.lastError.slice(0, 120)})` : ""; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast(`The ${engineChoice() === "natural" ? "natural" : "light"} voice couldn't start${why}, so your ${DEVICE}'s voice is reading. Settings → Voice to try again.`); return; }
+  if (P.lang === "tts" && audio.neural && canSpeak()) { neuralFailed = true; const why = Neural.lastError ? ` (${Neural.lastError.slice(0, 120)})` : ""; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast(`The ${engineChoice() === "natural" ? "natural voice" : engineChoice() === "piper" ? "light voice" : "voice you chose"} couldn't start${why}, so your ${DEVICE}'s basic voice is reading. Settings → Voice to try again.`); return; }
   if (P.lang === "tts") { if (hasHe(t)) { P.lang = "he"; audio.src = srcFor(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("The AI voice couldn't read this section — playing the Hebrew"); return; }
     toast("The AI voice couldn't read this section."); P.fails++; if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); } return; }
   P.fails++;
@@ -1941,7 +1983,7 @@ function engineList() {
       `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
   if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
-    `<div class="voicelist" data-voices>${voiceList()}</div><span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`);
+    `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`}`);
   if (V) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
   return out;
 }
@@ -2003,13 +2045,28 @@ function tryNeural(k) {
     trialEl.play().then(() => vlog("sample playing"), e => toast(`Couldn't play the sample: ${e.message}`)); refreshEngines();
   }).catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); refreshEngines(); });
 }
+function appleVoiceList() {
+  const L = AV.list, on = appleChoice();
+  if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  const good = L.some(v => QUALITY[v.quality]);
+  const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(v.name)}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(v.name)}">${I.play}</button></div>`).join("");
+}
 function voiceList() {
+  if (AV.on()) return appleVoiceList();
   const vs = voices(), on = pickVoice();
   if (!vs.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
   const rank = v => (/premium/i.test(v.name) ? 0 : /enhanced|siri/i.test(v.name) ? 1 : 2) * 10 + (/en-(US|GB)/i.test(v.lang) ? 0 : 1);
   return vs.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).map(v => `<div class="voicerow"><button class="opt ${on && v.voiceURI === on.voiceURI ? "on" : ""}" data-voice="${esc(v.voiceURI)}"><span class="radio ${on && v.voiceURI === on.voiceURI ? "on" : ""}"></span><span style="flex:1"><b>${esc(v.name.replace(/\s*\(.*\)$/, ""))}</b> <span class="note">${esc(v.lang.replace("_", "-"))}${v.localService ? "" : " · online"}</span></span></button><button class="iconbtn" data-try="${esc(v.voiceURI)}" aria-label="Hear ${esc(v.name)}">${I.play}</button></div>`).join("");
 }
 function tryVoice(uri) {
+  if (AV.on()) {   // the app renders the sample, so Premium and Enhanced voices can be heard too
+    const my = ++trialTurn; if (audio.speaking && !audio.paused) audio.pause();
+    trialEl.src = SILENT; trialEl.play().catch(() => {});
+    AV.say("Shabbat is a day of rest, blessing and holiness.", uri, state.speed || 1).then(a => { if (my !== trialTurn) return; trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = 1; trialEl.play().catch(e => toast(`Couldn't play the sample: ${e.message}`)); })
+      .catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); });
+    return;
+  }
   const v = voices().find(x => x.voiceURI === uri); if (!v) return;
   const wasPlaying = audio.speaking && !audio.paused; if (wasPlaying) audio.pause();
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance("Shabbat is a day of rest, blessing and holiness."); u.voice = v; u.lang = v.lang; u.rate = state.speed || 1; speechSynthesis.speak(u); } catch {}

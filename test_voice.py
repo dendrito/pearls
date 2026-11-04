@@ -37,6 +37,22 @@ NATIVE = """(() => { window.__nk = { calls: [], have: false, polls: 0 };
   window.Worker = function (u, o) { if (!String(u).includes('pearls-phonemes')) return new RW(u, o);
     const w = { postMessage: m => setTimeout(() => w.onmessage && w.onmessage({ data: { id: m.id, phonemes: '<' + m.text.trim() + '>' } }), 5), terminate() {} }; return w; };
 })()"""
+# the Apple app lists and renders the device's own voices (AppleVoice.swift): a stand-in for pearls://app/native/apple-voice/
+APPLE = """(() => { window.__av = { says: [] };
+  window.__avList = [{ id: 'c.f', name: 'Samantha', lang: 'en-US', quality: 'default', gender: 'female' }];
+  window.PearlsNative = { info: () => JSON.stringify({ ok: true, appleVoices: true }), status: () => '{"active":[],"failed":[]}', list: () => '[]', textList: () => '[]',
+    readText: () => null, writeText: () => true, enqueue: () => 0, remove: () => 0, cancelAll() {}, clearText: () => 0, mediaState() {}, setBars() {} };
+  const realFetch = window.fetch.bind(window);
+  window.fetch = async (u, o) => {
+    const s = String(u); if (!s.startsWith('pearls://app/native/apple-voice/')) return realFetch(u, o);
+    const q = new URL(s.replace('pearls://app', 'http://x')), what = q.pathname.split('/').pop();
+    if (what === 'list') return new Response(JSON.stringify(window.__avList), { headers: { 'content-type': 'application/json' } });
+    __av.says.push({ id: q.searchParams.get('id'), text: q.searchParams.get('text') });
+    const n = 22050, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, t) => { for (let i = 0; i < 4; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 22050, true); v.setUint32(28, 44100, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    return new Response(b, { headers: { 'content-type': 'audio/wav', 'X-Gen-Seconds': '0.05' } }); };
+})()"""
 ok = 0; n = 0
 def check(name, cond, info=""):
     global ok, n; n += 1; ok += bool(cond); print(("PASS " if cond else "FAIL ") + name, "" if cond else info)
@@ -108,5 +124,17 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('[data-vrm=natural]').click()"); pg.wait_for_timeout(400)
     check("app: Remove asks the app", E("__nk.calls.includes('remove') && !PEARLS.NK.has && !!document.querySelector('[data-vdl=natural]')"))
     check("app: no page errors", not errs2, errs2[:3])
+    # the device's own voices, rendered by the app
+    c3 = b.new_context(); c3.add_init_script(APPLE); pg = c3.new_page(); pg.route("https://**", lambda r: r.abort()); errs3 = []; pg.on("pageerror", lambda e: errs3.append(str(e)))
+    pg.goto(url); pg.wait_for_timeout(600); E = lambda js: pg.evaluate(js)
+    E("PEARLS.state.prefs.voiceEngine = 'device'; delete PEARLS.state.prefs.voice")
+    E("(() => { const b = document.createElement('button'); b.dataset.act = 'voice'; document.querySelector('.view').appendChild(b); b.click(); })()"); pg.wait_for_timeout(300)
+    check("app voices: with no Premium or Enhanced voice, Settings shows how to get one", "Premium" in E("(document.querySelector('.voicecard') || {}).textContent || ''"))
+    E("window.__avList = [{ id: 'p.m', name: 'Evan', lang: 'en-US', quality: 'premium', gender: 'male' }, { id: 'e.f', name: 'Ava', lang: 'en-US', quality: 'enhanced', gender: 'female' }, ...window.__avList]; document.dispatchEvent(new Event('visibilitychange'))"); pg.wait_for_timeout(300)
+    check("app voices: the app's list shows, Premium labelled, the best male chosen by itself", E("!document.querySelector('.voicecard') && /Evan[^]*Premium/.test(document.querySelector('[data-voices]').textContent) && !!document.querySelector('[data-voice=\"p.m\"].on')"))
+    E("PEARLS.audio.src = 'speech:%s:0'; PEARLS.audio.play()" % tid); pg.wait_for_timeout(1500)
+    check("app voices: reading uses the app's voice through the two players", E("PEARLS.audio.neural && __av.says.length > 0 && __av.says[0].id === 'p.m'"), E("__av.says.slice(0, 2)"))
+    E("PEARLS.audio.pause()")
+    check("app voices: no page errors", not errs3, errs3[:3])
     b.close()
 print(f"voice: {ok}/{n}")

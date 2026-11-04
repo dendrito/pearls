@@ -148,7 +148,16 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
     Estante's `english()` plus Pearls' Hebrew rule, so the ḥ stays) and plays the WAV the app returns. `NK` in app.js is
     the client; the page uses it when `PearlsNative.info().kokoro` is true. Piper stays in the web worker.
   - Test: `python3 test_voice.py` (a stand-in for voice.js, since its models come from the network). It must end
-    "voice: 25/25".
+    "voice: 29/29".
+  - **The device's own voices in the Apple app** come from the app (`apple/Pearls/AppleVoice.swift`): WKWebView's
+    speechSynthesis lists only compact voices, so the app lists the English ones (`AVSpeechSynthesisVoice`, Premium and
+    Enhanced labelled, best and male first) and renders each piece to a WAV (`AVSpeechSynthesizer.write`) at
+    `pearls://app/native/apple-voice/` (list · say). `AV` in app.js is the client (on when `PearlsNative.info().appleVoices`);
+    reading goes through `Neural`'s two players like the natural voices. With no Premium or Enhanced English voice,
+    Settings → Voice shows how to download one. The web and Android keep speechSynthesis (`Speaker`).
+  - **Voices are downloads of their own:** each Piper voice (medium quality, which keeps up on an iPad; Ryan is the
+    default) and each extra Kokoro speaker (about 0.5 MB; George is the default) downloads only when chosen, and every
+    download has its own Remove (two taps). Default voices are male. Licences are on the Credits page.
 - The Apple app (2.7) has the same bridge: `apple/Pearls/PearlsNative.swift` plus `native-shim.js`, which gives the page
   Android's synchronous interface on top of WKWebView's asynchronous messages (state pushed by the app, requests posted to
   it, `readText` a synchronous read from `pearls://app/native/text/`). The web version has no bridge: it reads the bundled
