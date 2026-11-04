@@ -678,19 +678,20 @@ const NE = (() => {
     return out.map(x => x.trim()).filter(Boolean).join(" ").replace(/\s+([;:,.!?])/g, "$1");
   }
   /* one piece at a time: the worker runs one model */
-  function say(k, text, voice) {
+  function say(k, text, voice, speed) {
+    const sp = Math.min(2, Math.max(0.5, +speed || 1));   // made at this speed: stretching a made piece afterwards sounds robotic
     const run = async () => {
       await load(k);
       const v = KOKORO_VOICES[voice] ? voice : "bf_emma";
       let a;
-      if (native(k)) a = await NK.say(await phonemes(text, true), v, 1);
+      if (native(k)) a = await NK.say(await phonemes(text, true), v, sp);
       else {
-        a = k === "piper" ? await ask({ type: "say", text, rate: 1 }) : await ask({ type: "say", phonemes: await phonemes(text), voice: v, speed: 1 });
+        a = k === "piper" ? await ask({ type: "say", text, rate: sp }) : await ask({ type: "say", phonemes: await phonemes(text), voice: v, speed: sp });
         a = { blob: wav(a.samples, a.rate), dur: a.samples.length / a.rate, genS: a.genS };
       }
       const r = rtfs(); r[k] = a.dur / Math.max(0.01, a.genS); try { localStorage.setItem(RTF_KEY, JSON.stringify(r)); } catch {}
       vlog(k, "made", a.dur.toFixed(1) + "s in", a.genS.toFixed(2) + "s,", a.blob.size, "bytes");
-      return a;   // {blob: a WAV, dur: seconds, genS}
+      a.speed = sp; return a;   // {blob: a WAV, dur: seconds, genS, speed}
     };
     const p = q.then(run, run); q = p.catch(e => vlog(k, "could not say it:", e.message)); return p;
   }
@@ -705,16 +706,35 @@ async function voiceLex(name) {   // the same lexicon voice.js uses, so its piec
   return (lexCache[name] = rows.flatMap(([a, b]) => [[a, b], [a[0].toUpperCase() + a.slice(1), b[0].toUpperCase() + b.slice(1)]])
     .map(([a, b]) => [new RegExp(`(?<![\\w-])${qq(a)}(?![\\w-])`, "g"), b]).sort((x, y) => y[0].source.length - x[0].source.length));
 }
+/* a paragraph in pieces for the natural voices. voice.js's pieces() starts every text with a 40-letter phrase so the
+   first sound comes quickly; called per paragraph, that cut the opening sentence of EVERY paragraph mid-phrase, and
+   each cut is a new piece: a pause, and the voice starting its intonation over. Here only the first piece of a
+   section is short, every later piece is whole sentences, and a sentence is broken (at a comma) only past 400 letters. */
+function speechPieces(text, first) {
+  const out = []; let cur = "";
+  const lim = () => first && !out.length ? 120 : 400;
+  for (let s of text.split(/(?<=[.!?…;:])\s+(?=["“‘'A-Z0-9(])/)) {
+    if (cur && cur.length + s.length + 1 > lim()) { out.push(cur); cur = ""; }
+    while (s.length > lim()) {
+      const L = lim(), c = s.lastIndexOf(", ", L), sp = s.lastIndexOf(" ", L), at = c > L / 3 ? c + 1 : sp > L / 3 ? sp : L;
+      if (cur) { out.push(cur); cur = ""; }
+      out.push(s.slice(0, at).trim()); s = s.slice(at).trim();
+    }
+    cur = (cur + " " + s).trim();
+  }
+  if (cur) out.push(cur);
+  return out.filter(p => /[\p{L}\p{N}]/u.test(p));
+}
 const neuralEl = new Audio(); neuralEl.preload = "auto";
 const Neural = (() => {
   const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
   let src = "", parts = [], paraOf = [], secs = [], total = 0, idx = 0, paused = true, ready = false, want = false,
-    rate = 1, job = 0, turn = 0, live = false, timer = null, cache = new Map();
+    rate = 1, made = 1, job = 0, turn = 0, live = false, timer = null, cache = new Map();
   const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
   const paint = () => { if (typeof paintSpokenPara === "function") paintSpokenPara(paraOf[idx] ?? null); };
   function clear() { for (const p of cache.values()) p.then(r => URL.revokeObjectURL(r.url), () => {}); cache = new Map(); }
   function gen(i) {
-    if (!cache.has(i)) { const p = NE.say(engineChoice(), parts[i], state.prefs.kokoroVoice).then(a => ({ url: URL.createObjectURL(a.blob), dur: a.dur })); p.catch(() => {}); cache.set(i, p); }
+    if (!cache.has(i)) { const p = NE.say(engineChoice(), parts[i], state.prefs.kokoroVoice, rate).then(a => ({ url: URL.createObjectURL(a.blob), dur: a.dur, speed: a.speed || 1 })); p.catch(() => {}); cache.set(i, p); }
     return cache.get(i);
   }
   function unlock() { if (!live) { neuralEl.src = SILENT; neuralEl.play().catch(() => {}); } }   // inside the tap, so later pieces may play
@@ -723,8 +743,8 @@ const Neural = (() => {
     let r; try { r = await gen(i); } catch (e) { if (my === turn) { Neural.lastError = e.message; paused = true; clearInterval(timer); emit("error"); } return; }
     if (my !== turn || paused) return;
     for (let k = 1; k <= 2 && i + k < parts.length; k++) gen(i + k);
-    secs[i] = r.dur; total = secs.reduce((a, b) => a + b, 0);
-    live = true; neuralEl.src = r.url; neuralEl.playbackRate = rate;
+    secs[i] = r.dur * r.speed; total = secs.reduce((a, b) => a + b, 0); made = r.speed;
+    live = true; neuralEl.src = r.url; neuralEl.playbackRate = rate / made;
     neuralEl.play().catch(e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
   }
   neuralEl.addEventListener("error", () => vlog("the player refused a piece:", neuralEl.error && neuralEl.error.code, neuralEl.error && neuralEl.error.message));
@@ -745,7 +765,7 @@ neuralEl.addEventListener("ended", () => {
       if (my !== job) return;
       /* pieces as voice.js makes them (a sentence or two, short at first so the first is ready quickly), each mapped to its paragraph */
       parts = []; paraOf = [];
-      for (const x of paras) for (const pc of V.pieces(V.prepare(/[.!?…:;]["”’)]*$/.test(x.s) ? x.s : x.s + ".", "eng", lex))) { parts.push(pc); paraOf.push(x.p); }
+      for (const x of paras) for (const pc of speechPieces(V.prepare(/[.!?…:;]["”’)]*$/.test(x.s) ? x.s : x.s + ".", "eng", lex), !parts.length)) { parts.push(pc); paraOf.push(x.p); }
       if (!parts.length) throw new Error("no text");
     } catch (e) { if (my === job) { Neural.lastError = e.message; emit("error"); } return; }
     secs = parts.map(pc => pc.split(/\s+/).length / WPS); total = secs.reduce((a, b) => a + b, 0);
@@ -772,7 +792,11 @@ neuralEl.addEventListener("ended", () => {
     get duration() { return ready ? total / rate : NaN; },
     get currentTime() { if (!ready) return 0; return (startOf(idx) + (live ? Math.min(secs[idx] || 0, neuralEl.currentTime || 0) : 0)) / rate; },
     set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } if (!paused) playAt(k); else { turn++; idx = k; live = false; neuralEl.pause(); paint(); emit("timeupdate"); } },
-    get playbackRate() { return rate; }, set playbackRate(r) { rate = r; neuralEl.playbackRate = r; },
+    get playbackRate() { return rate; }, set playbackRate(r) {
+      if (r === rate) return; rate = r; neuralEl.playbackRate = r / made;   // only until the next piece, which is made at the new speed
+      for (const [k, p] of cache) if (k > idx) { p.then(x => URL.revokeObjectURL(x.url), () => {}); cache.delete(k); }
+      if (ready && !paused) for (let k = 1; k <= 2 && idx + k < parts.length; k++) gen(idx + k);
+    },
     play, pause,
     stop() { want = false; job++; turn++; const was = !paused; paused = true; clearInterval(timer); neuralEl.pause(); neuralEl.removeAttribute("src"); live = false; clear(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
   };
@@ -1829,9 +1853,9 @@ function tryNeural(k) {
   if (audio.speaking && !audio.paused) audio.pause();
   trialEl.src = SILENT; trialEl.play().catch(() => {});   // inside the tap, so the sample may play when it's ready
   if (!(NE.loaded && NE.kind === id)) toast(`Loading the ${id === "natural" ? "natural" : "light"} voice…`);
-  NE.say(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.", k).then(a => {
+  NE.say(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.", k, state.speed || 1).then(a => {
     if (my !== trialTurn) return;
-    trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = state.speed || 1;
+    trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = 1;
     trialEl.play().then(() => vlog("sample playing"), e => toast(`Couldn't play the sample: ${e.message}`)); refreshEngines();
   }).catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); refreshEngines(); });
 }
