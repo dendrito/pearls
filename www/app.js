@@ -725,33 +725,69 @@ function speechPieces(text, first) {
   if (cur) out.push(cur);
   return out.filter(p => /[\p{L}\p{N}]/u.test(p));
 }
-const neuralEl = new Audio(); neuralEl.preload = "auto";
+/* two players taking turns: while one speaks a piece, the other already holds the next, so it starts the moment the
+   first ends (one player loading each piece after "ended" left a small silence at every join) */
+const neuralEls = [new Audio(), new Audio()]; neuralEls.forEach(e => { e.preload = "auto"; });
+const PARA_GAP = 0.3;   // seconds of quiet after a paragraph, like a reader taking a breath; none inside one
+async function padWav(blob, secs) {   // the canonical 44-byte-header WAVs that wav() and the app make, with quiet added at the end
+  const b = await blob.arrayBuffer(), v = new DataView(b);
+  const add = Math.round(secs * v.getUint32(24, true)) * v.getUint16(22, true) * (v.getUint16(34, true) / 8);
+  const out = new Uint8Array(b.byteLength + add); out.set(new Uint8Array(b)); const w = new DataView(out.buffer);
+  w.setUint32(4, out.byteLength - 8, true); w.setUint32(40, out.byteLength - 44, true);
+  return new Blob([out], { type: "audio/wav" });
+}
 const Neural = (() => {
   const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
   let src = "", parts = [], paraOf = [], secs = [], total = 0, idx = 0, paused = true, ready = false, want = false,
-    rate = 1, made = 1, job = 0, turn = 0, live = false, timer = null, cache = new Map();
+    rate = 1, made = 1, job = 0, turn = 0, live = false, timer = null, cache = new Map(), cur = 0, next = null;   // next: {i, r} loaded in the other player
+  const el = () => neuralEls[cur], other = () => neuralEls[1 - cur];
   const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
   const paint = () => { if (typeof paintSpokenPara === "function") paintSpokenPara(paraOf[idx] ?? null); };
-  function clear() { for (const p of cache.values()) p.then(r => URL.revokeObjectURL(r.url), () => {}); cache = new Map(); }
+  function clear() { for (const p of cache.values()) p.then(r => URL.revokeObjectURL(r.url), () => {}); cache = new Map(); next = null; }
   function gen(i) {
-    if (!cache.has(i)) { const p = NE.say(engineChoice(), parts[i], state.prefs.kokoroVoice, rate).then(a => ({ url: URL.createObjectURL(a.blob), dur: a.dur, speed: a.speed || 1 })); p.catch(() => {}); cache.set(i, p); }
+    if (!cache.has(i)) {
+      const endsPara = i + 1 < parts.length && paraOf[i + 1] !== paraOf[i];
+      const p = NE.say(engineChoice(), parts[i], state.prefs.kokoroVoice, rate).then(async a => {
+        const blob = endsPara ? await padWav(a.blob, PARA_GAP) : a.blob, sp = a.speed || 1;
+        return { url: URL.createObjectURL(blob), dur: a.dur + (endsPara ? PARA_GAP : 0), speed: sp };
+      });
+      p.catch(() => {}); cache.set(i, p);
+    }
     return cache.get(i);
   }
-  function unlock() { if (!live) { neuralEl.src = SILENT; neuralEl.play().catch(() => {}); } }   // inside the tap, so later pieces may play
+  function unlock() { if (!live) for (const e of neuralEls) { e.src = SILENT; e.play().catch(() => {}); } }   // inside the tap, so later pieces may play, from either player
+  function ahead(i) {   // make the next two pieces, and load the very next one into the other player
+    for (let k = 1; k <= 2 && i + k < parts.length; k++) gen(i + k);
+    if (i + 1 >= parts.length) return;
+    const my = turn;
+    gen(i + 1).then(r => {
+      if (my !== turn || idx !== i || paused) return;
+      const o = other(); o.pause(); o.src = r.url; o.load(); next = { i: i + 1, r };
+    }, () => {});
+  }
+  function begin(r, my) {   // the current player has piece idx: play it
+    secs[idx] = r.dur * r.speed; total = secs.reduce((a, b) => a + b, 0); made = r.speed;
+    live = true; el().playbackRate = rate / made;
+    el().play().catch(e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
+    ahead(idx);
+  }
   async function playAt(i) {
-    const my = ++turn; idx = i; live = false; paint(); emit("timeupdate");
+    const my = ++turn; idx = i; live = false; next = null; other().pause(); paint(); emit("timeupdate");
     let r; try { r = await gen(i); } catch (e) { if (my === turn) { Neural.lastError = e.message; paused = true; clearInterval(timer); emit("error"); } return; }
     if (my !== turn || paused) return;
-    for (let k = 1; k <= 2 && i + k < parts.length; k++) gen(i + k);
-    secs[i] = r.dur * r.speed; total = secs.reduce((a, b) => a + b, 0); made = r.speed;
-    live = true; neuralEl.src = r.url; neuralEl.playbackRate = rate / made;
-    neuralEl.play().catch(e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
+    el().src = r.url; begin(r, my);
   }
-  neuralEl.addEventListener("error", () => vlog("the player refused a piece:", neuralEl.error && neuralEl.error.code, neuralEl.error && neuralEl.error.message));
-neuralEl.addEventListener("ended", () => {
-    if (!live || paused) return;
-    if (idx + 1 < parts.length) playAt(idx + 1); else { live = false; paused = true; clearInterval(timer); emit("ended"); }
-  });
+  function ended(e) {
+    if (e.target !== el() || !live || paused) return;
+    if (idx + 1 >= parts.length) { live = false; paused = true; clearInterval(timer); emit("ended"); return; }
+    if (next && next.i === idx + 1) {   // already loaded in the other player: start it now, no gap
+      const r = next.r, my = ++turn; next = null; cur = 1 - cur; idx++; paint(); emit("timeupdate"); begin(r, my);
+    } else playAt(idx + 1);
+  }
+  for (const e of neuralEls) {
+    e.addEventListener("ended", ended);
+    e.addEventListener("error", () => { if (e === el() && live) vlog("the player refused a piece:", e.error && e.error.code, e.error && e.error.message); });
+  }
   async function load(v) {
     const my = ++job; turn++; clear(); src = v; ready = false; live = false; parts = []; secs = []; total = 0; idx = 0;
     const [, id, part] = v.split(":"), t = BYID[id], V = VX();
@@ -778,11 +814,11 @@ neuralEl.addEventListener("ended", () => {
     if (!ready) { want = true; unlock(); return Promise.resolve(); }
     if (!paused) return Promise.resolve();
     paused = false;
-    if (live && neuralEl.src && !neuralEl.ended) neuralEl.play().catch(() => {}); else { unlock(); playAt(idx); }
+    if (live && el().src && !el().ended) el().play().catch(() => {}); else { unlock(); playAt(idx); }
     clearInterval(timer); timer = setInterval(() => emit("timeupdate"), 500); emit("play");
     return Promise.resolve();
   }
-  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); neuralEl.pause(); emit("pause"); }
+  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); el().pause(); emit("pause"); }
   return {
     lastError: "",
     addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
@@ -790,15 +826,15 @@ neuralEl.addEventListener("ended", () => {
     get src() { return src; }, set src(v) { pause(); load(String(v)); },
     get paused() { return paused; },
     get duration() { return ready ? total / rate : NaN; },
-    get currentTime() { if (!ready) return 0; return (startOf(idx) + (live ? Math.min(secs[idx] || 0, neuralEl.currentTime || 0) : 0)) / rate; },
-    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } if (!paused) playAt(k); else { turn++; idx = k; live = false; neuralEl.pause(); paint(); emit("timeupdate"); } },
+    get currentTime() { if (!ready) return 0; return (startOf(idx) + (live ? Math.min(secs[idx] || 0, (el().currentTime || 0) * made) : 0)) / rate; },
+    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } if (!paused) playAt(k); else { turn++; idx = k; live = false; next = null; for (const e of neuralEls) e.pause(); paint(); emit("timeupdate"); } },
     get playbackRate() { return rate; }, set playbackRate(r) {
-      if (r === rate) return; rate = r; neuralEl.playbackRate = r / made;   // only until the next piece, which is made at the new speed
+      if (r === rate) return; rate = r; el().playbackRate = r / made; next = null;   // only until the next piece, which is made at the new speed
       for (const [k, p] of cache) if (k > idx) { p.then(x => URL.revokeObjectURL(x.url), () => {}); cache.delete(k); }
-      if (ready && !paused) for (let k = 1; k <= 2 && idx + k < parts.length; k++) gen(idx + k);
+      if (ready && !paused && live) ahead(idx);
     },
     play, pause,
-    stop() { want = false; job++; turn++; const was = !paused; paused = true; clearInterval(timer); neuralEl.pause(); neuralEl.removeAttribute("src"); live = false; clear(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
+    stop() { want = false; job++; turn++; const was = !paused; paused = true; clearInterval(timer); for (const e of neuralEls) { e.pause(); e.removeAttribute("src"); } live = false; clear(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
   };
 })();
 const audioEl = new Audio(); audioEl.preload = "metadata";
