@@ -94,6 +94,11 @@ final class PearlsScheme: NSObject, WKURLSchemeHandler {
         case "status": json(K.status(), 200)
         case "download": K.download(wifiOnly: q["wifi"] != "0"); json(K.status(), 200)
         case "remove": K.remove(); json(K.status(), 200)
+        case "voice":   // one more speaker, downloaded when the reader chooses it
+            K.downloadVoice(q["v"] ?? "", wifiOnly: q["wifi"] != "0") { r in
+                switch r { case .success: json(K.status(), 200); case .failure(let e): json(["error": e.localizedDescription], 500) }
+            }
+        case "voice-remove": K.removeVoice(q["v"] ?? ""); json(K.status(), 200)
         case "load":
             K.load { r in
                 switch r { case .success(let how): json(["how": how], 200); case .failure(let e): json(["error": e.localizedDescription], 500) }

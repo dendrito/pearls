@@ -21,13 +21,19 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
     static let shared = KokoroNative()
 
     private static let repo = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/"
-    static let voices = ["bf_emma", "bm_george", "am_michael", "af_heart"]
+    /// The four speakers that come with the model; George is the default (male voices by default).
+    static let voices = ["bm_george", "bf_emma", "am_michael", "af_heart"]
+    /// More speakers, about 0.5 MB each, downloaded one at a time when the reader chooses one (voice?v=).
+    static let extraVoices = ["bm_daniel", "bm_lewis", "am_adam", "bf_isabella", "bf_lily", "af_bella", "af_nicole"]
+    static let allVoices = voices + extraVoices
+    static let defaultVoice = "bm_george"
+    static func voiceURL(_ v: String) -> String { repo + "voices/\(v).bin" }
     /// local name -> address. Every address is the one Estante's worker already fetches.
     static let files: [(String, String)] = [
         ("model.onnx", repo + "onnx/model.onnx"),
         ("tokenizer.json", repo + "tokenizer.json"),
         ("phonemizer.js", "https://cdn.jsdelivr.net/npm/phonemizer@1.2.1/dist/phonemizer.js"),
-    ] + voices.map { ("\($0).bin", repo + "voices/\($0).bin") }
+    ] + voices.map { ("\($0).bin", voiceURL($0)) }
     static let rate = 24000
     private static let noCoreML = "kokoro.coreMLRefused"   // cleared when the voice is removed, so a new model gets a new try
     private static let styleDim = 256
@@ -65,6 +71,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
     func status() -> [String: Any] {
         lock.lock(); defer { lock.unlock() }
         var s: [String: Any] = ["downloaded": downloaded, "bytes": bytes, "loading": loading, "loaded": session != nil,
+                                "voices": Self.allVoices.filter { FileManager.default.fileExists(atPath: path("\($0).bin").path) },
                                 "how": how, "error": lastError, "downloading": !dlTasks.isEmpty]
         if !dlTasks.isEmpty {
             s["progress"] = ["loaded": dlDone.values.reduce(0, +), "total": dlTotal.values.reduce(0, +)]
@@ -135,7 +142,37 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
         session = nil; styles = [:]; vocab = [:]; how = ""
         lock.unlock()
         for (name, _) in Self.files { try? FileManager.default.removeItem(at: path(name)) }
+        for v in Self.extraVoices { try? FileManager.default.removeItem(at: path("\(v).bin")) }
         UserDefaults.standard.removeObject(forKey: Self.noCoreML)
+    }
+
+    /// One more speaker (about 0.5 MB): fetched only when the reader chooses it. Calls back on an arbitrary queue.
+    func downloadVoice(_ v: String, wifiOnly: Bool, _ done: @escaping (Result<Void, Error>) -> Void) {
+        guard Self.allVoices.contains(v), let url = URL(string: Self.voiceURL(v)) else { return done(.failure(Self.err("no such voice"))) }
+        if FileManager.default.fileExists(atPath: path("\(v).bin").path) { return done(.success(())) }
+        let config = URLSessionConfiguration.ephemeral
+        config.allowsCellularAccess = !wifiOnly; config.allowsExpensiveNetworkAccess = !wifiOnly; config.allowsConstrainedNetworkAccess = !wifiOnly
+        config.timeoutIntervalForResource = 120
+        config.httpAdditionalHeaders = ["User-Agent": "Pearls (Apple; natural voice)"]
+        let s = URLSession(configuration: config)
+        s.downloadTask(with: url) { loc, resp, error in
+            defer { s.finishTasksAndInvalidate() }
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            guard let loc, error == nil, (200..<300).contains(code) else {
+                return done(.failure(error ?? Self.err("could not download the voice \(v) (\(code))")))
+            }
+            let dest = self.path("\(v).bin")
+            try? FileManager.default.removeItem(at: dest)
+            do { try FileManager.default.moveItem(at: loc, to: dest); NSLog("[kokoro] voice %@ downloaded", v); done(.success(())) }
+            catch { done(.failure(error)) }
+        }.resume()
+    }
+
+    /// Removes one of the extra speakers (the four that come with the model go only with the model).
+    func removeVoice(_ v: String) {
+        guard Self.extraVoices.contains(v) else { return }
+        work.async { self.styles[v] = nil }
+        try? FileManager.default.removeItem(at: path("\(v).bin"))
     }
 
     static func phonemizer() -> Data? { try? Data(contentsOf: dir.appendingPathComponent("phonemizer.js")) }
@@ -184,7 +221,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
             // zero-length tensor, so that probe turned Core ML down every time
             let probe = "həlˈoʊ wˈɜːld, ðɪs ɪz ɐ tˈɛst.".unicodeScalars.compactMap { map[$0] }
             let t0 = Date()
-            let out = try synth(probe, voice: Self.voices[0], speed: 1)
+            let out = try synth(probe, voice: Self.defaultVoice, speed: 1)
             guard !out.isEmpty else { throw Self.err("Core ML made no sound") }
             NSLog("[kokoro] Core ML probe: %d samples in %.2fs", out.count, Date().timeIntervalSince(t0))
         } catch {
@@ -206,8 +243,9 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
     }
 
     private func style(_ voice: String, tokens: Int) throws -> [Float] {
-        let name = Self.voices.contains(voice) ? voice : Self.voices[0]
+        let name = Self.allVoices.contains(voice) ? voice : Self.defaultVoice
         if styles[name] == nil {
+            guard FileManager.default.fileExists(atPath: path("\(name).bin").path) else { throw Self.err("the voice \(name) is not downloaded on this device") }
             let d = try Data(contentsOf: path("\(name).bin"))
             styles[name] = d.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
         }

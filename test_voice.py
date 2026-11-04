@@ -54,9 +54,9 @@ with sync_playwright() as p:
     calls = E("__calls")
     check("the natural voice reads the section", calls and calls[0]["k"] == "natural" and E("PEARLS.audio.neural"), calls[:1])
     check("with the Kokoro voice chosen", calls and calls[0]["voice"] == "bm_george", calls[:1])
-    # polled: with no gap between pieces the stand-in pieces (0.1 s) run fast, and a single look can fall between two sections
+    # polled for 3 s: the stand-in pieces (0.1 s) run fast, the title marks no paragraph, and a single look can fall between two sections
     marked = False
-    for _ in range(20):
+    for _ in range(60):
         if E("!!document.querySelector('.reader .spoken')"): marked = True; break
         pg.wait_for_timeout(50)
     check("the paragraph being read is marked", marked or E("PEARLS.P.part") > 0)
