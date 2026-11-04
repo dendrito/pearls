@@ -72,7 +72,7 @@ def run():
         pg.wait_for_timeout(100)
         label = pg.inner_text("[data-dl='01-03']")
         check("a stale push keeps the page's own download", label.startswith("Downloading"))
-        pg.evaluate("__app.hold = false; const m = __app.msgs.at(-1); m.a.jobs.forEach(j => __app.active[j.name] = {name: j.name, status: 'running', done: 1, total: 2}); __app.ack = m.seq; __app.push()")
+        pg.evaluate("__app.hold = false; const m = __app.msgs.filter(x => x.m === 'enqueue').at(-1); m.a.jobs.forEach(j => __app.active[j.name] = {name: j.name, status: 'running', done: 1, total: 2}); __app.ack = m.seq; __app.push()")
         pg.wait_for_timeout(100)
         pg.evaluate("__app.finishAll()"); pg.wait_for_timeout(3000)
         check("finished files show as downloaded", "Downloaded" in pg.inner_text("[data-dl='01-03']"))

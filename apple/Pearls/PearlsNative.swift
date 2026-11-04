@@ -168,6 +168,7 @@ final class PearlsNative: NSObject, WKScriptMessageHandler, URLSessionDownloadDe
         case "writeText": writeText(a["key"] as? String ?? "", a["content"] as? String ?? "")
         case "clearText": clearText()
         case "setBars": onBars?(a["hex"] as? String ?? "", a["light"] as? Bool ?? false)
+        case "log": NSLog("[page %@] %@", a["kind"] as? String ?? "log", a["text"] as? String ?? "")
         case "mediaState": break   // WebKit already drives the lock screen and Control Centre from the page's Media Session
         default: break
         }

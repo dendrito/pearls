@@ -144,7 +144,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
     func load(_ done: @escaping (Result<String, Error>) -> Void) {
         work.async {
             do { try self.loadNow(); done(.success(self.how)) }
-            catch { self.lock.lock(); self.lastError = error.localizedDescription; self.lock.unlock(); done(.failure(error)) }
+            catch { NSLog("[kokoro] load failed: %@", error.localizedDescription); self.lock.lock(); self.lastError = error.localizedDescription; self.lock.unlock(); done(.failure(error)) }
         }
     }
 
@@ -175,8 +175,10 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
             try o.appendCoreMLExecutionProvider(with: c)
             let s = try ORTSession(env: env, modelPath: model, sessionOptions: o)
             session = s; how = "Neural Engine and graphics chip (Core ML)"
+            NSLog("[kokoro] Core ML session made")
             _ = try synth(Array(repeating: map.values.first ?? 1, count: 4), voice: Self.voices[0], speed: 1)   // proves it runs
         } catch {
+            NSLog("[kokoro] Core ML did not take it (%@): using the processor", error.localizedDescription)
             session = nil
             let o = try ORTSessionOptions()
             try o.setIntraOpNumThreads(threads)
@@ -208,7 +210,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
                 let t0 = Date()
                 let samples = try self.synth(Array(ids), voice: voice, speed: speed)
                 done(.success((Self.wav(samples), Date().timeIntervalSince(t0))))
-            } catch { done(.failure(error)) }
+            } catch { NSLog("[kokoro] say failed: %@", error.localizedDescription); done(.failure(error)) }
         }
     }
 

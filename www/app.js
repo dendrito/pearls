@@ -530,6 +530,7 @@ const Speaker = (() => {
    played as a WAV through an <audio> element, like the recordings, rather than through Web Audio, which an iPad
    could leave silent. Neural has the parts of an <audio> element the player uses, like Speaker. */
 const VX = () => window.Voice || null;
+const vlog = (...a) => { if (window.PEARLS_LOG) try { window.PEARLS_LOG("voice:", ...a); } catch {} };   // Xcode's console in the Apple app
 const engineChoice = () => state.prefs.voiceEngine || "device";   // device | natural | piper
 const KOKORO_VOICES = { bf_emma: "Emma · UK", bm_george: "George · UK", am_michael: "Michael · US", af_heart: "Heart · US" };
 let neuralFailed = false;   // the natural voice would not start this session: the device voice reads instead
@@ -573,7 +574,8 @@ const NK = (() => {
   return { on: isOn, status, phon, download, say, SIZE_MB, load: () => get("load"), remove: () => get("remove").then(x => (st = x)),
     get has() { return !!(st && st.downloaded); }, get bytes() { return st ? st.bytes : 0; } };
 })();
-if (NK.on()) NK.status().then(() => { if (typeof refreshEngines === "function") refreshEngines(); }).catch(() => {});
+vlog("app runs Kokoro:", NK.on());
+if (NK.on()) NK.status().then(x => { vlog("app Kokoro status", x); if (typeof refreshEngines === "function") refreshEngines(); }).catch(() => {});
 const naturalHas = () => NK.on() ? NK.has : !!VX() && !VX().needsDownload("natural", "eng");
 const engineHas = id => id === "natural" ? naturalHas() : !!VX() && !VX().needsDownload(id, "eng");
 const neuralReady = () => { const V = VX(), e = engineChoice(); return !neuralFailed && !!V && e !== "device" && engineHas(e); };
@@ -633,7 +635,7 @@ const NE = (() => {
   async function bootNative(net, onBytes) {
     if (net) await NK.download(VX() ? VX().wifiOnly() : true, onBytes);
     else if (!(await NK.status()).downloaded) throw new Error("the natural voice is not downloaded on this device");
-    const r = await NK.load(); how = r.how || "app"; return r;
+    const r = await NK.load(); how = r.how || "app"; vlog("app Kokoro loaded:", how); return r;
   }
   const native = k => k === "natural" && NK.on();
   function load(k, { net = false, onBytes } = {}) {
@@ -641,7 +643,7 @@ const NE = (() => {
     cb = onBytes || null;
     if (native(k)) { if (w) stop(); kind = k; ready = bootNative(net, onBytes); const mine = ready; ready.catch(() => { if (ready === mine) { ready = null; kind = ""; } }); return ready; }
     ready = k === "piper" ? boot("piper", { type: "load", voice: VX().LANGS.eng.piper, net }).then(r => { how = "processor"; return r; }) : bootKokoro(net);
-    const mine = ready; ready.catch(() => { if (ready === mine) { ready = null; kind = ""; } });
+    const mine = ready; ready.then(() => vlog(k, "loaded on the", how), e => { vlog(k, "did not load:", e.message); if (ready === mine) { ready = null; kind = ""; } });
     return ready;
   }
   const HEB_WORD = /[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|[Kk]h)[A-Za-zḤḥĥĤ'’]*(?:-[A-Za-zḤḥĥĤ'’]+)*|[A-Za-z]+-[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|kh)[A-Za-zḤḥĥĤ'’]*/g;
@@ -667,9 +669,10 @@ const NE = (() => {
         a = { blob: wav(a.samples, a.rate), dur: a.samples.length / a.rate, genS: a.genS };
       }
       const r = rtfs(); r[k] = a.dur / Math.max(0.01, a.genS); try { localStorage.setItem(RTF_KEY, JSON.stringify(r)); } catch {}
+      vlog(k, "made", a.dur.toFixed(1) + "s in", a.genS.toFixed(2) + "s,", a.blob.size, "bytes");
       return a;   // {blob: a WAV, dur: seconds, genS}
     };
-    const p = q.then(run, run); q = p.catch(() => {}); return p;
+    const p = q.then(run, run); q = p.catch(e => vlog(k, "could not say it:", e.message)); return p;
   }
   return { load, say, stop, get kind() { return kind; }, get how() { return how; }, get loaded() { return !!ready; } };
 })();
@@ -702,9 +705,10 @@ const Neural = (() => {
     for (let k = 1; k <= 2 && i + k < parts.length; k++) gen(i + k);
     secs[i] = r.dur; total = secs.reduce((a, b) => a + b, 0);
     live = true; neuralEl.src = r.url; neuralEl.playbackRate = rate;
-    neuralEl.play().catch(e => { if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
+    neuralEl.play().catch(e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
   }
-  neuralEl.addEventListener("ended", () => {
+  neuralEl.addEventListener("error", () => vlog("the player refused a piece:", neuralEl.error && neuralEl.error.code, neuralEl.error && neuralEl.error.message));
+neuralEl.addEventListener("ended", () => {
     if (!live || paused) return;
     if (idx + 1 < parts.length) playAt(idx + 1); else { live = false; paused = true; clearInterval(timer); emit("ended"); }
   });
@@ -766,6 +770,7 @@ const audio = (() => {
     set src(v) {
       if (String(v).startsWith("speech:")) {
         const nx = neuralReady() ? Neural : Speaker;
+        vlog("reading", v, "with", nx === Neural ? engineChoice() : "the device voice", "(engine", engineChoice() + ", ready", neuralReady() + ", failed", neuralFailed + ")");
         if (on === audioEl) { audioEl.pause(); audioEl.removeAttribute("src"); } else if (on !== nx) on.stop();
         on = nx; nx.src = v;
       }
@@ -1807,7 +1812,7 @@ function tryNeural(k) {
   NE.say(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.", k).then(a => {
     if (my !== trialTurn) return;
     trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = state.speed || 1;
-    trialEl.play().catch(e => toast(`Couldn't play the sample: ${e.message}`)); refreshEngines();
+    trialEl.play().then(() => vlog("sample playing"), e => toast(`Couldn't play the sample: ${e.message}`)); refreshEngines();
   }).catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); refreshEngines(); });
 }
 function voiceList() {
@@ -2600,7 +2605,7 @@ function like(id) {
   smartSoon();
 }
 let toastT;
-function toast(msg) { document.querySelectorAll(".toast").forEach(t => t.remove()); const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
+function toast(msg) { if (window.PEARLS_LOG) window.PEARLS_LOG("toast: " + msg); document.querySelectorAll(".toast").forEach(t => t.remove()); const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
 
 /* ---------- actions ---------- */
 const IN_APP = /; wv\)/.test(navigator.userAgent);   // Android WebView shell

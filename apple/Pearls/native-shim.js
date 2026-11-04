@@ -21,6 +21,15 @@
   var listHas = function (n) { for (var i = 0; i < S.list.length; i++) if (S.list[i].n === n) return true; return false; };
   var activeHas = function (n) { for (var i = 0; i < S.status.active.length; i++) if (S.status.active[i].name === n) return true; return false; };
 
+  /* the page's errors, warnings and toasts, printed in Xcode's console as "[page] …" (Safari's Web Inspector shows the rest) */
+  var say = function (kind, args) {
+    try { H.postMessage({ m: "log", a: { kind: kind, text: Array.prototype.map.call(args, function (x) { return x && x.stack ? x.stack : typeof x === "object" ? JSON.stringify(x) : String(x); }).join(" ").slice(0, 2000) } }); } catch (e) {}
+  };
+  ["error", "warn", "info"].forEach(function (k) { var f = console[k]; console[k] = function () { say(k, arguments); return f.apply(console, arguments); }; });
+  window.addEventListener("error", function (e) { say("error", [e.message + " at " + (e.filename || "") + ":" + (e.lineno || "")]); });
+  window.addEventListener("unhandledrejection", function (e) { say("error", ["unhandled: ", e.reason]); });
+  window.PEARLS_LOG = function () { say("info", arguments); };
+
   window.PEARLS_NATIVE_PUSH = function (p) {      // called by the app with whatever changed
     if (!p) return;
     if (p.info) S.info = p.info;
