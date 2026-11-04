@@ -681,7 +681,8 @@ const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
    itself once it is installed, unless the reader chose another */
 const appleChoice = () => { const L = AV.list, want = state.prefs.voice; return (L.find(v => v.id === want) || L[0] || {}).id || ""; };
 if (AV.on()) {
-  const fresh = () => AV.refresh().then(() => {
+  const fresh = () => AV.refresh().then(L => {
+    vlog("device voices:", L.map(v => `${v.name} (${v.quality}${v.gender ? ", " + v.gender : ""})`).join(", "));
     if (typeof refreshEngines === "function") refreshEngines();
     if (audio.speaking && !audio.neural && neuralReady()) { vlog("the device voices are listed: switching to them"); reloadVoice(); }
   });
@@ -867,7 +868,10 @@ const Neural = (() => {
   function begin(r, my) {   // the current player has piece idx: play it
     secs[idx] = r.dur * r.speed; total = secs.reduce((a, b) => a + b, 0); made = r.speed;
     live = true; el().playbackRate = rate / made;
-    el().play().catch(e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } });
+    const fail = e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } };
+    /* an interrupted play() (AbortError: the audio session was taken a moment, or the element was reset) is tried once
+       more before the voice is given up for the session */
+    el().play().catch(e => { if (e.name !== "AbortError" || my !== turn) return fail(e); vlog("play() interrupted: trying again"); setTimeout(() => { if (my === turn && !paused) el().play().catch(fail); }, 250); });
     ahead(idx);
   }
   async function playAt(i) {

@@ -50,6 +50,11 @@ final class AppleVoice {
             let r = AVSpeechUtteranceDefaultSpeechRate * max(0.5, min(2, rate))
             u.rate = max(AVSpeechUtteranceMinimumSpeechRate, min(AVSpeechUtteranceMaximumSpeechRate, r))
             let synth = AVSpeechSynthesizer(), key = ObjectIdentifier(synth)
+            #if os(iOS)
+            // writing to buffers needs no audio session; with the app's own, rendering the next piece interrupted the one
+            // playing (on an iPad: "play() refused: AbortError" mid-section, and the page fell back to the basic voice)
+            synth.usesApplicationAudioSession = false
+            #endif
             self.lock.lock(); self.busy[key] = synth; self.lock.unlock()
             var samples: [Int16] = [], sampleRate = 22050.0, finished = false
             let t0 = Date()
