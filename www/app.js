@@ -539,11 +539,13 @@ const vlog = (...a) => { if (window.PEARLS_LOG) try { window.PEARLS_LOG("voice:"
 const engineChoice = () => state.prefs.voiceEngine || "device";   // device | natural | piper
 /* Kokoro's speakers, male first; George is the default (Curió: default voices are male). The first four of KOKORO_CORE
    come with the model; the others are a small file each (about 0.5 MB), downloaded only when the reader asks for one. */
-const KOKORO_VOICES = { bm_george: "George · UK", bm_daniel: "Daniel · UK", bm_lewis: "Lewis · UK", am_michael: "Michael · US", am_adam: "Adam · US",
+const KOKORO_VOICES = { bm_george: "George · UK", bm_lewis: "Lewis · UK", bm_fable: "Fable · UK", am_michael: "Michael · US", am_fenrir: "Fenrir · US", am_puck: "Puck · US",
   bf_emma: "Emma · UK", bf_isabella: "Isabella · UK", bf_lily: "Lily · UK", af_heart: "Heart · US", af_bella: "Bella · US", af_nicole: "Nicole · US" };
 const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_DEFAULT = "bm_george";
+// taken off the list (Curió found them poor): Daniel (bm_daniel) and Adam (am_adam). The app deletes their files itself.
 /* Piper's English voices (rhasspy/piper-voices), each its own download, nothing in bulk. Licences, from each MODEL_CARD:
-   Ryan CC BY-NC-SA 4.0 (RyanSpeech), Northern English Male CC BY-SA 4.0 (OpenSLR 83), LJSpeech and Cori public domain.
+   Ryan CC BY-NC-SA 4.0 (RyanSpeech), Northern English Male CC BY-SA 4.0 (OpenSLR 83), Hi-Fi Male and Female CC BY-NC-SA 4.0
+   (NICT's Hi-Fi-CAPTAIN corpus), LJSpeech and Cori public domain.
    Left out: Lessac (its recordings are licensed for research only) and Alan (all rights reserved). Male first; Ryan is the
    default. Medium quality: Piper runs here on one processor core (ONNX Runtime Web without threads), where an iPad made
    the "high" voices at 0.7× real time (Ryan high: 17.8 s of speech in 24.5 s), so reading stalled; the medium ones keep
@@ -552,8 +554,10 @@ const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_D
 const PIPER_VOICES = {
   "en_US-ryan-medium": { name: "Ryan", note: "US", mb: 63 },
   "en_GB-northern_english_male-medium": { name: "Northern English Male", note: "UK", mb: 63 },
+  "en_US-hfc_male-medium": { name: "Hi-Fi Male", note: "US · a studio reader", mb: 63 },
   "en_US-ljspeech-medium": { name: "LJSpeech", note: "US · an audiobook reader", mb: 64 },
-  "en_GB-cori-medium": { name: "Cori", note: "UK", mb: 64 },
+  "en_GB-cori-medium": { name: "Cori", note: "UK · an audiobook reader", mb: 64 },
+  "en_US-hfc_female-medium": { name: "Hi-Fi Female", note: "US · a studio reader", mb: 63 },
 };
 const PIPER_OLD = "en_US-lessac-medium", PIPER_DEFAULT = "en_US-ryan-medium";
 PIPER_VOICES[PIPER_OLD] = { name: "Lessac", note: "US · the earlier default", mb: 63, old: true };
@@ -1477,7 +1481,7 @@ function vCredits() {
         <li><b>Hebrew text</b>: the original, loaded from ${ext("https://ph.yhb.org.il/", "ph.yhb.org.il")}.</li>
         <li><b>Audio</b>: the Hebrew and English recordings Yeshivat Har Bracha publishes for each section.</li>
         <li><b>AI translations</b>: for volumes with no official English edition, Pearls includes its own English translation, made with AI (Claude, by Anthropic) from the Hebrew. These are not by Rabbi Melamed or Har Bracha, are not reviewed by them, and are labelled <span class="aitag sm">AI</span> wherever they appear.</li>
-        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Northern English Male, CC BY-SA 4.0 (OpenSLR 83); LJSpeech and Cori, public domain. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
+        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Hi-Fi Male and Hi-Fi Female, CC BY-NC-SA 4.0 (Hi-Fi-CAPTAIN, NICT); Northern English Male, CC BY-SA 4.0 (OpenSLR 83); LJSpeech and Cori, public domain (LJ Speech and LibriVox recordings). Kokoro's voices are Apache 2.0, like its model. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
       </ul></section>
 
     <section><div class="sec-h"><h2>Licence</h2></div>
@@ -1891,14 +1895,19 @@ function voiceField() {
 function mb(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB"; }
 let VSTAT = null;
 const DLP = {};   // "natural", "p:<piper voice>" or "k:<kokoro voice>" -> {loaded, total} while downloading
+let RMASK = "";   // the item whose Remove was tapped once: its row asks to confirm (no browser dialog)
+/* Remove in two taps: "Remove" then "Confirm · frees N MB" (or Cancel) */
+const rmCtl = (id, attr, value, frees, label) => RMASK === id
+  ? `<span class="rmask"><button class="btn line" ${attr}="${value}" aria-label="Confirm removing ${esc(label)}">Confirm · frees ${frees}</button> <button class="linkbtn" data-rmcancel>Cancel</button></span>`
+  : `<button class="linkbtn" data-rmask="${id}" aria-label="Remove ${esc(label)}">Remove</button>`;
 const triBtn = (k, label) => `<button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(label)}">${I.play}</button>`;
 const dlNote = id => DLP[id] ? `<span class="note">Downloading… ${mb(DLP[id].loaded)}${DLP[id].total ? ` of ${mb(DLP[id].total)}` : ""}</span>` : "";
 /* a speaker or voice row: chosen with a tick when it is on this device, otherwise its size and a Download button */
-function voiceRow({ id, attr, name, note, on, have, size, extraRemove, tryKey }) {
+function voiceRow({ id, attr, name, note, on, have, size, extraRemove, tryKey }) {   // size: what it takes, and frees when removed
   if (!have) return `<div class="voicerow"><span class="opt pick" style="cursor:default"><span style="flex:1"><b>${esc(name)}</b> <span class="note">${esc(note)}</span></span></span>${
     DLP[id] ? dlNote(id) : `<button class="btn line" ${attr}dl="${id.slice(2)}">Download · ${size}</button>`}</div>`;
   return `<div class="voicerow"><button class="opt pick ${on ? "on" : ""}" ${attr}="${id.slice(2)}"><span style="flex:1"><b>${esc(name)}</b> <span class="note">${esc(note)}</span></span>${on ? `<span class="tick" aria-label="chosen">✓</span>` : ""}</button>${triBtn(tryKey, name)}${
-    extraRemove ? `<button class="linkbtn" ${attr}rm="${id.slice(2)}" aria-label="Remove ${esc(name)}">Remove</button>` : ""}</div>`;
+    extraRemove ? rmCtl(id, attr + "rm", id.slice(2), size, name) : ""}</div>`;
 }
 function kokoroRow(k, n) {
   const [name, note] = n.split(" · "), extra = !KOKORO_CORE.includes(k);
@@ -1911,13 +1920,15 @@ function piperRow(v) {
 function engineList() {
   const V = VX(), e = engineChoice(), st = VSTAT || {};
   const has = engineHas;
-  const row = (id, title, text, extra) => `<div class="voicerow"><button class="opt ${e === id ? "on" : ""}" data-engine="${id}"><span class="radio ${e === id ? "on" : ""}"></span><span style="flex:1"><b>${title}</b><br><span class="note">${text}</span></span></button></div>${e === id && extra ? `<div class="enginesub">${extra}</div>` : ""}`;
+  /* an engine's voices show when it is chosen, and also whenever something of it is on this device, so a voice can
+     always be removed (or chosen) without first switching engines */
+  const row = (id, title, text, extra, shown) => `<div class="voicerow"><button class="opt ${e === id ? "on" : ""}" data-engine="${id}"><span class="radio ${e === id ? "on" : ""}"></span><span style="flex:1"><b>${title}</b><br><span class="note">${text}</span></span></button></div>${(e === id || shown) && extra ? `<div class="enginesub">${extra}</div>` : ""}`;
   const dl = (id, size) => {
     if (DLP[id]) return `<div class="note dlvoice">Downloading… ${mb(DLP[id].loaded)}${DLP[id].total ? ` of ${mb(DLP[id].total)}` : ""}</div>`;
     if (!has(id)) return `<div class="dlvoice"><button class="btn gold" data-vdl="${id}">Download (${size})</button> <span class="note">Until it's downloaded, your ${DEVICE}'s voice reads.</span></div>`;
     const how = NE.kind === id && NE.how ? ` · runs on the ${NE.how}` : "";
     const bytes = id === "natural" ? (NK.on() ? NK.bytes : st.bytes) : 0;
-    return `<div class="dlvoice"><span class="note">On this ${DEVICE}${bytes ? ` · ${mb(bytes)}` : ""}${how}.</span> <button class="linkbtn" data-vrm="${id}">Remove</button></div>`;
+    return `<div class="dlvoice"><span class="note">On this ${DEVICE}${bytes ? ` · ${mb(bytes)}` : ""}${how}.</span> ${rmCtl(id, "data-vrm", id, bytes ? mb(bytes) : `about ${NK.on() ? NK.SIZE_MB : VX().SIZE_MB} MB`, ENGINE_NAME[id] || id)}</div>`;
   };
   const tri = (k, label) => `<button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(label)}">${I.play}</button>`;
   let out = "";
@@ -1925,9 +1936,9 @@ function engineList() {
     const rtf = rtfs();
     const sp = id => rtf[id] ? ` Measured here: ${rtf[id].toFixed(1)}× real time${rtf[id] < 1 ? ", too slow to read without pauses" : ""}.` : "";
     out += row("natural", "Natural (Kokoro)", `The most natural voice, and it says the Hebrew guttural ḥ. Made on this ${DEVICE}, nothing is sent anywhere. Fast on a Mac or a recent iPad; on most phones expect pauses.${sp("natural")}`,
-      dl("natural", `about ${NK.on() ? NK.SIZE_MB : V.SIZE_MB} MB`) + (has("natural") ? `<div class="note sublabel">Speaker</div>${Object.entries(KOKORO_VOICES).map(([k, n]) => kokoroRow(k, n)).join("")}` : ""));
+      dl("natural", `about ${NK.on() ? NK.SIZE_MB : V.SIZE_MB} MB`) + (has("natural") ? `<div class="note sublabel">Speaker</div>${Object.entries(KOKORO_VOICES).map(([k, n]) => kokoroRow(k, n)).join("")}` : ""), has("natural"));
     out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is its own download.${sp("piper")}`,
-      `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`);
+      `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
   if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
     `<div class="voicelist" data-voices>${voiceList()}</div><span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`);
@@ -2014,15 +2025,17 @@ function wireVoiceField(s) {
     if ((b = g("[data-ktry]"))) { tryNeural(b.dataset.ktry); return; }
     if ((b = g("[data-try]"))) { tryVoice(b.dataset.try); return; }
     if ((b = g("[data-vdl]"))) { downloadVoice(b.dataset.vdl); return; }
-    if ((b = g("[data-vrm]"))) { const id = b.dataset.vrm; if (NE.kind === id) NE.stop(); (id === "natural" && NK.on() ? NK.remove() : VX().remove(id, "eng")).then(() => { toast(`${ENGINE_NAME[id]} removed from this ${DEVICE}`); voiceStatus(); setLang(langPref()); reloadVoice(); }); return; }
+    if ((b = g("[data-rmask]"))) { RMASK = b.dataset.rmask; refreshEngines(); return; }
+    if ((b = g("[data-rmcancel]"))) { RMASK = ""; refreshEngines(); return; }
+    if ((b = g("[data-vrm]"))) { RMASK = ""; const id = b.dataset.vrm; if (NE.kind === id) NE.stop(); (id === "natural" && NK.on() ? NK.remove() : VX().remove(id, "eng")).then(() => { toast(`${ENGINE_NAME[id]} removed from this ${DEVICE}`); voiceStatus(); setLang(langPref()); reloadVoice(); }); return; }
     if ((b = g("[data-vwifi]"))) { VX().setWifiOnly(!VX().wifiOnly()); refreshEngines(); return; }
     if ((b = g("[data-engine]"))) { if (b.dataset.engine !== engineChoice()) setEngine(b.dataset.engine); return; }
-    if ((b = g("[data-kvoice]"))) { state.prefs.kokoroVoice = b.dataset.kvoice; save.prefs(); refreshEngines(); tryNeural(b.dataset.kvoice); reloadVoice(); return; }
-    if ((b = g("[data-pvoice]"))) { state.prefs.piperVoice = b.dataset.pvoice; save.prefs(); refreshEngines(); tryNeural("piper:" + b.dataset.pvoice); setLang(langPref()); reloadVoice(); return; }
+    if ((b = g("[data-kvoice]"))) { state.prefs.kokoroVoice = b.dataset.kvoice; state.prefs.voiceEngine = "natural"; neuralFailed = false; save.prefs(); refreshEngines(); tryNeural(b.dataset.kvoice); setLang(langPref()); reloadVoice(); return; }
+    if ((b = g("[data-pvoice]"))) { state.prefs.piperVoice = b.dataset.pvoice; state.prefs.voiceEngine = "piper"; neuralFailed = false; save.prefs(); refreshEngines(); tryNeural("piper:" + b.dataset.pvoice); setLang(langPref()); reloadVoice(); return; }
     if ((b = g("[data-kvoicedl]"))) { downloadOne("k", b.dataset.kvoicedl); return; }
     if ((b = g("[data-pvoicedl]"))) { downloadOne("p", b.dataset.pvoicedl); return; }
-    if ((b = g("[data-kvoicerm]"))) { removeOne("k", b.dataset.kvoicerm); return; }
-    if ((b = g("[data-pvoicerm]"))) { removeOne("p", b.dataset.pvoicerm); return; }
+    if ((b = g("[data-kvoicerm]"))) { RMASK = ""; removeOne("k", b.dataset.kvoicerm); return; }
+    if ((b = g("[data-pvoicerm]"))) { RMASK = ""; removeOne("p", b.dataset.pvoicerm); return; }
     if (!(b = g("[data-voice]"))) return;
     state.prefs.voice = b.dataset.voice; save.prefs(); tryVoice(b.dataset.voice);
     refreshEngines(); setLang(langPref()); reloadVoice();
