@@ -27,9 +27,13 @@ final class AppleVoice {
         let vs = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("en") }
         // novelty voices (Bells, Bubbles, Zarvox…) are in the list too; they have no quality above default and an
         // identifier under "speech.synthesis"
-        let real = vs.filter { !$0.identifier.contains("speech.synthesis") }
+        // the Eloquence character voices (Eddy, Flo, Grandma…, each listed per accent) are left out too: robotic, and they
+        // crowded the list
+        let real = vs.filter { !$0.identifier.contains("speech.synthesis") && !$0.identifier.contains("eloquence") }
         return real.map { v -> [String: Any] in
-            ["id": v.identifier, "name": v.name, "lang": v.language, "quality": Self.quality(v), "gender": Self.gender(v)]
+            // "Lee (Premium)": the quality is shown apart, so not in the name
+            let name = v.name.replacingOccurrences(of: #"\s*\((Premium|Enhanced)\)$"#, with: "", options: .regularExpression)
+            return ["id": v.identifier, "name": name, "lang": v.language, "quality": Self.quality(v), "gender": Self.gender(v)]
         }.sorted { a, b in
             let qa = rank[a["quality"] as! String] ?? 3, qb = rank[b["quality"] as! String] ?? 3
             if qa != qb { return qa < qb }

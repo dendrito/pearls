@@ -683,6 +683,7 @@ const AV = (() => {
   return { on: isOn, refresh, say, get list() { return list; } };
 })();
 const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+const avName = v => v.name.replace(/\s*\((Premium|Enhanced)\)$/, "");   // the quality is shown apart
 /* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
    itself once it is installed, unless the reader chose another */
 const appleChoice = () => { const L = AV.list, want = state.prefs.voice; return (L.find(v => v.id === want) || L[0] || {}).id || ""; };
@@ -699,7 +700,7 @@ const engineHas = id => id === "natural" ? naturalHas() : id === "piper" ? !!VX(
 const neuralReady = () => { const V = VX(), e = engineChoice(); if (neuralFailed || !V) return false; return e === "device" ? AV.on() && AV.list.length > 0 : engineHas(e); };
 const ENGINE_NAME = { natural: "Natural (Kokoro)", piper: "Light (Piper)" };
 function currentVoiceLabel() {
-  if (neuralReady() && engineChoice() === "device") { const v = AV.list.find(x => x.id === appleChoice()); return v ? `${v.name}${QUALITY[v.quality] ? ` (${QUALITY[v.quality]})` : ""} · ${v.lang}` : "Device voice"; }
+  if (neuralReady() && engineChoice() === "device") { const v = AV.list.find(x => x.id === appleChoice()); return v ? `${avName(v)}${QUALITY[v.quality] ? ` (${QUALITY[v.quality]})` : ""} · ${v.lang}` : "Device voice"; }
   if (neuralReady()) return engineChoice() === "natural" ? `${ENGINE_NAME.natural}, ${KOKORO_VOICES[kokoroChoice()]}` : `${ENGINE_NAME.piper}, ${PIPER_VOICES[piperChoice()].name}`;
   return voiceLabel(pickVoice());
 }
@@ -2060,7 +2061,7 @@ function appleVoiceList() {
   if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
   const good = L.some(v => QUALITY[v.quality]);
   const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
-  return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(v.name)}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(v.name)}">${I.play}</button></div>`).join("");
+  return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(avName(v))}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(avName(v))}">${I.play}</button></div>`).join("");
 }
 function voiceList() {
   if (AV.on()) return appleVoiceList();
