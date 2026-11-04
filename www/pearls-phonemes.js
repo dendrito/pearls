@@ -3,6 +3,14 @@
    downloads with the model and serves at pearls://app/native/kokoro/phonemizer.js, so it works offline).
    english() is Estante's voice-worker.js english(), unchanged, so both routes give Kokoro the same phonemes.
    in: {id, text}   out: {id, phonemes} or {id, error} */
+/* phonemizer.js unpacks eSpeak's data with `for await (… of stream)`, which WebKit (Safari, WKWebView) doesn't support:
+   it throws inside a detached async function, the error is lost and phonemize() never answers. Give streams the iterator. */
+if (typeof ReadableStream !== 'undefined' && !ReadableStream.prototype[Symbol.asyncIterator]) {
+  ReadableStream.prototype[Symbol.asyncIterator] = async function* () {
+    const r = this.getReader();
+    try { for (;;) { const { done, value } = await r.read(); if (done) return; yield value; } } finally { r.releaseLock(); }
+  };
+}
 let phonemize = null;
 const PUNCT = /(\s*[;:,.!?¡¿—…"«»“”(){}[\]]+\s*)+/g;
 async function english(text) {

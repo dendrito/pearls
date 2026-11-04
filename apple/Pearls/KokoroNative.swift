@@ -29,6 +29,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
         ("phonemizer.js", "https://cdn.jsdelivr.net/npm/phonemizer@1.2.1/dist/phonemizer.js"),
     ] + voices.map { ("\($0).bin", repo + "voices/\($0).bin") }
     static let rate = 24000
+    private static let noCoreML = "kokoro.coreMLRefused"   // cleared when the voice is removed, so a new model gets a new try
     private static let styleDim = 256
 
     static let dir: URL = {
@@ -134,6 +135,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
         session = nil; styles = [:]; vocab = [:]; how = ""
         lock.unlock()
         for (name, _) in Self.files { try? FileManager.default.removeItem(at: path(name)) }
+        UserDefaults.standard.removeObject(forKey: Self.noCoreML)
     }
 
     static func phonemizer() -> Data? { try? Data(contentsOf: dir.appendingPathComponent("phonemizer.js")) }
@@ -164,7 +166,9 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
         vocab = map
         let model = path("model.onnx").path
         let threads = Int32(max(2, min(6, ProcessInfo.processInfo.activeProcessorCount - 1)))
-        // Core ML (Neural Engine and graphics chip) where it takes the graph; the processor for the rest
+        // Core ML (Neural Engine and graphics chip) where it takes the graph; the processor for the rest.
+        // Trying Core ML costs ~20 s, so once it has refused, later loads go straight to the processor.
+        if UserDefaults.standard.bool(forKey: Self.noCoreML) { try useProcessor(); return }
         do {
             let o = try ORTSessionOptions()
             try o.setIntraOpNumThreads(threads)
@@ -176,16 +180,29 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
             let s = try ORTSession(env: env, modelPath: model, sessionOptions: o)
             session = s; how = "Neural Engine and graphics chip (Core ML)"
             NSLog("[kokoro] Core ML session made")
-            _ = try synth(Array(repeating: map.values.first ?? 1, count: 4), voice: Self.voices[0], speed: 1)   // proves it runs
+            // proves it runs, on real phonemes: a few copies of one token make no sound at all, and Core ML rejects a
+            // zero-length tensor, so that probe turned Core ML down every time
+            let probe = "həlˈoʊ wˈɜːld, ðɪs ɪz ɐ tˈɛst.".unicodeScalars.compactMap { map[$0] }
+            let t0 = Date()
+            let out = try synth(probe, voice: Self.voices[0], speed: 1)
+            guard !out.isEmpty else { throw Self.err("Core ML made no sound") }
+            NSLog("[kokoro] Core ML probe: %d samples in %.2fs", out.count, Date().timeIntervalSince(t0))
         } catch {
             NSLog("[kokoro] Core ML did not take it (%@): using the processor", error.localizedDescription)
-            session = nil
-            let o = try ORTSessionOptions()
-            try o.setIntraOpNumThreads(threads)
-            try o.setGraphOptimizationLevel(.all)
-            session = try ORTSession(env: env, modelPath: model, sessionOptions: o)
-            how = "processor"
+            UserDefaults.standard.set(true, forKey: Self.noCoreML)
+            try useProcessor()
         }
+    }
+
+    /// The model on the processor alone: when Core ML won't take it, or fails on a piece after taking the probe.
+    private func useProcessor() throws {
+        guard let env else { throw Self.err("the natural voice is not loaded") }
+        session = nil
+        let o = try ORTSessionOptions()
+        try o.setIntraOpNumThreads(Int32(max(2, min(6, ProcessInfo.processInfo.activeProcessorCount - 1))))
+        try o.setGraphOptimizationLevel(.all)
+        session = try ORTSession(env: env, modelPath: path("model.onnx").path, sessionOptions: o)
+        how = "processor"
     }
 
     private func style(_ voice: String, tokens: Int) throws -> [Float] {
@@ -209,7 +226,14 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
                 guard !ids.isEmpty else { throw Self.err("nothing to say") }
                 let t0 = Date()
                 NSLog("[kokoro] saying %d phonemes on the %@", ids.count, self.how)
-                let samples = try self.synth(Array(ids), voice: voice, speed: speed)
+                var samples: [Float]
+                do { samples = try self.synth(Array(ids), voice: voice, speed: speed) }
+                catch where self.how != "processor" {
+                    NSLog("[kokoro] Core ML failed on a piece (%@): using the processor from now on", error.localizedDescription)
+                    UserDefaults.standard.set(true, forKey: Self.noCoreML)
+                    try self.useProcessor()
+                    samples = try self.synth(Array(ids), voice: voice, speed: speed)
+                }
                 NSLog("[kokoro] made %.1f s of sound in %.2f s", Double(samples.count) / Double(Self.rate), Date().timeIntervalSince(t0))
                 done(.success((Self.wav(samples), Date().timeIntervalSince(t0))))
             } catch { NSLog("[kokoro] say failed: %@", error.localizedDescription); done(.failure(error)) }
