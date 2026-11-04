@@ -50,7 +50,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `WRANGLER=… node test_sync_app.mjs`: sync end to end, a signed-in browser plus a stand-in for the app. It must end
     "sync app: 15/15". Needs Playwright (`NODE_PATH=$(npm root -g)`).
   - `python3 test_apple_shell.py`: the Apple bridge (`native-shim.js` against a stand-in for the Swift side), the
-    device word ("on this iPad") and the iPad side rail. It must end "apple shell: 14/14". The Swift itself only
+    device word ("on this iPad") and the iPad side rail. It must end "apple shell: 16/16". The Swift itself only
     builds on a Mac: `apple/README.md` has the steps.
 
 ## Android 2.0 shell (Google Play ready)
@@ -139,7 +139,7 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
 | `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
 | Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
 | `functions/`, `webauth/`, `docs/cloudflare-pages.md` | The web edition on Cloudflare Pages (pearls.pages.dev): output dir `www`, no build. `proxy.js` fetches ph.yhb.org.il text (only that host). The site is private: `_middleware.js` requires a pass, which comes from Cloudflare Access (Google or an email code, on `/signin`) or from an invite link made on `/admin` (stored in KV, can be cancelled). It also adds noindex. Setup steps are in the doc. Test: `WRANGLER=… node test_webauth.mjs`, which must end "webauth: 23/23". |
-| `apple/` | Xcode project. One multiplatform target (iPhone, iPad, Mac). iOS starts from UIKit (status bar follows the skin, background downloads); the Mac from SwiftUI. The `pearls://` scheme handler serves www, proxies ph.yhb.org.il (duplicate CORS headers), serves downloads at `/dl/` with byte ranges and saved text at `/native/text/`. Run `apple/sync_www.sh` after changing www; `apple/build_ios.sh ipa` makes an App Store Connect build on a Mac. |
+| `apple/` | Xcode project. One multiplatform target (iPhone, iPad, Mac). iOS starts from UIKit (status bar follows the skin, background downloads); the Mac from SwiftUI. The `pearls://` scheme handler serves www, proxies ph.yhb.org.il (duplicate CORS headers), serves downloads at `/dl/` with byte ranges and saved text at `/native/text/`, and forwards sync (`/api/sync|claim|devices`) to pearls.pages.dev, so the app sets `PEARLS_SYNC_MODE = {base: "", token: true}`. Run `apple/sync_www.sh` after changing www; `apple/build_ios.sh ipa` makes an App Store Connect build on a Mac. |
 | `www/wide.css` | The wide layout (2.7), from 768px: side rail instead of the tab bar, a wider column, centred dialogs, Now Playing side by side in landscape. Layout only, so every skin works unchanged. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
 | `docs/` | S&P house rules (KTS), the calendar readings method, and the notes on how Pearls links to Meldar. |
