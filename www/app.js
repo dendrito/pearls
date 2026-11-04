@@ -547,7 +547,7 @@ const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_D
 // taken off the list (Curió found them poor): Daniel (bm_daniel) and Adam (am_adam). The app deletes their files itself.
 /* Piper's English voices (rhasspy/piper-voices), each its own download, nothing in bulk. Licences, from each MODEL_CARD:
    Ryan CC BY-NC-SA 4.0 (RyanSpeech), Northern English Male CC BY-SA 4.0 (OpenSLR 83), Hi-Fi Male and Female CC BY-NC-SA 4.0
-   (NICT's Hi-Fi-CAPTAIN corpus), LJSpeech and Cori public domain.
+   (NICT's Hi-Fi-CAPTAIN corpus), LJSpeech, Cori, Norman and John public domain (Norman and John: LibriVox audiobooks).
    Left out: Lessac (its recordings are licensed for research only) and Alan (all rights reserved). Male first; Ryan is the
    default. Medium quality: Piper runs here on one processor core (ONNX Runtime Web without threads), where an iPad made
    the "high" voices at 0.7× real time (Ryan high: 17.8 s of speech in 24.5 s), so reading stalled; the medium ones keep
@@ -557,6 +557,8 @@ const PIPER_VOICES = {
   "en_US-ryan-medium": { name: "Ryan", note: "US", mb: 63 },
   "en_GB-northern_english_male-medium": { name: "Northern English Male", note: "UK", mb: 63 },
   "en_US-hfc_male-medium": { name: "Hi-Fi Male", note: "US · a studio reader", mb: 63 },
+  "en_US-norman-medium": { name: "Norman", note: "US · an audiobook reader", mb: 63 },
+  "en_US-john-medium": { name: "John", note: "US · an audiobook reader", mb: 63 },
   "en_US-ljspeech-medium": { name: "LJSpeech", note: "US · an audiobook reader", mb: 64 },
   "en_GB-cori-medium": { name: "Cori", note: "UK · an audiobook reader", mb: 64 },
   "en_US-hfc_female-medium": { name: "Hi-Fi Female", note: "US · a studio reader", mb: 63 },
@@ -1534,7 +1536,7 @@ function vCredits() {
         <li><b>Hebrew text</b>: the original, loaded from ${ext("https://ph.yhb.org.il/", "ph.yhb.org.il")}.</li>
         <li><b>Audio</b>: the Hebrew and English recordings Yeshivat Har Bracha publishes for each section.</li>
         <li><b>AI translations</b>: for volumes with no official English edition, Pearls includes its own English translation, made with AI (Claude, by Anthropic) from the Hebrew. These are not by Rabbi Melamed or Har Bracha, are not reviewed by them, and are labelled <span class="aitag sm">AI</span> wherever they appear.</li>
-        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Hi-Fi Male and Hi-Fi Female, CC BY-NC-SA 4.0 (Hi-Fi-CAPTAIN, NICT); Northern English Male, CC BY-SA 4.0 (OpenSLR 83); LJSpeech and Cori, public domain (LJ Speech and LibriVox recordings). Kokoro's voices are Apache 2.0, like its model. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
+        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Hi-Fi Male and Hi-Fi Female, CC BY-NC-SA 4.0 (Hi-Fi-CAPTAIN, NICT); Northern English Male, CC BY-SA 4.0 (OpenSLR 83); LJSpeech, Cori, Norman and John, public domain (LJ Speech and LibriVox recordings). Kokoro's voices are Apache 2.0, like its model. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
       </ul></section>
 
     <section><div class="sec-h"><h2>Licence</h2></div>
