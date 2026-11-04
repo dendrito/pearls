@@ -553,7 +553,12 @@ const NK = (() => {
       pw.onmessage = ({ data: m }) => { const x = wait.get(m.id); if (!x) return; wait.delete(m.id); m.error ? x.rej(new Error(m.error)) : x.res(m.phonemes); };
       pw.onerror = e => { for (const x of wait.values()) x.rej(new Error(e.message || "the phonemes could not be made")); wait.clear(); pw = null; };
     }
-    return new Promise((res, rej) => { const id = ++seq; wait.set(id, { res, rej }); pw.postMessage({ id, text }); });
+    return new Promise((res, rej) => {
+      const id = ++seq;
+      const t = setTimeout(() => { if (wait.delete(id)) rej(new Error("eSpeak gave no phonemes in 30 s (pearls-phonemes.js)")); }, 30000);
+      wait.set(id, { res: x => { clearTimeout(t); res(x); }, rej: e => { clearTimeout(t); rej(e); } });
+      pw.postMessage({ id, text });
+    });
   }
   async function download(wifiOnly, onBytes) {
     await get("download?wifi=" + (wifiOnly ? 1 : 0));
@@ -565,7 +570,12 @@ const NK = (() => {
     }
   }
   async function say(phonemes, voice, speed) {
-    const r = await fetch(base + "say?" + new URLSearchParams({ ph: phonemes, v: voice, s: String(speed || 1) }));
+    vlog("phonemes for the app:", phonemes.slice(0, 120));
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 120000);
+    let r;
+    try { r = await fetch(base + "say?" + new URLSearchParams({ ph: phonemes, v: voice, s: String(speed || 1) }), { signal: ac.signal }); }
+    catch (e) { throw new Error(ac.signal.aborted ? "the app made no sound in 2 minutes" : e.message); }
+    finally { clearTimeout(t); }
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
     const blob = await r.blob();
     return { blob, dur: Math.max(0, blob.size - 44) / 2 / 24000, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };

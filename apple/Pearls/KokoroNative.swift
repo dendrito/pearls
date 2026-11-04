@@ -208,7 +208,9 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
                 let ids = phonemes.unicodeScalars.compactMap { self.vocab[$0] }.prefix(510)
                 guard !ids.isEmpty else { throw Self.err("nothing to say") }
                 let t0 = Date()
+                NSLog("[kokoro] saying %d phonemes on the %@", ids.count, self.how)
                 let samples = try self.synth(Array(ids), voice: voice, speed: speed)
+                NSLog("[kokoro] made %.1f s of sound in %.2f s", Double(samples.count) / Double(Self.rate), Date().timeIntervalSince(t0))
                 done(.success((Self.wav(samples), Date().timeIntervalSince(t0))))
             } catch { NSLog("[kokoro] say failed: %@", error.localizedDescription); done(.failure(error)) }
         }

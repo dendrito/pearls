@@ -14,7 +14,7 @@ async function english(text) {
 }
 self.onmessage = async ({ data: m }) => {
   try {
-    if (!phonemize) ({ phonemize } = await import(m.lib || 'pearls://app/native/kokoro/phonemizer.js'));
+    if (!phonemize) ({ phonemize } = await import(m.lib || '/native/kokoro/phonemizer.js'));
     self.postMessage({ id: m.id, phonemes: await english(m.text) });
   } catch (e) { self.postMessage({ id: m.id, error: String(e && e.message || e) }); }
 };
