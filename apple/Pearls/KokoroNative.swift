@@ -1,5 +1,5 @@
 import Foundation
-import onnxruntime_objc
+import OnnxRuntimeBindings   // the Objective-C API's module in onnxruntime-swift-package-manager (CocoaPods calls it onnxruntime_objc)
 
 /// The natural voice (Kokoro 82M) run by the app itself, not by the web page.
 ///
@@ -227,7 +227,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
         ]
         let out = try session.run(withInputs: inputs, outputNames: ["waveform"], runOptions: nil)
         guard let w = out["waveform"] else { throw Self.err("the voice made no sound") }
-        let d = try w.tensorData() as Data
+        let d = Data(referencing: try w.tensorData())
         return d.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
     }
 
