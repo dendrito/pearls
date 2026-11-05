@@ -46,6 +46,7 @@
       "shortcutName": "Pearls",
       "artifactName": "Pearls-Setup-${version}-${arch}.${ext}",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "publish": null
   }
 }
