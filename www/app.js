@@ -541,11 +541,15 @@ const vlog = (...a) => { if (window.PEARLS_LOG) try { window.PEARLS_LOG("voice:"
 const engineChoice = () => { if (state.prefs.voiceEngine) return state.prefs.voiceEngine; try { return naturalHas() ? "natural" : "device"; } catch { return "device"; } };
 /* Kokoro's speakers, male first; George is the default (Curió: default voices are male). The first four of KOKORO_CORE
    come with the model; the others are a small file each (about 0.5 MB), downloaded only when the reader asks for one. */
-const KOKORO_VOICES = { bm_george: "George · UK", bm_lewis: "Lewis · UK", bm_fable: "Fable · UK", am_michael: "Michael · US", am_fenrir: "Fenrir · US", am_puck: "Puck · US",
-  bf_emma: "Emma · UK", bf_isabella: "Isabella · UK", bf_lily: "Lily · UK", af_heart: "Heart · US", af_bella: "Bella · US", af_nicole: "Nicole · US" };
+const KOKORO_VOICES = { bm_george: "George · UK", bm_lewis: "Lewis · UK", am_michael: "Michael · US", am_fenrir: "Fenrir · US",
+  bf_emma: "Emma · UK", af_heart: "Heart · US", af_bella: "Bella · US", af_nicole: "Nicole · US" };
 const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_DEFAULT = "bm_george";
-// taken off the list (Curió found them poor): Daniel (bm_daniel) and Adam (am_adam). The app deletes their files itself.
-/* Piper's English voices (rhasspy/piper-voices), each its own download, nothing in bulk. Licences, from each MODEL_CARD:
+/* taken off the list: Daniel (bm_daniel) and Adam (am_adam), which Curió found poor, and (Curió, 5 Nov: only the best voices)
+   Fable, Puck, Isabella and Lily, the weakest by Kokoro's own grades. The app deletes their files itself. */
+/* Piper's English voices (rhasspy/piper-voices), each its own download, nothing in bulk. Curió (5 Nov): only the best
+   voices, and only those whose rights are clear, so the list is the four public-domain audiobook readers; Norman is the
+   default (male). Ryan and Hi-Fi (non-commercial) and Northern English Male are off the list: a copy already downloaded
+   stays listed, marked, until it is removed. Licences, from each MODEL_CARD:
    Ryan CC BY-NC-SA 4.0 (RyanSpeech), Northern English Male CC BY-SA 4.0 (OpenSLR 83), Hi-Fi Male and Female CC BY-NC-SA 4.0
    (NICT's Hi-Fi-CAPTAIN corpus), LJSpeech, Cori, Norman and John public domain (Norman and John: LibriVox audiobooks).
    Left out: Lessac (its recordings are licensed for research only) and Alan (all rights reserved). Male first; Ryan is the
@@ -554,16 +558,15 @@ const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_D
    up about five times over. Voices already downloaded under an earlier list (Lessac medium, the high ones) stay listed,
    marked, and keep working until they are removed. */
 const PIPER_VOICES = {
-  "en_US-ryan-medium": { name: "Ryan", note: "US", mb: 63 },
-  "en_GB-northern_english_male-medium": { name: "Northern English Male", note: "UK", mb: 63 },
-  "en_US-hfc_male-medium": { name: "Hi-Fi Male", note: "US · a studio reader", mb: 63 },
   "en_US-norman-medium": { name: "Norman", note: "US · an audiobook reader", mb: 63 },
   "en_US-john-medium": { name: "John", note: "US · an audiobook reader", mb: 63 },
   "en_US-ljspeech-medium": { name: "LJSpeech", note: "US · an audiobook reader", mb: 64 },
   "en_GB-cori-medium": { name: "Cori", note: "UK · an audiobook reader", mb: 64 },
-  "en_US-hfc_female-medium": { name: "Hi-Fi Female", note: "US · a studio reader", mb: 63 },
 };
-const PIPER_OLD = "en_US-lessac-medium", PIPER_DEFAULT = "en_US-ryan-medium";
+const PIPER_OLD = "en_US-lessac-medium", PIPER_DEFAULT = "en_US-norman-medium";
+for (const [v, n, note] of [["en_US-ryan-medium", "Ryan", "US"], ["en_US-hfc_male-medium", "Hi-Fi Male", "US"],
+  ["en_US-hfc_female-medium", "Hi-Fi Female", "US"], ["en_GB-northern_english_male-medium", "Northern English Male", "UK"]])
+  PIPER_VOICES[v] = { name: n, note: `${note} · no longer offered`, mb: 63, old: true };
 PIPER_VOICES[PIPER_OLD] = { name: "Lessac", note: "US · the earlier default", mb: 63, old: true };
 for (const [v, n] of [["en_US-ryan-high", "Ryan"], ["en_US-ljspeech-high", "LJSpeech"], ["en_GB-cori-high", "Cori"]])
   PIPER_VOICES[v] = { name: `${n}, high quality`, note: "too slow to keep up on most devices", mb: v.includes("ryan") ? 121 : 114, old: true };
@@ -1536,7 +1539,7 @@ function vCredits() {
         <li><b>Hebrew text</b>: the original, loaded from ${ext("https://ph.yhb.org.il/", "ph.yhb.org.il")}.</li>
         <li><b>Audio</b>: the Hebrew and English recordings Yeshivat Har Bracha publishes for each section.</li>
         <li><b>AI translations</b>: for volumes with no official English edition, Pearls includes its own English translation, made with AI (Claude, by Anthropic) from the Hebrew. These are not by Rabbi Melamed or Har Bracha, are not reviewed by them, and are labelled <span class="aitag sm">AI</span> wherever they appear.</li>
-        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Hi-Fi Male and Hi-Fi Female, CC BY-NC-SA 4.0 (Hi-Fi-CAPTAIN, NICT); Northern English Male, CC BY-SA 4.0 (OpenSLR 83); LJSpeech, Cori, Norman and John, public domain (LJ Speech and LibriVox recordings). Kokoro's voices are Apache 2.0, like its model. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
+        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Norman, John, LJSpeech and Cori, all public domain (LibriVox and LJ Speech recordings). Voices offered before and still on a device keep their own licences: Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Hi-Fi Male and Hi-Fi Female, CC BY-NC-SA 4.0 (Hi-Fi-CAPTAIN, NICT); Northern English Male, CC BY-SA 4.0 (OpenSLR 83). Kokoro's voices are Apache 2.0, like its model. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
       </ul></section>
 
     <section><div class="sec-h"><h2>Licence</h2></div>
@@ -1990,9 +1993,9 @@ function engineList() {
   if (V) {
     const rtf = rtfs();
     const sp = id => rtf[id] ? ` Measured here: ${rtf[id].toFixed(1)}× real time${rtf[id] < 1 ? ", too slow to read without pauses" : ""}.` : "";
-    out += row("natural", "Natural (Kokoro)", `The most natural voice, and it says the Hebrew guttural ḥ. Made on this ${DEVICE}, nothing is sent anywhere. Fast on a Mac or a recent iPad; on most phones expect pauses.${sp("natural")}`,
+    out += row("natural", "Natural (Kokoro)", `The most natural voice, and it says the Hebrew guttural ḥ. Made on this ${DEVICE}, nothing is sent anywhere. Fast on a Mac or a recent iPad; on most phones expect pauses. One model holds all its voices, so after the model each voice is a small download (about 0.5 MB).${sp("natural")}`,
       dl("natural", `about ${NK.on() ? NK.SIZE_MB : V.SIZE_MB} MB`) + (has("natural") ? `<div class="note sublabel">Speaker</div>${Object.entries(KOKORO_VOICES).map(([k, n]) => kokoroRow(k, n)).join("")}` : ""), has("natural"));
-    out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is its own download.${sp("piper")}`,
+    out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is a whole model of its own (about 63 MB). Only voices whose recordings are public domain.${sp("piper")}`,
       `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
   if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",

@@ -26,7 +26,7 @@ final class KokoroNative: NSObject, URLSessionDownloadDelegate {
     /// More speakers, about 0.5 MB each, downloaded one at a time when the reader chooses one (voice?v=).
     static let extraVoices = ["bm_lewis", "bm_fable", "am_fenrir", "am_puck", "bf_isabella", "bf_lily", "af_bella", "af_nicole"]
     /// Speakers once offered and since taken off the list: their files are deleted when the folder is first used.
-    static let retiredVoices = ["bm_daniel", "am_adam"]
+    static let retiredVoices = ["bm_daniel", "am_adam", "bm_fable", "am_puck", "bf_isabella", "bf_lily"]
     static let allVoices = voices + extraVoices
     static let defaultVoice = "bm_george"
     static func voiceURL(_ v: String) -> String { repo + "voices/\(v).bin" }
