@@ -431,9 +431,11 @@ const LANG_NAME = { en: "English", he: "Hebrew", tts: "English · AI voice" };
    Labelled "AI voice" everywhere, like the AI translations. Nothing leaves the device. */
 const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function";
 const enText = t => !!t && (!t.vol.he || !!t.translated);   // the chapter has English to read
-function voices() { return canSpeak() ? speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang)) : []; }
+/* Apple's novelty and Eloquence character voices (Albert, Zarvox, Eddy, Grandpa…) sound robotic and are never offered */
+const NOVELTY_VOICE = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Deranged|Hysterical|Pipe Organ|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/i;
+function voices() { return canSpeak() ? speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang) && !NOVELTY_VOICE.test(v.name) && !/eloquence|speech\.synthesis/i.test(v.voiceURI || "")) : []; }
 /* the speech engines don't say which voices are male, so by name: Apple's, Microsoft's and Google's English male voices */
-const MALE_VOICE = /\b(male|Daniel|Alex|Fred|Arthur|Aaron|Gordon|Oliver|Rishi|Tom|Evan|Nathan|Reed|Rocko|Eddy|Grandpa|Ralph|Albert|Junior|Jamie|Lee|Malcolm|David|Mark|George|Guy|Ryan|Christopher|Eric|Roger|Steffan|Brian|Andrew|William|Thomas|Liam|Connor|Mitchell|Prabhat|Ravi)\b/i;
+const MALE_VOICE = /\b(male|Daniel|Alex|Arthur|Aaron|Gordon|Oliver|Rishi|Tom|Evan|Nathan|Jamie|Lee|Malcolm|David|Mark|George|Guy|Ryan|Christopher|Eric|Roger|Steffan|Brian|Andrew|William|Thomas|Liam|Connor|Mitchell|Prabhat|Ravi)\b/i;
 function pickVoice() {
   const vs = voices(); if (!vs.length) return null;
   const want = state.prefs.voice;
