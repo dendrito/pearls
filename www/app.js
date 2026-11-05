@@ -667,14 +667,22 @@ if (NK.on()) NK.status().then(x => {
 /* In the Apple app the device's voices come from the app (apple/Pearls/AppleVoice.swift): there the page's own
    speechSynthesis lists only the compact voices, never the Premium and Enhanced ones the reader installed. Each piece
    comes back as a WAV and plays through Neural's two players, like the natural voices, so pause, the lock screen, the
-   paragraph highlight and the reading speed work the same. The web and Android keep speechSynthesis (Speaker). */
+   paragraph highlight and the reading speed work the same. The Android app does the same through TextToSpeech
+   (android/…/DeviceVoice.java, served at /native/device-voice/): its WebView has no speechSynthesis that speaks.
+   The web keeps speechSynthesis (Speaker). */
 const AV = (() => {
-  const base = "pearls://app/native/apple-voice/", KEEP = "pearls.appleVoices";
-  let on = null, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
-  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).appleVoices); } catch { on = false; } } return on; };
+  const KEEP = "pearls.appleVoices";
+  let on = null, base = "", android = false, loaded = false, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
+  const isOn = () => {
+    if (on === null) {
+      try { const i = window.PearlsNative ? JSON.parse(PearlsNative.info()) : {}; android = !i.appleVoices && !!i.deviceVoices;
+        base = i.appleVoices ? "pearls://app/native/apple-voice/" : android ? "/native/device-voice/" : ""; on = !!base; } catch { on = false; }
+    }
+    return on;
+  };
   async function refresh() {
     if (!isOn()) return [];
-    try { list = await (await fetch(base + "list")).json(); localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
+    try { list = await (await fetch(base + "list")).json(); loaded = true; localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
     return list;
   }
   async function say(text, id, speed) {
@@ -687,9 +695,9 @@ const AV = (() => {
     const blob = await r.blob(), rate = new DataView(await blob.slice(0, 44).arrayBuffer()).getUint32(24, true) || 22050;
     return { blob, dur: Math.max(0, blob.size - 44) / 2 / rate, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
   }
-  return { on: isOn, refresh, say, get list() { return list; } };
+  return { on: isOn, refresh, say, get list() { return list; }, get android() { isOn(); return android; }, get loaded() { return loaded; } };
 })();
-const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+const QUALITY = { premium: "Premium", enhanced: "Enhanced", veryhigh: "Very high quality", high: "High quality" };
 const avName = v => v.name.replace(/\s*\((Premium|Enhanced)\)$/, "");   // the quality is shown apart
 /* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
    itself once it is installed, unless the reader chose another */
@@ -1946,7 +1954,7 @@ function audioNote(t) {   // under the language control: what you'll hear
   return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
 }
 function voiceField() {
-  if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  if (!canSpeak() && !AV.on() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
   const on = state.prefs.aiVoice !== false;
   return `<div data-voicefield><div class="field"><label>AI voice</label>
     <button class="opt" data-aivoice aria-pressed="${on}"><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span><span class="switch ${on ? "on" : ""}" aria-hidden="true"></span></button></div>
@@ -2000,7 +2008,7 @@ function engineList() {
     out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is a whole model of its own (about 63 MB). Only voices whose recordings are public domain.${sp("piper")}`,
       `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
-  if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
+  if (canSpeak() || AV.on()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
     `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`}`);
   if (V) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
   return out;
@@ -2065,9 +2073,12 @@ function tryNeural(k) {
 }
 function appleVoiceList() {
   const L = AV.list, on = appleChoice();
-  if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  if (!L.length && !(AV.android && AV.loaded)) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
   const good = L.some(v => QUALITY[v.quality]);
-  const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  const card = good ? "" : AV.android
+    ? `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Text-to-speech output (or System → Languages → Text-to-speech) → the engine's settings (the gear) → Install voice data → English, and download a voice. Pearls lists only voices kept on the ${DEVICE}, never ones that send the text online, and picks the best one by itself unless you have chosen another.</div>`
+    : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  if (!L.length && AV.android) return `<span class="note">No English voice is kept on this ${DEVICE} yet.</span>` + card;
   return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(avName(v))}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(avName(v))}">${I.play}</button></div>`).join("");
 }
 function voiceList() {

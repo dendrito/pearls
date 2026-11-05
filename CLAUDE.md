@@ -44,8 +44,8 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
   - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 13/13".
-  - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
-    "6/6 checks passed".
+  - `python3 test_android_shell.py`: the https app address, the data handover, the bundled fonts and the phone's own
+    voices through the app. It must end "8/8 checks passed".
   - `WRANGLER=… node test_sync.mjs`: sync's merge rules and API (`wrangler pages dev`). It must end "sync: 30/30".
   - `WRANGLER=… node test_sync_app.mjs`: sync end to end, a signed-in browser plus a stand-in for the app. It must end
     "sync app: 15/15". Needs Playwright (`NODE_PATH=$(npm root -g)`).
@@ -69,6 +69,11 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   (also shown on the lock screen), tied to the MediaSession, and holds a partial wake lock while playing.
 - **Back:** handled through OnBackInvokedCallback. At the app's root, back sends the app to the background instead of
   closing it.
+- **AI voices:** Kokoro (Natural) and Piper (Light) run in the WebView exactly as on the web (`www/voice.js` and its
+  workers, models from Hugging Face into IndexedDB, each voice its own download). The phone's own voices come from
+  `DeviceVoice.java` (TextToSpeech renders each piece to a WAV, served at `/native/device-voice/list|say`), because the
+  WebView's speechSynthesis doesn't speak; only voices kept on the phone are listed, male first. The manifest's
+  `<queries>` for `TTS_SERVICE` is what lets Android 11+ see the speech engine.
 - **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
 
 ## What is translated
