@@ -104,6 +104,15 @@ const WORKS = new RegExp(["Peninei Hala[kc]h(?:a|ah)", "Mishn(?:a|ah) Berur(?:a|
   "Ye[ĥḥ]aveh Da[’']at", "Yabi[’']a Omer", "Igrot Moshe", "Sefer Ha-?[ĥḥ]inukh", "Seder Hayom", "Ben Ish [ĤḤ]ai", "Mishneh Torah", "Tur",
   "Hilkhot Shabbat", "Hilkhot [A-Z][\\p{L}’'-]+", "Masekhet [A-Z][\\p{L}’'-]+", "Tractate [A-Z][\\p{L}’'-]+",
   "Ashkenaz(?:im|i)?"].join("|"), "gu");   // named exceptions keep their usual spelling: Ashkenaz, never "Ascenaz"
+// The series is spelled "Peninei Halakha" everywhere Pearls shows or says it, whatever spelling the source used
+// (some official chapters print "Peninei Halachah"; Sefaria's catalogue writes "Peninei Halakhah"). Display only:
+// Sefaria references keep Sefaria's spelling, because that is how they are looked up.
+const PH_NAME_RE = /\bPeninei\s+Hala(?:kh|ch|k)(?:a|ah)\b/gi;
+const phName = s => String(s).replace(PH_NAME_RE, "Peninei Halakha");
+function phNameTree(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
+  while ((n = w.nextNode())) { PH_NAME_RE.lastIndex = 0; if (PH_NAME_RE.test(n.nodeValue)) n.nodeValue = phName(n.nodeValue); }
+}
 const rcache = new Map();
 function R(text) {
   if (!text || scheme === "source" || !LEXRE) return text;
@@ -1174,6 +1183,7 @@ function cleanHTML(html, t) {
   d.querySelectorAll("script,style,iframe,form,img[src^='http:']").forEach(e => e.remove());
   d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
   d.querySelectorAll("[style]").forEach(e => { if (!/padding-left/.test(e.getAttribute("style"))) e.removeAttribute("style"); });
+  phNameTree(d);
   if (t) linkCites(d, t);
   respellTree(d);
   return d.innerHTML;
@@ -1238,7 +1248,7 @@ function renderHebrewChapter(t, d, r) {
     secs.map((s, i) => {
       const heb = `<div class="heb-orig" lang="he" dir="rtl" data-sec="${i + 1}" ${d.translated ? "hidden" : ""}>${s.body_he != null ? `<h3>${s.title_he}</h3>${s.body_he}${notesHTML((s.notes_he || []).map(n => ({ n: n.n, he: n.he })), "he")}` : ""}</div>`;
       if (!d.translated || !s.body_en) return `<section id="sec-${i + 1}">${heb}<p class="foot"><a href="${esc(s.link)}" target="_blank" rel="noopener">Source: ph.yhb.org.il</a></p></section>`;
-      const box = document.createElement("div"); box.innerHTML = s.body_en + notesHTML(s.notes_en); linkCites(box, t); respellTree(box);
+      const box = document.createElement("div"); box.innerHTML = s.body_en + notesHTML(s.notes_en); phNameTree(box); linkCites(box, t); respellTree(box);
       return `<section id="sec-${i + 1}"><div class="ai-sec"><h3>${esc(R(s.title_en || ""))} <span class="aitag sm">AI</span></h3>${box.innerHTML}
         <div class="secfoot"><button class="linkbtn" data-heb>Show Hebrew</button><a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener">Hebrew source ↗</a></div></div>${heb}${secTools(t, i)}</section>`;
     }).join("") +
@@ -1289,7 +1299,7 @@ function citeSheet(h) {
   const sec = h.secBy === "vol" || h.secBy === "chapter"
     ? `<p class="pc-note">The siman is the author's. The section (${esc(h.sec)}) is our reading of this chapter, because the citation doesn't name one.</p>` : "";
   dialog(`<div class="pc-sheet"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-      <h3>${esc(h.resolved ? h.ref : h.text)}</h3><button class="iconbtn" data-x aria-label="Close">${I.x}</button></div>
+      <h3>${esc(phName(h.resolved ? h.ref : h.text))}</h3><button class="iconbtn" data-x aria-label="Close">${I.x}</button></div>
     ${h.resolved ? `${sec}<div class="pc-body"><div class="loading"><div class="spin"></div>Loading from Sefaria…</div></div>
       <div class="meldarrow"><a class="tool" href="${PEARLS_CITE.sefariaUrl(h.ref)}" target="_blank" rel="noopener">${I.ext}<span>Open on Sefaria</span></a>
       <a class="tool" href="${PEARLS_CITE.meldarUrl(h.ref)}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a></div>`
@@ -1747,7 +1757,7 @@ function settingsDialog() {
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
     ${syncField()}
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
-      <span class="note">Use {ref} for the Sefaria reference, e.g. “Peninei Halakhah, Berakhot 4:2”. Leave empty to hide the Meldar button.</span></div>
+      <span class="note">Use {ref} for the chapter’s Sefaria reference, such as Berakhot 4:2. Leave empty to hide the Meldar button.</span></div>
     <p class="foot" style="margin:0">Neo-Classic S&amp;P re-spells ${LEX.length} recurring terms (${LEX.filter(e => e.st === "a").length} as Keter Shem Tob spells them, the rest derived by the same rules). Book and rabbi names keep their published spelling.</p>
     ${NATIVE ? `<a class="btn line" href="#downloads" data-credits>${DLI.get}Downloads &amp; offline</a>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><a class="btn line" href="#credits" data-credits>Credits &amp; licence</a><button class="btn gold" data-ok>Done</button></div>`, (s, close) => {
