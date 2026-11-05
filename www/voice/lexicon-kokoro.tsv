@@ -1,0 +1,45 @@
+# Pronunciation respellings for the voice. term<TAB>how to spell it so an English voice says it right.
+# Whole words, matched as written in the text (with ḥ etc.); applied before ḥ->kh. Add lines freely.
+# Words with ḥ or kh need no line here: Kokoro gets them sound by sound (hebIpa in voice.js, ported from Pearls), with the guttural ḥ.
+Peninei	Pneenay
+mitzva	mitsvah
+mitzvot	mitsvote
+Birkat	Beerkat
+Birkat Ha-mazon	Beerkat Hamazone
+Ha-motzi	Hamotsee
+Borei	Boray
+Pri	Pree
+Ha-adama	Ha-adamah
+Ha-etz	Ha-ets
+Ha-gafen	Hagafen
+Ha-tov	Hatove
+Ve-hametiv	Vehameteev
+Ha-gomel	Hagomel
+be-di'avad	bedee-avad
+Beit	Bayt
+Bnei	Bnay
+Bereshit	Breisheet
+Bereishit	Breisheet
+Tehillim	Tehilleem
+Devarim	Dvareem
+Shemot	Shmote
+Vayikra	Vayeekra
+Bamidbar	Bameedbar
+Tanakh	Tanakh
+Shekhina	Shkheenah
+Rishonim	Reeshoneem
+tzaddik	tsadeek
+tzaddikim	tsadeekeem
+tzedaka	tsedakah
+Rambam	Rambahm
+Ramban	Rambahn
+Rashi	Rahshee
+Rema	Remah
+Shakh	Shakh
+sheratzim	shratseem
+kashrut	kashroot
+Yerushalmi	Yerooshalmee
+Gemara	Gemarah
+Mishna	Meeshnah
+Shabbat	Shabbat
+Torah	Torah

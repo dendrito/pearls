@@ -12,6 +12,12 @@
 		A1000000000000000000B003 /* PearlsScheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F003 /* PearlsScheme.swift */; };
 		A1000000000000000000B004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F004 /* Assets.xcassets */; };
 		A1000000000000000000B005 /* www in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F005 /* www */; };
+		A1000000000000000000B006 /* PearlsNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F008 /* PearlsNative.swift */; };
+		A1000000000000000000B007 /* native-shim.js in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F009 /* native-shim.js */; };
+		A1000000000000000000B008 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F00A /* PrivacyInfo.xcprivacy */; };
+		A1000000000000000000B009 /* KokoroNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F00B /* KokoroNative.swift */; };
+		A1000000000000000000B00B /* AppleVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000F00C /* AppleVoice.swift */; };
+		A1000000000000000000B00A /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = A1000000000000000000AA02 /* onnxruntime */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +29,11 @@
 		A1000000000000000000F005 /* www */ = {isa = PBXFileReference; lastKnownFileType = folder; path = www; sourceTree = "<group>"; };
 		A1000000000000000000F006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000000000000000000F007 /* Pearls-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Pearls-macOS.entitlements"; sourceTree = "<group>"; };
+		A1000000000000000000F008 /* PearlsNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PearlsNative.swift; sourceTree = "<group>"; };
+		A1000000000000000000F009 /* native-shim.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "native-shim.js"; sourceTree = "<group>"; };
+		A1000000000000000000F00A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A1000000000000000000F00B /* KokoroNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNative.swift; sourceTree = "<group>"; };
+		A1000000000000000000F00C /* AppleVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleVoice.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -30,6 +41,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000B00A /* onnxruntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -51,6 +63,11 @@
 				A1000000000000000000F001 /* PearlsApp.swift */,
 				A1000000000000000000F002 /* PearlsWebView.swift */,
 				A1000000000000000000F003 /* PearlsScheme.swift */,
+				A1000000000000000000F008 /* PearlsNative.swift */,
+				A1000000000000000000F00B /* KokoroNative.swift */,
+				A1000000000000000000F00C /* AppleVoice.swift */,
+				A1000000000000000000F009 /* native-shim.js */,
+				A1000000000000000000F00A /* PrivacyInfo.xcprivacy */,
 				A1000000000000000000F004 /* Assets.xcassets */,
 				A1000000000000000000F006 /* Info.plist */,
 				A1000000000000000000F007 /* Pearls-macOS.entitlements */,
@@ -82,6 +99,9 @@
 			dependencies = (
 			);
 			name = Pearls;
+			packageProductDependencies = (
+				A1000000000000000000AA02 /* onnxruntime */,
+			);
 			productName = Pearls;
 			productReference = A1000000000000000000F000 /* Pearls.app */;
 			productType = "com.apple.product-type.application";
@@ -110,6 +130,9 @@
 				Base,
 			);
 			mainGroup = A1000000000000000000E000;
+			packageReferences = (
+				A1000000000000000000AA01 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */,
+			);
 			productRefGroup = A1000000000000000000E002 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -126,6 +149,8 @@
 			files = (
 				A1000000000000000000B004 /* Assets.xcassets in Resources */,
 				A1000000000000000000B005 /* www in Resources */,
+				A1000000000000000000B007 /* native-shim.js in Resources */,
+				A1000000000000000000B008 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +164,9 @@
 				A1000000000000000000B001 /* PearlsApp.swift in Sources */,
 				A1000000000000000000B002 /* PearlsWebView.swift in Sources */,
 				A1000000000000000000B003 /* PearlsScheme.swift in Sources */,
+				A1000000000000000000B006 /* PearlsNative.swift in Sources */,
+				A1000000000000000000B009 /* KokoroNative.swift in Sources */,
+				A1000000000000000000B00B /* AppleVoice.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -201,7 +229,6 @@
 				INFOPLIST_FILE = Pearls/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pearls;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -235,7 +262,6 @@
 				INFOPLIST_FILE = Pearls/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pearls;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -277,6 +303,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1000000000000000000AA01 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.20.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1000000000000000000AA02 /* onnxruntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1000000000000000000AA01 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */;
+			productName = onnxruntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000000000000000008001 /* Project object */;
 }

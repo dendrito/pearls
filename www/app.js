@@ -174,7 +174,7 @@ const SKINS = [
   { id: "mizrah", name: "Mizraḥ Arches", note: "olive and saffron arch windows", bg: "#F4EEDC", acc: "#4F5B2E", light: true, alt: "#171A12" },
   { id: "thread", name: "Thread", note: "tzitzit strings and tallit stripes in blue", bg: "#F3F6F9", acc: "#2B5D8C", light: true, alt: "#0B1826" }
 ];
-const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match phone"]];
+const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match " + (window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : "phone")]];
 /* 2.3: the three Pearl Minimal entries became one skin with modes */
 if (state.prefs.skin === "pearl-dark") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "dark"; save.prefs(); }
 if (state.prefs.skin === "pearl-auto") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "auto"; save.prefs(); }
@@ -410,8 +410,584 @@ const partUrl = (t, i, lang) => {
 };
 const AUD = window.PH_AUDIO || {};
 const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AUD[t.id][1]);
-const wantsEnglish = t => hasEn(t) && (audioLang === "en" || !hasHe(t) || (audioLang === "auto" && (state.prefs.read || "en") !== "he"));
-const audio = new Audio(); audio.preload = "metadata";
+/* One language for reading and listening (state.prefs.read: en, he, both or side; "both" and "side" listen in English,
+   because the English column is the one read along and the AI voice can only read English).
+   English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
+const langPref = () => state.prefs.read || "en";
+const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
+const aiVoiceOn = () => state.prefs.aiVoice !== false && (canSpeak() || (typeof neuralReady === "function" && neuralReady()));
+function listenLang(t) {
+  const en = langPref() !== "he" || !hasHe(t);
+  if (en && hasEn(t)) return "en";
+  if (en && enText(t) && aiVoiceOn()) return "tts";
+  return hasHe(t) ? "he" : hasEn(t) ? "en" : "tts";
+}
+const playable = t => !!t && (hasHe(t) || hasEn(t) || (enText(t) && aiVoiceOn()));
+const LANG_NAME = { en: "English", he: "Hebrew", tts: "English · AI voice" };
+/* ---------- AI voice: the device reads the English aloud ----------
+   Har Bracha recorded English for some chapters only. Every other chapter with English text (the official
+   translation or an AI translation) is read by the device's own speech engine (speechSynthesis), section by section,
+   in the voice chosen in Settings → Voice. It plays through the same player as a recording: Speaker below has the
+   parts of an <audio> element the player uses, and `audio` hands each call to whichever of the two is playing.
+   Labelled "AI voice" everywhere, like the AI translations. Nothing leaves the device. */
+const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function";
+const enText = t => !!t && (!t.vol.he || !!t.translated);   // the chapter has English to read
+/* Apple's novelty and Eloquence character voices (Albert, Zarvox, Eddy, Grandpa…) sound robotic and are never offered */
+const NOVELTY_VOICE = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Deranged|Hysterical|Pipe Organ|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/i;
+function voices() { return canSpeak() ? speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang) && !NOVELTY_VOICE.test(v.name) && !/eloquence|speech\.synthesis/i.test(v.voiceURI || "")) : []; }
+/* the speech engines don't say which voices are male, so by name: Apple's, Microsoft's and Google's English male voices */
+const MALE_VOICE = /\b(male|Daniel|Alex|Arthur|Aaron|Gordon|Oliver|Rishi|Tom|Evan|Nathan|Jamie|Lee|Malcolm|David|Mark|George|Guy|Ryan|Christopher|Eric|Roger|Steffan|Brian|Andrew|William|Thomas|Liam|Connor|Mitchell|Prabhat|Ravi)\b/i;
+function pickVoice() {
+  const vs = voices(); if (!vs.length) return null;
+  const want = state.prefs.voice;
+  const en = v => /en-(US|GB)/i.test(v.lang), good = v => /premium|enhanced|siri/i.test(v.name), male = v => MALE_VOICE.test(v.name);
+  /* nothing chosen: a male English voice if this device has one (Pearls' default voices are male), the best first */
+  return vs.find(v => v.voiceURI === want) || vs.find(v => good(v) && en(v) && male(v)) || vs.find(v => v.localService && en(v) && male(v))
+    || vs.find(v => en(v) && male(v)) || vs.find(v => good(v) && en(v))
+    || vs.find(v => v.localService && en(v)) || vs.find(v => v.default) || vs[0];
+}
+function voiceLabel(v) { return v ? `${v.name.replace(/\s*\(.*\)$/, "")} · ${v.lang.replace("_", "-")}` : "Device voice"; }
+if (canSpeak()) { try { speechSynthesis.getVoices(); speechSynthesis.addEventListener("voiceschanged", () => { if (typeof refreshVoiceUI === "function") refreshVoiceUI(); }); } catch {} }
+/* the words to say for one section: title, then each paragraph; footnotes, citations in brackets and Hebrew script left out */
+function speechParas(html, title) {
+  const d = document.createElement("div"); d.innerHTML = html || "";
+  const hr = d.querySelector("hr"); if (hr) { let n = hr; while (n) { const x = n.nextSibling; n.remove(); n = x; } }
+  d.querySelectorAll("sup,script,style,.footnotes,.fn").forEach(e => e.remove());
+  const say = s => (s || "").normalize("NFD").replace(/ḥ|ḥ/g, "kh").replace(/Ḥ|Ḥ/g, "Kh")
+    .replace(/\([^()]*\d[^()]*\)/g, "").replace(/\[[^\]]*\]/g, "").replace(/[֐-׿]+/g, "")
+    .replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  const out = [];
+  if (title) out.push({ p: -1, s: say(String(title).replace(/^\d+\.\s*/, "")) });
+  const blocks = d.querySelectorAll("p, li, h2, h3, h4");
+  (blocks.length ? [...blocks] : [d]).forEach((b, i) => { const s = say(b.textContent); if (s) out.push({ p: i, s }); });
+  return out.filter(x => x.s);
+}
+function speechChunks(paras) {   // short utterances: some engines stop a long one after ~15 seconds
+  const out = [];
+  for (const { p, s } of paras) {
+    const parts = s.match(/[^.!?;:]+[.!?;:]*["”’)]*\s*/g) || [s];
+    let buf = "";
+    for (const x of parts) { if ((buf + x).length > 220 && buf) { out.push({ p, s: buf.trim() }); buf = ""; } buf += x; }
+    if (buf.trim()) out.push({ p, s: buf.trim() });
+  }
+  return out;
+}
+const WPS = 2.6;   // words a second at 1×, to estimate a duration (speech engines report none)
+const Speaker = (() => {
+  const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
+  let fast = 0, src = "", chunks = [], secs = [], total = 0, i = 0, paused = true, rate = 1, ready = false, want = false, utt = null, began = 0, timer = null, job = 0;
+  const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
+  function stopSpeech() { utt = null; try { speechSynthesis.cancel(); } catch {} }
+  function speak() {
+    stopSpeech();
+    if (i >= chunks.length) { paused = true; clearInterval(timer); emit("ended"); return; }
+    const u = new SpeechSynthesisUtterance(chunks[i].s), v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+    u.rate = Math.max(0.5, Math.min(2, rate));
+    /* an engine with no voice "finishes" every sentence at once: two of those in a row is a failure, not speech */
+    const done = () => { if (Date.now() - began < 150 && secs[i] > 1) { if (++fast >= 2) { paused = true; clearInterval(timer); stopSpeech(); emit("error"); return; } } else fast = 0; i++; speak(); };
+    u.onend = () => { if (utt !== u || paused) return; done(); };
+    u.onerror = e => { if (utt !== u || paused) return; if (e.error === "interrupted" || e.error === "canceled") return; done(); };
+    utt = u; began = Date.now(); paintSpoken();
+    speechSynthesis.speak(u);
+  }
+  function paintSpoken() { if (typeof paintSpokenPara === "function") paintSpokenPara(chunks[i] ? chunks[i].p : null); }
+  async function load(v) {
+    const my = ++job; src = v; ready = false; chunks = []; secs = []; total = 0; i = 0;
+    const [, id, part] = v.split(":"), t = BYID[id];
+    try {
+      const d = await fetchSections(t), k = +part;
+      const sec = Array.isArray(d) ? d[k] && { html: d[k].content.rendered, title: d[k].title.rendered } : d.sections[k] && { html: d.sections[k].body_en, title: d.sections[k].title_en };
+      if (my !== job) return;
+      if (!sec || !sec.html) throw new Error("no text");
+      chunks = speechChunks(speechParas(sec.html, sec.title));
+      if (!chunks.length) throw new Error("no text");
+    } catch (e) { if (my === job) emit("error"); return; }
+    secs = chunks.map(c => c.s.split(/\s+/).length / WPS); total = secs.reduce((a, b) => a + b, 0);
+    ready = true; emit("loadedmetadata");
+    if (want) { want = false; play(); }
+  }
+  function play() {
+    if (!canSpeak()) return Promise.reject(new Error("no speech"));
+    if (!ready) { want = true; return Promise.resolve(); }
+    if (!paused) return Promise.resolve();
+    paused = false; fast = 0; speak(); clearInterval(timer); timer = setInterval(() => emit("timeupdate"), 500); emit("play");
+    return Promise.resolve();
+  }
+  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); stopSpeech(); emit("pause"); }
+  return {
+    addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
+    removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
+    get src() { return src; }, set src(v) { pause(); load(String(v)); },
+    get paused() { return paused; },
+    get duration() { return ready ? total / rate : NaN; },
+    get currentTime() { if (!ready) return 0; const into = paused || !utt ? 0 : Math.min(secs[i] || 0, (Date.now() - began) / 1000 * rate); return (startOf(i) + into) / rate; },
+    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < chunks.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } i = k; if (!paused) speak(); else { paintSpoken(); emit("timeupdate"); } },
+    get playbackRate() { return rate; }, set playbackRate(r) { if (r === rate) return; const at = this.currentTime; rate = r; if (!paused) { this.currentTime = at; } },
+    play, pause,
+    stop() { want = false; job++; const was = !paused; paused = true; clearInterval(timer); stopSpeech(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
+  };
+})();
+/* ---------- the natural voices, made on this device (Estante's engine: its workers) ----------
+   Kokoro ("Natural", ~370 MB once, the most natural, says the guttural ḥ) and Piper ("Light", ~93 MB, any device,
+   more robotic). Both run here; nothing is sent anywhere. Downloaded only when you ask, on Wi-Fi unless you say
+   otherwise, and removable. voice.js and the workers are Estante's files, shipped unmodified: upgrade them by copying
+   Estante's, never by editing them here. Pearls talks to the workers itself (NE below), for two reasons found on an
+   iPad: the full Kokoro model can run the iPad's WebGPU out of memory, so NE steps down (full model on the GPU → the
+   half-precision model on the GPU → the full model on the processor) and remembers what worked; and each piece is
+   played as a WAV through an <audio> element, like the recordings, rather than through Web Audio, which an iPad
+   could leave silent. Neural has the parts of an <audio> element the player uses, like Speaker. */
+const VX = () => window.Voice || null;
+const vlog = (...a) => { if (window.PEARLS_LOG) try { window.PEARLS_LOG("voice:", ...a); } catch {} };   // Xcode's console in the Apple app
+/* device | natural | piper. Nothing chosen: the natural voice once it is on the device (Curió: the iPad's Premium
+   voices do not beat Kokoro), else the device's own voice */
+const engineChoice = () => { if (state.prefs.voiceEngine) return state.prefs.voiceEngine; try { return naturalHas() ? "natural" : "device"; } catch { return "device"; } };
+/* Kokoro's speakers, male first; George is the default (Curió: default voices are male). The first four of KOKORO_CORE
+   come with the model; the others are a small file each (about 0.5 MB), downloaded only when the reader asks for one. */
+const KOKORO_VOICES = { bm_george: "George · UK", bm_lewis: "Lewis · UK", am_michael: "Michael · US", am_fenrir: "Fenrir · US",
+  bf_emma: "Emma · UK", af_heart: "Heart · US", af_bella: "Bella · US", af_nicole: "Nicole · US" };
+const KOKORO_CORE = ["bm_george", "bf_emma", "am_michael", "af_heart"], KOKORO_DEFAULT = "bm_george";
+/* taken off the list: Daniel (bm_daniel) and Adam (am_adam), which Curió found poor, and (Curió, 5 Nov: only the best voices)
+   Fable, Puck, Isabella and Lily, the weakest by Kokoro's own grades. The app deletes their files itself. */
+/* Piper's English voices (rhasspy/piper-voices), each its own download, nothing in bulk. Curió (5 Nov): only the best
+   voices, and only those whose rights are clear, so the list is the four public-domain audiobook readers; Norman is the
+   default (male). Ryan and Hi-Fi (non-commercial) and Northern English Male are off the list: a copy already downloaded
+   stays listed, marked, until it is removed. Licences, from each MODEL_CARD:
+   Ryan CC BY-NC-SA 4.0 (RyanSpeech), Northern English Male CC BY-SA 4.0 (OpenSLR 83), Hi-Fi Male and Female CC BY-NC-SA 4.0
+   (NICT's Hi-Fi-CAPTAIN corpus), LJSpeech, Cori, Norman and John public domain (Norman and John: LibriVox audiobooks).
+   Left out: Lessac (its recordings are licensed for research only) and Alan (all rights reserved). Male first; Ryan is the
+   default. Medium quality: Piper runs here on one processor core (ONNX Runtime Web without threads), where an iPad made
+   the "high" voices at 0.7× real time (Ryan high: 17.8 s of speech in 24.5 s), so reading stalled; the medium ones keep
+   up about five times over. Voices already downloaded under an earlier list (Lessac medium, the high ones) stay listed,
+   marked, and keep working until they are removed. */
+const PIPER_VOICES = {
+  "en_US-norman-medium": { name: "Norman", note: "US · an audiobook reader", mb: 63 },
+  "en_US-john-medium": { name: "John", note: "US · an audiobook reader", mb: 63 },
+  "en_US-ljspeech-medium": { name: "LJSpeech", note: "US · an audiobook reader", mb: 64 },
+  "en_GB-cori-medium": { name: "Cori", note: "UK · an audiobook reader", mb: 64 },
+};
+const PIPER_OLD = "en_US-lessac-medium", PIPER_DEFAULT = "en_US-norman-medium";
+for (const [v, n, note] of [["en_US-ryan-medium", "Ryan", "US"], ["en_US-hfc_male-medium", "Hi-Fi Male", "US"],
+  ["en_US-hfc_female-medium", "Hi-Fi Female", "US"], ["en_GB-northern_english_male-medium", "Northern English Male", "UK"]])
+  PIPER_VOICES[v] = { name: n, note: `${note} · no longer offered`, mb: 63, old: true };
+PIPER_VOICES[PIPER_OLD] = { name: "Lessac", note: "US · the earlier default", mb: 63, old: true };
+for (const [v, n] of [["en_US-ryan-high", "Ryan"], ["en_US-ljspeech-high", "LJSpeech"], ["en_GB-cori-high", "Cori"]])
+  PIPER_VOICES[v] = { name: `${n}, high quality`, note: "too slow to keep up on most devices", mb: v.includes("ryan") ? 121 : 114, old: true };
+/* which voices are on this device: kept between launches (so Read aloud knows before anything answers) and checked again
+   against the device store (web) or the app (Apple app) */
+const VHAVE = (() => {
+  const K = "pearls.voicesHave";
+  let have = (() => { try { return new Set(JSON.parse(localStorage.getItem(K)) || []); } catch { return new Set(); } })();
+  const keep = () => { try { localStorage.setItem(K, JSON.stringify([...have])); } catch {} };
+  const set = (id, on) => { if (on) have.add(id); else have.delete(id); keep(); };
+  return { has: id => have.has(id), set };
+})();
+const kokoroHas = v => KOKORO_CORE.includes(v) || VHAVE.has("k:" + v);
+const kokoroChoice = () => { const v = state.prefs.kokoroVoice; return KOKORO_VOICES[v] && kokoroHas(v) ? v : KOKORO_DEFAULT; };
+const piperHas = v => v === PIPER_OLD ? VHAVE.has("p:" + v) || (!!VX() && !VX().needsDownload("piper", "eng")) : VHAVE.has("p:" + v);
+const piperListed = () => Object.keys(PIPER_VOICES).filter(v => !PIPER_VOICES[v].old || piperHas(v));
+const piperChoice = () => { const v = state.prefs.piperVoice; return PIPER_VOICES[v] && piperHas(v) ? v : piperListed().find(piperHas) || PIPER_DEFAULT; };
+async function voiceFilesModule() { return [await import("./voice-store.js"), await import("./voice-files.js")]; }
+async function checkVoices() {   // what is really on this device
+  try {
+    const [store, files] = await voiceFilesModule();
+    for (const v of Object.keys(PIPER_VOICES)) { const f = files.piperVoice(v); VHAVE.set("p:" + v, (await store.has(f[0])) && (await store.has(f[1]))); }
+    if (NK.on()) { const s = await NK.status(); for (const v of Object.keys(KOKORO_VOICES)) if (!KOKORO_CORE.includes(v)) VHAVE.set("k:" + v, (s.voices || []).includes(v)); }
+    else for (const v of Object.keys(KOKORO_VOICES)) if (!KOKORO_CORE.includes(v)) VHAVE.set("k:" + v, await store.has(files.kokoroVoice(v)));
+  } catch (e) { vlog("could not check the voices:", e.message); }
+}
+let neuralFailed = false;   // the natural voice would not start this session: the device voice reads instead
+/* In the Apple app the app runs Kokoro itself (apple/Pearls/KokoroNative.swift): no WebKit graphics-memory cap, Core ML
+   where it takes the graph. The page only makes the phonemes (pearls-phonemes.js) and plays the WAV the app returns. */
+/* a query for the app's own pages: spaces as %20, never "+". URLSearchParams writes a space as "+", which Swift's
+   URLComponents keeps as a literal plus: the iPad voices then said "plus" between words, and Kokoro's phonemes lost
+   their word breaks (an unknown "+" is dropped), so its words ran together. */
+const qs = o => Object.entries(o).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+const NK = (() => {
+  const base = "pearls://app/native/kokoro/";
+  /* the last status the app gave, kept so the first Read aloud after a launch knows the voice is here
+     before the app answers (without it the device voice started and Kokoro took over only later) */
+  const KEEP = "pearls.kokoroHas";
+  let st = (() => { try { return localStorage.getItem(KEEP) === "1" ? { downloaded: true } : null; } catch { return null; } })();
+  let pw = null, seq = 0, on = null;
+  const keep = x => { try { localStorage.setItem(KEEP, x && x.downloaded ? "1" : "0"); } catch {} return x; };
+  const wait = new Map();
+  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).kokoro); } catch { on = false; } } return on; };
+  async function get(p) {
+    const r = await fetch(base + p), j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `the app answered ${r.status}`);
+    return j;
+  }
+  async function status() { st = keep(await get("status")); return st; }
+  function phon(text) {
+    if (!pw) {
+      pw = new Worker("pearls-phonemes.js", { type: "module" });
+      pw.onmessage = ({ data: m }) => { const x = wait.get(m.id); if (!x) return; wait.delete(m.id); m.error ? x.rej(new Error(m.error)) : x.res(m.phonemes); };
+      pw.onerror = e => { for (const x of wait.values()) x.rej(new Error(e.message || "the phonemes could not be made")); wait.clear(); pw = null; };
+    }
+    return new Promise((res, rej) => {
+      const id = ++seq;
+      const t = setTimeout(() => { if (wait.delete(id)) rej(new Error("eSpeak gave no phonemes in 30 s (pearls-phonemes.js)")); }, 30000);
+      wait.set(id, { res: x => { clearTimeout(t); res(x); }, rej: e => { clearTimeout(t); rej(e); } });
+      pw.postMessage({ id, text });
+    });
+  }
+  async function download(wifiOnly, onBytes) {
+    await get("download?wifi=" + (wifiOnly ? 1 : 0));
+    for (;;) {
+      await new Promise(r => setTimeout(r, 600));
+      const s = await status();
+      if (s.progress && onBytes) onBytes({ url: "kokoro", loaded: s.progress.loaded, total: s.progress.total });
+      if (!s.downloading) { if (s.error) throw new Error(s.error); if (!s.downloaded) throw new Error("the download stopped"); return s; }
+    }
+  }
+  async function say(phonemes, voice, speed) {
+    vlog("phonemes for the app:", phonemes.slice(0, 120));
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 120000);
+    let r;
+    try { r = await fetch(base + "say?" + qs({ ph: phonemes, v: voice, s: String(speed || 1) }), { signal: ac.signal }); }
+    catch (e) { throw new Error(ac.signal.aborted ? "the app made no sound in 2 minutes" : e.message); }
+    finally { clearTimeout(t); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
+    const blob = await r.blob();
+    return { blob, dur: Math.max(0, blob.size - 44) / 2 / 24000, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
+  }
+  const SIZE_MB = 330;   // model 326 MB, four voices, eSpeak NG
+  const voice = (v, wifiOnly) => get("voice?" + new URLSearchParams({ v, wifi: wifiOnly ? 1 : 0 })).then(x => (st = keep(x)));
+  const voiceRemove = v => get("voice-remove?" + new URLSearchParams({ v })).then(x => (st = keep(x)));
+  return { on: isOn, status, phon, download, say, voice, voiceRemove, SIZE_MB, load: () => get("load"), remove: () => get("remove").then(x => (st = keep(x))),
+    get has() { return !!(st && st.downloaded); }, get bytes() { return st ? st.bytes : 0; } };
+})();
+vlog("app runs Kokoro:", NK.on());
+if (NK.on()) NK.status().then(x => {
+  vlog("app Kokoro status", x);
+  if (typeof refreshEngines === "function") refreshEngines();
+  /* if the device voice started reading before the app answered, hand over to the voice you chose */
+  if (audio.speaking && !audio.neural && neuralReady()) { vlog("the natural voice is here: switching from the device voice"); reloadVoice(); }
+}).catch(() => {});
+/* In the Apple app the device's voices come from the app (apple/Pearls/AppleVoice.swift): there the page's own
+   speechSynthesis lists only the compact voices, never the Premium and Enhanced ones the reader installed. Each piece
+   comes back as a WAV and plays through Neural's two players, like the natural voices, so pause, the lock screen, the
+   paragraph highlight and the reading speed work the same. The web and Android keep speechSynthesis (Speaker). */
+const AV = (() => {
+  const base = "pearls://app/native/apple-voice/", KEEP = "pearls.appleVoices";
+  let on = null, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
+  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).appleVoices); } catch { on = false; } } return on; };
+  async function refresh() {
+    if (!isOn()) return [];
+    try { list = await (await fetch(base + "list")).json(); localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
+    return list;
+  }
+  async function say(text, id, speed) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 90000);
+    let r;
+    try { r = await fetch(base + "say?" + qs({ text, id, rate: String(speed || 1) }), { signal: ac.signal }); }
+    catch (e) { throw new Error(ac.signal.aborted ? "the device voice made no sound" : e.message); }
+    finally { clearTimeout(t); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `the app answered ${r.status}`); }
+    const blob = await r.blob(), rate = new DataView(await blob.slice(0, 44).arrayBuffer()).getUint32(24, true) || 22050;
+    return { blob, dur: Math.max(0, blob.size - 44) / 2 / rate, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
+  }
+  return { on: isOn, refresh, say, get list() { return list; } };
+})();
+const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+const avName = v => v.name.replace(/\s*\((Premium|Enhanced)\)$/, "");   // the quality is shown apart
+/* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
+   itself once it is installed, unless the reader chose another */
+const appleChoice = () => { const L = AV.list, want = state.prefs.voice; return (L.find(v => v.id === want) || L[0] || {}).id || ""; };
+if (AV.on()) {
+  const fresh = () => AV.refresh().then(L => {
+    vlog("device voices:", L.map(v => `${v.name} (${v.quality}${v.gender ? ", " + v.gender : ""})`).join(", "));
+    if (typeof refreshEngines === "function") refreshEngines();
+    if (audio.speaking && !audio.neural && neuralReady()) { vlog("the device voices are listed: switching to them"); reloadVoice(); }
+  });
+  fresh(); document.addEventListener("visibilitychange", () => { if (!document.hidden) fresh(); });   // a voice installed meanwhile
+}
+const naturalHas = () => NK.on() ? NK.has : !!VX() && !VX().needsDownload("natural", "eng");
+const engineHas = id => id === "natural" ? naturalHas() : id === "piper" ? !!VX() && piperHas(piperChoice()) : !!VX() && !VX().needsDownload(id, "eng");
+const neuralReady = () => { const V = VX(), e = engineChoice(); if (neuralFailed || !V) return false; return e === "device" ? AV.on() && AV.list.length > 0 : engineHas(e); };
+const ENGINE_NAME = { natural: "Natural (Kokoro)", piper: "Light (Piper)" };
+function currentVoiceLabel() {
+  if (neuralReady() && engineChoice() === "device") { const v = AV.list.find(x => x.id === appleChoice()); return v ? `${avName(v)}${QUALITY[v.quality] ? ` (${QUALITY[v.quality]})` : ""} · ${v.lang}` : "Device voice"; }
+  if (neuralReady()) return engineChoice() === "natural" ? `${ENGINE_NAME.natural}, ${KOKORO_VOICES[kokoroChoice()]}` : `${ENGINE_NAME.piper}, ${PIPER_VOICES[piperChoice()].name}`;
+  return voiceLabel(pickVoice());
+}
+function wav(samples, rate) {   // 16-bit mono WAV
+  const n = samples.length, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([b], { type: "audio/wav" });
+}
+const SILENT = URL.createObjectURL(wav(new Float32Array(2400), 24000));
+const RTF_KEY = "pearls.voiceRtf", KDEV_KEY = "pearls.kokoroRun";   // measured speed; how Kokoro last ran here
+const rtfs = () => { try { return JSON.parse(localStorage.getItem(RTF_KEY)) || {}; } catch { return {}; } };
+const NE = (() => {
+  let w = null, kind = "", ready = null, pending = null, seq = 0, cb = null, q = Promise.resolve(), how = "", pvoice = "";
+  const wait = new Map();
+  function stop() { if (w) w.terminate(); w = null; kind = ""; ready = null; how = ""; for (const x of wait.values()) x.rej(new Error("stopped")); wait.clear(); }
+  function boot(k, msg) {
+    stop(); kind = k;
+    w = new Worker(k === "natural" ? "voice-worker.js" : "piper-worker.js", { type: "module" });
+    w.onmessage = ({ data: m }) => {
+      if (m.type === "bytes") { if (cb) cb(m); }
+      else if (m.type === "ready") { const p = pending; pending = null; if (p) p.res(m); }
+      else if (m.id && wait.has(m.id)) { const x = wait.get(m.id); wait.delete(m.id); m.type === "error" ? x.rej(new Error(m.message)) : x.res(m); }
+      else if (m.type === "error") { const p = pending; pending = null; if (p) p.rej(new Error(m.message)); }
+    };
+    w.onerror = e => { const p = pending; pending = null; if (p) p.rej(new Error(e.message || "the voice could not start")); };
+    return new Promise((res, rej) => { pending = { res, rej }; w.postMessage(msg); });
+  }
+  const ask = msg => new Promise((res, rej) => { const id = ++seq; wait.set(id, { res, rej }); w.postMessage({ ...msg, id }); });
+  const FP16_URL = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model_fp16.onnx";
+  const hasFile = async u => { try { return await (await import("./voice-store.js")).has(u); } catch { return false; } };
+  const RUNS = [["webgpu", "fp32"], ["webgpu", "fp16"], ["wasm", "fp32"]];
+  async function bootKokoro(net) {
+    const voices = Object.keys(KOKORO_VOICES).filter(kokoroHas);   // asking for one not on the device would fail the load
+    let runs = RUNS.filter(([d]) => d !== "webgpu" || navigator.gpu);
+    const saved = localStorage.getItem(KDEV_KEY); if (saved) runs = runs.filter(r => r.join(":") === saved).concat(runs.filter(r => r.join(":") !== saved));
+    let last = null;
+    for (const [device, dtype] of runs) {
+      /* the half-precision model is a second download (~163 MB): only when downloading is allowed now */
+      const extra = dtype === "fp16" && !(await hasFile(FP16_URL));
+      if (extra) { const ok = VX().mayDownload(163); if (!ok.ok) continue; toast("The full model doesn't fit this graphics chip: fetching the half-size one (about 163 MB, once)…"); }
+      try {
+        const r = await boot("natural", { type: "load", device, dtype, net: net || extra || device === "wasm" && navigator.onLine, voices });
+        how = `${device === "webgpu" ? "graphics chip" : "processor"}${dtype === "fp16" ? ", half precision" : ""}`;
+        try { localStorage.setItem(KDEV_KEY, device + ":" + dtype); } catch {}
+        return r;
+      } catch (e) { last = e; if (/not downloaded/.test(e.message)) throw e; }
+    }
+    throw last || new Error("no way to run the natural voice here");
+  }
+  async function bootNative(net, onBytes) {
+    if (net) await NK.download(VX() ? VX().wifiOnly() : true, onBytes);
+    else if (!(await NK.status()).downloaded) throw new Error("the natural voice is not downloaded on this device");
+    const r = await NK.load(); how = r.how || "app"; vlog("app Kokoro loaded:", how); return r;
+  }
+  const native = k => k === "natural" && NK.on();
+  function load(k, { net = false, onBytes, voice } = {}) {
+    const pv = k === "piper" ? voice || piperChoice() : "";
+    if (ready && kind === k && !net && pv === pvoice) return ready;
+    pvoice = pv;
+    cb = onBytes || null;
+    if (native(k)) { if (w) stop(); kind = k; ready = bootNative(net, onBytes); const mine = ready; ready.catch(() => { if (ready === mine) { ready = null; kind = ""; } }); return ready; }
+    ready = k === "piper" ? boot("piper", { type: "load", voice: pv, net }).then(r => { how = "processor"; return r; }) : bootKokoro(net);
+    const mine = ready; ready.then(() => vlog(k, "loaded on the", how), e => { vlog(k, "did not load:", e.message); if (ready === mine) { ready = null; kind = ""; } });
+    return ready;
+  }
+  const HEB_WORD = /[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|[Kk]h)[A-Za-zḤḥĥĤ'’]*(?:-[A-Za-zḤḥĥĤ'’]+)*|[A-Za-z]+-[A-Za-zḤḥĥĤ'’]*(?:[ḥĥḤĤ]|kh)[A-Za-zḤḥĥĤ'’]*/g;
+  async function phonemes(text, nat) {   // English through eSpeak, Hebrew words sound by sound (as voice.js does)
+    const eng = async t => nat ? NK.phon(t) : (await ask({ type: "english", text: t })).phonemes;
+    const out = []; let pos = 0;
+    for (const m of text.matchAll(HEB_WORD)) {
+      if (m.index > pos) out.push(await eng(text.slice(pos, m.index)));
+      out.push(VX().hebIpa(m[0])); pos = m.index + m[0].length;
+    }
+    if (pos < text.length) out.push(await eng(text.slice(pos)));
+    return out.map(x => x.trim()).filter(Boolean).join(" ").replace(/\s+([;:,.!?])/g, "$1");
+  }
+  /* one piece at a time: the worker runs one model */
+  function say(k, text, voice, speed) {
+    const sp = Math.min(2, Math.max(0.5, +speed || 1));   // made at this speed: stretching a made piece afterwards sounds robotic
+    const run = async () => {
+      if (k === "device") {
+        const a = await AV.say(text, voice || appleChoice(), sp);
+        vlog("device voice made", a.dur.toFixed(1) + "s in", a.genS.toFixed(2) + "s,", a.blob.size, "bytes");
+        a.speed = sp; return a;
+      }
+      await load(k, { voice: k === "piper" && PIPER_VOICES[voice] && piperHas(voice) ? voice : undefined });
+      const v = KOKORO_VOICES[voice] && kokoroHas(voice) ? voice : kokoroChoice();
+      let a;
+      if (native(k)) a = await NK.say(await phonemes(text, true), v, sp);
+      else {
+        a = k === "piper" ? await ask({ type: "say", text, rate: sp }) : await ask({ type: "say", phonemes: await phonemes(text), voice: v, speed: sp });
+        a = { blob: wav(a.samples, a.rate), dur: a.samples.length / a.rate, genS: a.genS };
+      }
+      const r = rtfs(); r[k] = a.dur / Math.max(0.01, a.genS); try { localStorage.setItem(RTF_KEY, JSON.stringify(r)); } catch {}
+      vlog(k, "made", a.dur.toFixed(1) + "s in", a.genS.toFixed(2) + "s,", a.blob.size, "bytes");
+      a.speed = sp; return a;   // {blob: a WAV, dur: seconds, genS, speed}
+    };
+    const p = q.then(run, run); q = p.catch(e => vlog(k, "could not say it:", e.message)); return p;
+  }
+  return { load, say, stop, get kind() { return kind; }, get how() { return how; }, get loaded() { return !!ready; }, get voice() { return pvoice; } };
+})();
+const lexCache = {};
+async function voiceLex(name) {   // the same lexicon voice.js uses, so its pieces read the same
+  if (lexCache[name]) return lexCache[name];
+  let rows = [];
+  try { rows = (await (await fetch(`voice/lexicon-${name}.tsv`)).text()).split("\n").filter(l => l.trim() && !l.startsWith("#") && l.includes("\t")).map(l => l.split("\t").map(x => x.trim())); } catch {}
+  const qq = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (lexCache[name] = rows.flatMap(([a, b]) => [[a, b], [a[0].toUpperCase() + a.slice(1), b[0].toUpperCase() + b.slice(1)]])
+    .map(([a, b]) => [new RegExp(`(?<![\\w-])${qq(a)}(?![\\w-])`, "g"), b]).sort((x, y) => y[0].source.length - x[0].source.length));
+}
+/* a paragraph in pieces for the natural voices. voice.js's pieces() starts every text with a 40-letter phrase so the
+   first sound comes quickly; called per paragraph, that cut the opening sentence of EVERY paragraph mid-phrase, and
+   each cut is a new piece: a pause, and the voice starting its intonation over. Here only the first piece of a
+   section is short, every later piece is whole sentences, and a sentence is broken (at a comma) only past 400 letters. */
+function speechPieces(text, first) {
+  const out = []; let cur = "";
+  const lim = () => first && !out.length ? 120 : 400;
+  for (let s of text.split(/(?<=[.!?…;:])\s+(?=["“‘'A-Z0-9(])/)) {
+    if (cur && cur.length + s.length + 1 > lim()) { out.push(cur); cur = ""; }
+    while (s.length > lim()) {
+      const L = lim(), c = s.lastIndexOf(", ", L), sp = s.lastIndexOf(" ", L), at = c > L / 3 ? c + 1 : sp > L / 3 ? sp : L;
+      if (cur) { out.push(cur); cur = ""; }
+      out.push(s.slice(0, at).trim()); s = s.slice(at).trim();
+    }
+    cur = (cur + " " + s).trim();
+  }
+  if (cur) out.push(cur);
+  return out.filter(p => /[\p{L}\p{N}]/u.test(p));
+}
+/* two players taking turns: while one speaks a piece, the other already holds the next, so it starts the moment the
+   first ends (one player loading each piece after "ended" left a small silence at every join) */
+const neuralEls = [new Audio(), new Audio()]; neuralEls.forEach(e => { e.preload = "auto"; });
+const PARA_GAP = 0.3;   // seconds of quiet after a paragraph, like a reader taking a breath; none inside one
+async function padWav(blob, secs) {   // the canonical 44-byte-header WAVs that wav() and the app make, with quiet added at the end
+  const b = await blob.arrayBuffer(), v = new DataView(b);
+  const add = Math.round(secs * v.getUint32(24, true)) * v.getUint16(22, true) * (v.getUint16(34, true) / 8);
+  const out = new Uint8Array(b.byteLength + add); out.set(new Uint8Array(b)); const w = new DataView(out.buffer);
+  w.setUint32(4, out.byteLength - 8, true); w.setUint32(40, out.byteLength - 44, true);
+  return new Blob([out], { type: "audio/wav" });
+}
+const Neural = (() => {
+  const L = {}, emit = ty => (L[ty] || []).slice().forEach(f => { try { f({ type: ty }); } catch (e) { console.error(e); } });
+  let src = "", parts = [], paraOf = [], secs = [], total = 0, idx = 0, paused = true, ready = false, want = false,
+    rate = 1, made = 1, job = 0, turn = 0, live = false, timer = null, cache = new Map(), cur = 0, next = null;   // next: {i, r} loaded in the other player
+  const el = () => neuralEls[cur], other = () => neuralEls[1 - cur];
+  const startOf = k => secs.slice(0, k).reduce((a, b) => a + b, 0);
+  const paint = () => { if (typeof paintSpokenPara === "function") paintSpokenPara(paraOf[idx] ?? null); };
+  function clear() { for (const p of cache.values()) p.then(r => URL.revokeObjectURL(r.url), () => {}); cache = new Map(); next = null; }
+  function gen(i) {
+    if (!cache.has(i)) {
+      const endsPara = i + 1 < parts.length && paraOf[i + 1] !== paraOf[i];
+      const p = NE.say(engineChoice(), parts[i], engineChoice() === "piper" ? piperChoice() : engineChoice() === "device" ? appleChoice() : kokoroChoice(), rate).then(async a => {
+        const blob = endsPara ? await padWav(a.blob, PARA_GAP) : a.blob, sp = a.speed || 1;
+        return { url: URL.createObjectURL(blob), dur: a.dur + (endsPara ? PARA_GAP : 0), speed: sp };
+      });
+      p.catch(() => {}); cache.set(i, p);
+    }
+    return cache.get(i);
+  }
+  function unlock() { if (!live) for (const e of neuralEls) { e.src = SILENT; e.play().catch(() => {}); } }   // inside the tap, so later pieces may play, from either player
+  function ahead(i) {   // make the next two pieces, and load the very next one into the other player
+    for (let k = 1; k <= 2 && i + k < parts.length; k++) gen(i + k);
+    if (i + 1 >= parts.length) return;
+    const my = turn;
+    gen(i + 1).then(r => {
+      if (my !== turn || idx !== i || paused) return;
+      const o = other(); o.pause(); o.src = r.url; o.load(); next = { i: i + 1, r };
+    }, () => {});
+  }
+  function begin(r, my) {   // the current player has piece idx: play it
+    secs[idx] = r.dur * r.speed; total = secs.reduce((a, b) => a + b, 0); made = r.speed;
+    live = true; el().playbackRate = rate / made;
+    const fail = e => { vlog("play() refused:", e.name, e.message); if (my === turn) { Neural.lastError = e.message; paused = true; emit("error"); } };
+    /* an interrupted play() (AbortError: the audio session was taken a moment, or the element was reset) is tried once
+       more before the voice is given up for the session */
+    el().play().catch(e => { if (e.name !== "AbortError" || my !== turn) return fail(e); vlog("play() interrupted: trying again"); setTimeout(() => { if (my === turn && !paused) el().play().catch(fail); }, 250); });
+    ahead(idx);
+  }
+  async function playAt(i) {
+    const my = ++turn; idx = i; live = false; next = null; other().pause(); paint(); emit("timeupdate");
+    let r; try { r = await gen(i); } catch (e) { if (my === turn) { Neural.lastError = e.message; paused = true; clearInterval(timer); emit("error"); } return; }
+    if (my !== turn || paused) return;
+    el().src = r.url; begin(r, my);
+  }
+  function ended(e) {
+    if (e.target !== el() || !live || paused) return;
+    if (idx + 1 >= parts.length) { live = false; paused = true; clearInterval(timer); emit("ended"); return; }
+    if (next && next.i === idx + 1) {   // already loaded in the other player: start it now, no gap
+      const r = next.r, my = ++turn; next = null; cur = 1 - cur; idx++; paint(); emit("timeupdate"); begin(r, my);
+    } else playAt(idx + 1);
+  }
+  for (const e of neuralEls) {
+    e.addEventListener("ended", ended);
+    e.addEventListener("error", () => { if (e === el() && live) vlog("the player refused a piece:", e.error && e.error.code, e.error && e.error.message); });
+  }
+  async function load(v) {
+    const my = ++job; turn++; clear(); src = v; ready = false; live = false; parts = []; secs = []; total = 0; idx = 0;
+    const [, id, part] = v.split(":"), t = BYID[id], V = VX();
+    try {
+      if (!V) throw new Error("no engine");
+      const d = await fetchSections(t), k = +part;
+      const sec = Array.isArray(d) ? d[k] && { html: d[k].content.rendered, title: d[k].title.rendered } : d.sections[k] && { html: d.sections[k].body_en, title: d.sections[k].title_en };
+      if (!sec || !sec.html) throw new Error("no text");
+      const paras = speechParas(sec.html, sec.title);
+      const lex = await voiceLex(engineChoice() === "natural" ? "kokoro" : "piper");   // plain English respellings for Piper and the device voices
+      if (my !== job) return;
+      /* pieces as voice.js makes them (a sentence or two, short at first so the first is ready quickly), each mapped to its paragraph */
+      parts = []; paraOf = [];
+      for (const x of paras) for (const pc of speechPieces(V.prepare(/[.!?…:;]["”’)]*$/.test(x.s) ? x.s : x.s + ".", "eng", lex), !parts.length)) { parts.push(pc); paraOf.push(x.p); }
+      if (!parts.length) throw new Error("no text");
+    } catch (e) { if (my === job) { Neural.lastError = e.message; emit("error"); } return; }
+    secs = parts.map(pc => pc.split(/\s+/).length / WPS); total = secs.reduce((a, b) => a + b, 0);
+    ready = true; emit("loadedmetadata");
+    gen(0);
+    if (want) { want = false; play(); }
+  }
+  function play() {
+    if (!VX()) return Promise.reject(new Error("no engine"));
+    if (!ready) { want = true; unlock(); return Promise.resolve(); }
+    if (!paused) return Promise.resolve();
+    paused = false;
+    if (live && el().src && !el().ended) el().play().catch(() => {}); else { unlock(); playAt(idx); }
+    clearInterval(timer); timer = setInterval(() => emit("timeupdate"), 500); emit("play");
+    return Promise.resolve();
+  }
+  function pause() { want = false; if (paused) return; paused = true; clearInterval(timer); el().pause(); emit("pause"); }
+  return {
+    lastError: "",
+    addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
+    removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
+    get src() { return src; }, set src(v) { pause(); load(String(v)); },
+    get paused() { return paused; },
+    get duration() { return ready ? total / rate : NaN; },
+    get currentTime() { if (!ready) return 0; return (startOf(idx) + (live ? Math.min(secs[idx] || 0, (el().currentTime || 0) * made) : 0)) / rate; },
+    set currentTime(s) { if (!ready) return; let x = Math.max(0, s * rate), k = 0; while (k < parts.length - 1 && x >= secs[k]) { x -= secs[k]; k++; } if (!paused) playAt(k); else { turn++; idx = k; live = false; next = null; for (const e of neuralEls) e.pause(); paint(); emit("timeupdate"); } },
+    get playbackRate() { return rate; }, set playbackRate(r) {
+      if (r === rate) return; rate = r; el().playbackRate = r / made; next = null;   // only until the next piece, which is made at the new speed
+      for (const [k, p] of cache) if (k > idx) { p.then(x => URL.revokeObjectURL(x.url), () => {}); cache.delete(k); }
+      if (ready && !paused && live) ahead(idx);
+    },
+    play, pause,
+    stop() { want = false; job++; turn++; const was = !paused; paused = true; clearInterval(timer); for (const e of neuralEls) { e.pause(); e.removeAttribute("src"); } live = false; clear(); src = ""; ready = false; if (typeof paintSpokenPara === "function") paintSpokenPara(null); return was; },
+  };
+})();
+const audioEl = new Audio(); audioEl.preload = "metadata";
+/* the player's audio: a recording through audioEl, or the AI voice through Speaker (src "speech:<id>:<section>") */
+const audio = (() => {
+  const L = {}; let on = audioEl;
+  ["timeupdate", "play", "pause", "ended", "error", "loadedmetadata"].forEach(ty => [audioEl, Speaker, Neural].forEach(b => b.addEventListener(ty, e => {
+    if (b === on) (L[ty] || []).slice().forEach(f => f.call(a, e)); })));
+  const a = {
+    addEventListener(ty, f) { (L[ty] || (L[ty] = [])).push(f); },
+    removeEventListener(ty, f) { if (L[ty]) L[ty] = L[ty].filter(x => x !== f); },
+    get src() { return on.src; },
+    set src(v) {
+      if (String(v).startsWith("speech:")) {
+        const nx = neuralReady() ? Neural : Speaker;
+        vlog("reading", v, "with", nx === Neural ? engineChoice() : "the device voice", "(engine", engineChoice() + ", ready", neuralReady() + ", failed", neuralFailed + ")");
+        if (on === audioEl) { audioEl.pause(); audioEl.removeAttribute("src"); } else if (on !== nx) on.stop();
+        on = nx; nx.src = v;
+      }
+      else { if (on !== audioEl) on.stop(); on = audioEl; audioEl.src = v; }
+    },
+    get speaking() { return on !== audioEl; },
+    get neural() { return on === Neural; },
+    get paused() { return on.paused; },
+    get duration() { return on.duration; },
+    get currentTime() { return on.currentTime; }, set currentTime(s) { on.currentTime = s; },
+    get playbackRate() { return on.playbackRate; }, set playbackRate(r) { audioEl.playbackRate = r; Speaker.playbackRate = r; Neural.playbackRate = r; },
+    get preload() { return audioEl.preload; }, set preload(v) { audioEl.preload = v; },
+    play() { return on.play(); }, pause() { on.pause(); },
+    load() { if (on === audioEl) audioEl.load(); },
+    getAttribute(n) { return on === audioEl ? audioEl.getAttribute(n) : (n === "src" ? on.src || null : null); },
+    removeAttribute(n) { if (on !== audioEl) on.stop(); audioEl.removeAttribute(n); on = audioEl; },
+  };
+  return a;
+})();
 const P = { queue: [], idx: -1, ctx: null, sleepAt: null, sleepEnd: false, part: 0, lang: "he", fails: 0 };
 const cur = () => BYID[P.queue[P.idx]];
 /* Playback order (Now Playing → the order pill). Smart downloads follow it: they fetch what will actually play next. */
@@ -423,11 +999,11 @@ const PLAY_MODES = [
   ["repeatAll", "Repeat queue", "Back to the first chapter when the queue ends", "repeat"],
   ["repeatSec", "Repeat section", "Loop the current section, to learn it by heart (chazara)", "repeat1"]
 ];
-const playMode = () => state.prefs.playMode || "next";
+const playMode = () => state.prefs.playMode || "book";   // default: through the book, then the next book
 function nextInOrder(t) {   // the next chapter with a recording, in book order; after a book's last chapter, the next book
   const ts = TRACKS.filter(x => x.vol === t.vol).sort((a, b) => a.n - b.n);
-  for (const x of ts) if (x.n > t.n && (hasHe(x) || hasEn(x))) return x;
-  for (let i = VOLS.indexOf(t.vol) + 1; i < VOLS.length; i++) { const f = TRACKS.filter(x => x.vol === VOLS[i]).sort((a, b) => a.n - b.n).find(x => hasHe(x) || hasEn(x)); if (f) return f; }
+  for (const x of ts) if (x.n > t.n && playable(x)) return x;
+  for (let i = VOLS.indexOf(t.vol) + 1; i < VOLS.length; i++) { const f = TRACKS.filter(x => x.vol === VOLS[i]).sort((a, b) => a.n - b.n).find(playable); if (f) return f; }
   return null;
 }
 function shuffleRest() {   // keep what's playing; shuffle what comes after it, remembering the order to go back to
@@ -452,8 +1028,8 @@ function upcoming(n) {
   if (m === "repeatAll") for (let k = 0; out.length < n && k < P.idx; k++) out.push(P.queue[k]);
   return out;
 }
-function playQueue(ids, start = 0, ctx = null) {
-  const first = ids[start]; ids = ids.filter(id => BYID[id] && (hasHe(BYID[id]) || hasEn(BYID[id])));
+function playQueue(ids, start = 0, ctx = null, part = null) {
+  const first = ids[start]; ids = ids.filter(id => playable(BYID[id]));
   if (!ids.length) { toast("No recording of this yet. The text is here to read."); return; }
   if (NATIVE && !online()) {                 // offline: only what's on the phone can play
     const have = ids.filter(id => dlState(BYID[id]).s === "done" || (dlState(BYID[id]).s === "loading" && localSrc(BYID[id], 0, DL.idx[id].lang)));
@@ -466,6 +1042,7 @@ function playQueue(ids, start = 0, ctx = null) {
   if (playMode() === "shuffle") shuffleRest();
   if (ctx && state.speedBy[ctx]) state.speed = state.speedBy[ctx];
   store.set("lastQueue", { ids: P.queue, idx: P.idx, ctx }); load(true, true);
+  if (part != null && cur() && cur().id === first && part !== P.part) { P.part = Math.max(0, Math.min(part, nSections(cur()) - 1)); load(true); }
 }
 function load(autoplay, fresh) {
   const t = cur(); if (!t) return;
@@ -485,7 +1062,7 @@ function load(autoplay, fresh) {
   mediaSession(t); renderMini(); refreshPlaying(); syncNP(); pushMedia();
 }
 function playLang(t) {                        // the language a chapter plays in; offline, whatever was downloaded
-  const want = wantsEnglish(t) ? "en" : "he", e = DL.idx[t.id];
+  const want = listenLang(t), e = DL.idx[t.id];
   return e && e.lang !== want && !online() && localSrc(t, 0, e.lang) ? e.lang : want;
 }
 function toggle() { if (!cur()) return; audio.paused ? audio.play().catch(() => {}) : audio.pause(); }
@@ -560,13 +1137,17 @@ audio.addEventListener("error", () => {
     const n = dlName(t, P.part, P.lang); DL.files.delete(n);
     if (online()) { audio.src = partUrl(t, P.part, P.lang); audio.play().catch(() => {}); return; }
   }
-  if (!online() && !localSrc(t, P.part, P.lang)) {
+  if (P.lang !== "tts" && !online() && !localSrc(t, P.part, P.lang)) {
     const nx = P.queue.slice(P.idx + 1).findIndex(id => isDownloaded(BYID[id]));
     if (nx >= 0) { P.idx += nx + 1; load(true, true); toast("Offline: skipped to the next downloaded chapter"); }
     else { audio.pause(); toast("You're offline and this chapter isn't downloaded."); }
     return;
   }
-  if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); toast("No English reading for this section — playing the Hebrew"); return; }
+  if (P.lang === "en" && enText(t) && aiVoiceOn()) { P.lang = "tts"; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast("The English recording didn't load: the AI voice is reading this section"); return; }
+  if (P.lang === "en") { P.lang = "he"; audio.src = partUrl(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("No English reading for this section — playing the Hebrew"); return; }
+  if (P.lang === "tts" && audio.neural && canSpeak()) { neuralFailed = true; const why = Neural.lastError ? ` (${Neural.lastError.slice(0, 120)})` : ""; audio.src = srcFor(t, P.part, "tts"); audio.play().catch(() => {}); renderMini(); toast(`The ${engineChoice() === "natural" ? "natural voice" : engineChoice() === "piper" ? "light voice" : "voice you chose"} couldn't start${why}, so your ${DEVICE}'s basic voice is reading. Settings → Voice to try again.`); return; }
+  if (P.lang === "tts") { if (hasHe(t)) { P.lang = "he"; audio.src = srcFor(t, P.part, "he"); audio.play().catch(() => {}); renderMini(); toast("The AI voice couldn't read this section — playing the Hebrew"); return; }
+    toast("The AI voice couldn't read this section."); P.fails++; if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); } return; }
   P.fails++;
   if (P.fails <= 2 && P.part < nSections(t) - 1) { P.part++; load(true); return; }   // a missing section file: skip it
   toast(`Couldn't load the audio for “${R(t.title)}”. Check your connection.`);
@@ -587,6 +1168,8 @@ function mediaSession(t) {
    Files are fetched by Android's DownloadManager (PearlsNative, see android/java) into the app's files folder as
    BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
    language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
+/* The word for the device in "saved on this phone": the Apple app says what it runs on (PEARLS_SHELL, set by apple/). */
+const DEVICE = window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : window.PEARLS_SHELL === "ios" ? "iPhone" : "phone";
 const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
 const DL = {
   ok: false, dir: "", free: 0, files: new Map(), active: new Map(), timer: null,
@@ -626,7 +1209,7 @@ function dlState(t) {
 }
 const isDownloaded = t => dlState(t).s === "done";
 const localSrc = (t, i, lang) => { const n = dlName(t, i, lang); return DL.files.has(n) && DL.dir ? DL.dir + n : null; };
-const srcFor = (t, i, lang) => localSrc(t, i, lang) || partUrl(t, i, lang);
+const srcFor = (t, i, lang) => lang === "tts" ? `speech:${t.id}:${i}` : localSrc(t, i, lang) || partUrl(t, i, lang);
 function dlBytes(t, lang) {                    // what a chapter will take: Hebrew 64 kbit/s, English ~107 kbit/s
   const e = DL.idx[t.id]; if (e && e.lang === lang) { const s = dlNames(t, lang).reduce((a, n) => a + (DL.files.get(n) || 0), 0); if (s) return s; }
   const d = dur(t); return d ? d * (lang === "en" ? 16000 : 8000) : nSections(t) * 2e6;
@@ -753,7 +1336,7 @@ function dlMany(ids) {
   if (!ts.length) { toast("Already downloaded"); return; }
   const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
   dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
-    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this phone` : ""}. Each chapter downloads in the language it plays in (${audioLang === "auto" ? "matching your reading language" : audioLang === "en" ? "English where recorded" : "Hebrew"}).
+    <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this ${DEVICE}` : ""}. Each chapter downloads in the language it plays in (${langPref() === "he" ? "Hebrew" : "English where recorded, otherwise Hebrew"}).
     ${DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
@@ -840,7 +1423,7 @@ const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.i
 const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
   const all = volTracks(v), ts = k ? volTracks(v, k) : all, ks = volKinds(v), heard = ts.filter(t => (state.plays[t.id] || {}).done).length;
   const n = ts.length < all.length ? `${ts.length} of ${all.length} chapters` : `${all.length} chapters`;
-  const audible = all.filter(t => hasHe(t) || hasEn(t)), next = audible.find(t => !(state.plays[t.id] || {}).done) || audible[0];
+  const audible = all.filter(playable), next = audible.find(t => !(state.plays[t.id] || {}).done) || audible[0];
   return `<div class="volwrap"><button class="volcard" data-act="vol" data-id="${v.book}${k && ks.length > 1 ? `-${k}` : ""}">${cover(v)}<div><b style="font-weight:600;font-size:15px">${esc(R(v.title))}</b><div class="meta"><span class="kinds">${(k ? [k] : ks).map(kindTag).join("")}</span>${n}${heard ? ` · ${heard} heard` : ""}</div></div></button>${next ? `<button class="volplay" data-act="playvol" data-id="${v.book}" data-start="${all.indexOf(next)}" aria-label="${heard ? "Continue" : "Play"} ${esc(R(v.title))}">${I.play}</button>` : ""}</div>`; };
 
 /* ---------- views ---------- */
@@ -865,9 +1448,10 @@ function vHome() {
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
     ${offlineCard()}
     ${along}
+    ${dailyCard()}
     ${todayCard()}
     ${hero ? `<section class="hero"><div class="orb"></div>
-      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Today's pearl</div>
+      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Recommended for you</div>
       <h3>${esc(R(hero.t.title))}</h3>
       <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
       <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
@@ -885,6 +1469,77 @@ function vHome() {
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
   </div>`;
+}
+/* ---------- the Daily Pearl: Peninei Halakha's own two halakhot a day (daily-pearl.js) ---------- */
+const DAILY = window.PH_DAILY;
+const dpHalakha = (t, n) => { const st = t && t.sectionTitles[n - 1]; return st ? R(st) : `Halakha ${n}`; };
+function dpItems(parts) {   // [{t, sec}] for every halakha that day, in order
+  const out = [];
+  for (const p of parts) {
+    const t = BYID[`${p.book}-${String(p.ch).padStart(2, "0")}`];
+    const to = p.to == null ? (t && nSections(t) || p.from) : p.to;
+    for (let n = p.from; n <= to; n++) out.push({ t, book: p.book, ch: p.ch, sec: n });
+  }
+  return out;
+}
+function dpRef(parts) {   // "Kashrut 11:12–13", "Days of Awe 10:18 · Kashrut 1:1"
+  const vol = b => { const v = VOLS.find(x => x.book === b); return v ? R(v.short) : `Book ${b}`; };
+  const out = []; let i = 0;
+  while (i < parts.length) {
+    const a = parts[i], b = parts[i + 1];
+    if (b && b.book === a.book && a.to == null) { out.push(`${vol(a.book)} ${a.ch}:${a.from}–${b.ch}:${b.to}`); i += 2; }
+    else { out.push(`${vol(a.book)} ${a.ch}:${a.from}${a.to != null && a.to !== a.from ? `–${a.to}` : ""}`); i++; }
+  }
+  return out.join(" · ");
+}
+const dpRow = it => it.t
+  ? `<button class="dprow" data-act="resumeread" data-id="${it.t.id}" data-sec="${it.sec}"><span class="n">${it.ch}:${it.sec}</span><span class="tx"><b dir="auto">${esc(dpHalakha(it.t, it.sec))}</b><span class="m" dir="auto">${esc(R(it.t.title))}</span></span><span class="dur">›</span></button>`
+  : `<div class="dprow"><span class="n">${it.ch}:${it.sec}</span><span class="tx"><b>Halakha ${it.sec}</b><span class="m">Not in Pearls yet</span></span></div>`;
+function dailyCard() {
+  if (!DAILY) return "";
+  const d = DAILY.forDate(new Date());
+  if (!d) return `<section class="panel daily"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div>
+    <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.${window.PEARLS_PROXY ? " Pearls looks for it on Peninei Halakha's site once a day and adds it when it's out." : ""}</p>
+    <div><a class="btn line" href="${DAILY.page}" target="_blank" rel="noopener">${I.ext}The Daily Pearl on Peninei Halakha</a></div></section>`;
+  const items = dpItems(d.parts), first = items.find(x => x.t), kinds = [...new Set(items.filter(x => x.t).map(x => kindOf(x.t)))];
+  return `<section class="panel daily"><div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
+    <div class="dphead"><b>${esc(dpRef(d.parts))}</b><span class="kinds">${kinds.map(kindTag).join("")}</span></div>
+    <div class="list">${items.map(dpRow).join("")}</div>
+    ${first ? `<div class="row"><button class="btn gold" data-act="resumeread" data-id="${first.t.id}" data-sec="${first.sec}">${I.read}${kindOf(first.t) === "he" ? "Read the Hebrew" : "Read today's halakhot"}</button></div>` : ""}
+    <p class="note" style="margin:0">Two halakhot a day, the order Peninei Halakha's own study follows.</p></section>`;
+}
+function vDaily() {
+  setTop("The Daily Pearl"); setTab("");
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const days = [];
+  for (let k = -2; k <= 7; k++) { const dt = new Date(today.getTime() + k * 864e5), d = DAILY && DAILY.forDate(dt); if (d) days.push({ dt, k, d }); }
+  const ys = DAILY ? DAILY.years() : [], dt0 = DAILY && DAILY.forDate(today);
+  const dpYear = (dt0 && ys.find(y => y.year === dt0.year)) || ys[ys.length - 1];
+  view.innerHTML = `<div class="view">
+    <div><div class="eyebrow"><span lang="he" dir="rtl">הפנינה היומית</span> · Peninei Halakha</div>
+      <h1 class="hello">Two halakhot <em>a day</em>.</h1>
+      <p class="sub">The Daily Pearl is Peninei Halakha's own daily study: two halakhot every day, about two minutes, sent each morning by Yeshivat Har Bracha on WhatsApp, email and Telegram. It goes through the books in order and turns to the laws of each festival in the weeks before it. Pearls follows the schedule Peninei Halakha prints on its study bookmark for ${DAILY ? DAILY.years().map(y => y.year).join(", ") : ""} (the Hebrew program), and opens each halakha in the English or AI translation where Pearls has one.${window.PEARLS_PROXY ? " When a year's schedule nears its end, Pearls looks for the next bookmark on Peninei Halakha's site and reads it, and uses it only if every day and every halakha in it checks out." : ""}</p></div>
+    ${days.map(({ dt, k, d }) => `<section><div class="sec-h"><h2>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : k === -1 ? "Yesterday" : esc(dt.toLocaleDateString("en-GB", { weekday: "long" }))}</h2><span class="note">${esc(dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${esc(dpRef(d.parts))}</span></div>
+      <div class="list">${dpItems(d.parts).map(dpRow).join("")}</div></section>`).join("") || `<p class="note">Pearls doesn't have this year's schedule yet.</p>`}
+    <section class="panel dpget"><div class="eyebrow">Get it from Peninei Halakha</div>
+      <p class="note" style="margin:0">Sign up for the messages, in English or Hebrew, on Peninei Halakha's site. The English group may follow its own order; the days above are the Hebrew program's.</p>
+      <div class="row"><a class="btn gold" href="${DAILY ? DAILY.page : "https://ph.yhb.org.il/pninayomit-en/"}" target="_blank" rel="noopener">${I.ext}The Daily Pearl in English</a>
+        <a class="btn line" href="${DAILY ? DAILY.pageHe : "https://ph.yhb.org.il/pninayomit/"}" target="_blank" rel="noopener">${I.ext}In Hebrew</a>
+        ${dpYear ? `<a class="btn line" href="${dpYear.source}" target="_blank" rel="noopener">${I.ext}The ${dpYear.year} schedule (PDF)</a>` : ""}</div>
+      ${dpYear && dpYear.found ? `<p class="note" style="margin:0">Pearls read the ${dpYear.year} schedule from Peninei Halakha's bookmark by itself on ${esc(new Date(dpYear.found + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}. If a day looks wrong, the PDF is the authority.</p>` : ""}</section>
+  </div>`;
+}
+/* Next year's schedule: from two months before this one ends, look for Peninei Halakha's new bookmark once a day
+   (daily-pearl.js does the reading and checking; pdf-text.js, loaded only then, reads the PDF). Needs the proxy. */
+function dailyLook() {
+  if (!DAILY || !window.PEARLS_PROXY || !DAILY.due()) return;
+  const get = (u, as) => fetch(net(u)).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return as === "bytes" ? r.arrayBuffer() : r.text(); });
+  const lib = window.PDF_TEXT ? Promise.resolve() : new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "pdf-text.js"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+  lib.then(() => DAILY.update(get)).then(y => {
+    if (!y) return;
+    toast(`The Daily Pearl: Peninei Halakha's ${y.year} schedule is in`);
+    const h = location.hash.slice(1); if (!h || h === "daily") render();
+  }).catch(() => { /* offline or no PDF reader: try again tomorrow */ });
 }
 /* ---------- read along: the text of what's playing is one tap away ---------- */
 function alongCard() {
@@ -959,6 +1614,7 @@ function vCredits() {
         <li><b>Hebrew text</b>: the original, loaded from ${ext("https://ph.yhb.org.il/", "ph.yhb.org.il")}.</li>
         <li><b>Audio</b>: the Hebrew and English recordings Yeshivat Har Bracha publishes for each section.</li>
         <li><b>AI translations</b>: for volumes with no official English edition, Pearls includes its own English translation, made with AI (Claude, by Anthropic) from the Hebrew. These are not by Rabbi Melamed or Har Bracha, are not reviewed by them, and are labelled <span class="aitag sm">AI</span> wherever they appear.</li>
+        <li><b>AI voice</b>: where there is no English recording, an AI voice reads the English, labelled "AI voice". It is your ${DEVICE}'s own speech engine, or one of two voices made on your ${DEVICE} that you can download: ${ext("https://huggingface.co/hexgrad/Kokoro-82M", "Kokoro-82M")} (Apache 2.0) through ${ext("https://github.com/hexgrad/kokoro", "kokoro-js")}, and ${ext("https://github.com/rhasspy/piper", "Piper")} (MIT), run with ONNX Runtime Web and eSpeak NG. Each Piper voice carries the licence of the recordings it was trained on (from its ${ext("https://huggingface.co/rhasspy/piper-voices", "model card")}): Norman, John, LJSpeech and Cori, all public domain (LibriVox and LJ Speech recordings). Voices offered before and still on a device keep their own licences: Ryan, CC BY-NC-SA 4.0 (RyanSpeech); Hi-Fi Male and Hi-Fi Female, CC BY-NC-SA 4.0 (Hi-Fi-CAPTAIN, NICT); Northern English Male, CC BY-SA 4.0 (OpenSLR 83). Kokoro's voices are Apache 2.0, like its model. Pearls is free and non-commercial. The engine comes from Estantes, a sister project. No voice is a recording of a Har Bracha reader, and no reader's voice is copied.</li>
       </ul></section>
 
     <section><div class="sec-h"><h2>Licence</h2></div>
@@ -1188,7 +1844,7 @@ function vChapter(id) {
       <div class="eyebrow">${esc(R(t.vol.title))} · Chapter ${t.n}</div><h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
       <div class="chips">${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        ${hasHe(t) || hasEn(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${wantsEnglish(t) ? "English" : "Hebrew"}</span></button>` : `<span class="note">No recording of this chapter</span>`}
+        ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
         <button class="btn ${isDone(t.id) ? "ghost" : "line"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button>
@@ -1196,8 +1852,7 @@ function vChapter(id) {
       ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
         <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
         ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
-      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."} ${hasHe(t) ? "The audio is the Hebrew reading." : "There is no recording of this chapter."}</div>`
-        : `<p class="note">${hasEn(t) ? "This chapter has an English reading and the Hebrew original. Pick the audio language below or in the player." : "The audio is Rav Melamed's book read in <b>Hebrew</b>; follow along in English below."}</p>`}
+      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
       ${langBar(t)}
       <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
     </div>
@@ -1249,9 +1904,10 @@ function renderHebrewChapter(t, d, r) {
   nowSecShown = null; paintNowSec();
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
+    const resync = () => { if ((state.prefs.read || "en") === "side") sideAlign(r); }; resync();
     if (!he.hidden && !he.innerHTML.trim()) {   // lite build: the Hebrew is fetched on demand
       he.innerHTML = `<p class="note">Loading the Hebrew…</p>`;
-      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); })
+      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); resync(); })
         .catch(() => { he.innerHTML = `<p class="note">Couldn't load the Hebrew. It needs a connection.</p>`; });
     } };
 }
@@ -1310,6 +1966,7 @@ function citeSheet(h) {
 function secTools(t, i, opts = {}) {
   const ref = sefRef(t, i + 1), slug = `${t.id}-${String(i + 1).padStart(2, "0")}`, saved = state.saved.some(s => s.id === slug);
   return `<div class="sectools" data-slug="${slug}" data-sec="${i + 1}">
+    ${playable(t) ? `<button class="tool" data-act="playsec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Listen from this section">${I.play}<span>Listen from here</span></button>` : ""}
     <button class="tool ${saved ? "on" : ""}" data-act="savesec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Save this section">${saved ? I.bookOn : I.book}<span>${saved ? "Saved" : "Save"}</span></button>
     <button class="tool" data-act="sharesec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Share this section">${I.share}<span>Share</span></button>
     ${opts.hebrew ? `<button class="tool" data-act="hebsec" data-id="${t.id}" data-sec="${i + 1}">${I.heb}<span>Hebrew</span></button>` : ""}
@@ -1326,36 +1983,277 @@ async function hebrewFor(t, sec) {           // official English books: the Hebr
   return hebCache[slug];
 }
 async function hebrewChapter(t) { await hebrewPosts(t); }   // all sections of a chapter in one request
-/* language pickers: segmented controls on the chapter page and in the player */
-function listenSeg(t, current) {
-  const he = hasHe(t), en = hasEn(t); if (!he && !en) return "";
-  const cur = current || (wantsEnglish(t) ? "en" : "he");
-  return `<div class="segrow"><span class="seglabel">Audio</span><div class="seg" role="radiogroup" aria-label="Audio language">
-    <button role="radio" aria-checked="${cur === "en"}" class="${cur === "en" ? "on" : ""}" data-act="setlisten" data-v="en" data-id="${t.id}" ${en ? "" : "disabled"}>English${en ? "" : "<small>no recording</small>"}</button>
-    <button role="radio" aria-checked="${cur === "he"}" class="${cur === "he" ? "on" : ""}" data-act="setlisten" data-v="he" data-id="${t.id}" ${he ? "" : "disabled"} lang="he">עברית${he ? "" : "<small>no recording</small>"}</button></div></div>`;
+/* Now Playing shows the text of the section playing, in the reading language: listening and reading on one screen */
+async function fillNPText(t, part) {
+  const box = $("#npText"); if (!box) return;
+  const key = `${t.id}:${part}:${langPref()}`; box.dataset.k = key;
+  const put = html => { if (box.dataset.k === key) { box.innerHTML = html; paintSpokenPara(audio.speaking ? box.dataset.p : null); } };
+  try {
+    if (langPref() === "he" || kindOf(t) === "he") {
+      const h = await hebrewFor(t, part + 1).catch(() => null);
+      if (h) return put(`<div class="heb" lang="he" dir="rtl"><h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}</div>`);
+      if (kindOf(t) === "he") return put(`<p class="note">The Hebrew text needs a connection the first time. <button class="linkbtn" data-act="readalong">Open the chapter</button></p>`);
+    }
+    const d = await fetchSections(t);
+    const sec = Array.isArray(d) ? d[part] && { html: d[part].content.rendered, title: R(d[part].title.rendered) } : d.sections[part] && { html: d.sections[part].body_en, title: esc(R(d.sections[part].title_en || "")) };
+    if (!sec || !sec.html) return put(`<p class="note">No text for this section.</p>`);
+    put(`<div class="en-body"><h3>${sec.title}</h3>${cleanHTML(sec.html, t)}</div>`);
+  } catch { put(`<p class="note">Couldn't load the text. <button class="linkbtn" data-act="readalong">Open the chapter</button></p>`); }
 }
+/* One language for reading and listening, set from the chapter, the player or Settings */
+function setLang(v) {
+  state.prefs.read = v; state.prefs.readSet = true; save.prefs();
+  document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === v; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
+  const m = location.hash.match(/^#ch-(\d\d-\d\d)/), rt = m && BYID[m[1]], r = $("#reader");
+  if (r && rt) applyReadLang(rt, r);
+  document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); });
+  document.querySelectorAll('[data-act="playch"] .plang').forEach(pl => { const x = BYID[pl.parentNode.dataset.id]; if (x) pl.textContent = ` · ${LANG_NAME[listenLang(x)]}`; });
+  const t = cur();
+  if (t && listenLang(t) !== P.lang && (online() || listenLang(t) === "tts")) load(!audio.paused);
+  renderMini(); syncNP(true);
+}
+function audioNote(t) {   // under the language control: what you'll hear
+  if (!playable(t)) return "No recording of this chapter yet.";
+  const l = listenLang(t), en = langPref() !== "he";
+  if (l === "en") return `You'll hear Har Bracha's English recording.`;
+  if (l === "tts") return `There's no English recording of this chapter, so the <b>AI voice</b> on your ${DEVICE} reads the English (voice: ${esc(currentVoiceLabel())}). <button class="linkbtn" data-act="voice">Change voice</button>`;
+  return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
+}
+function voiceField() {
+  if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  const on = state.prefs.aiVoice !== false;
+  return `<div data-voicefield><div class="field"><label>AI voice</label>
+    <button class="opt" data-aivoice aria-pressed="${on}"><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span><span class="switch ${on ? "on" : ""}" aria-hidden="true"></span></button></div>
+    <div class="field" data-enginefield ${on ? "" : "hidden"}><label>Which voice</label><div data-engines>${engineList()}</div></div></div>`;
+}
+function mb(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB"; }
+let VSTAT = null;
+const DLP = {};   // "natural", "p:<piper voice>" or "k:<kokoro voice>" -> {loaded, total} while downloading
+let RMASK = "";   // the item whose Remove was tapped once: its row asks to confirm (no browser dialog)
+/* Remove in two taps: "Remove" then "Confirm · frees N MB" (or Cancel) */
+const rmCtl = (id, attr, value, frees, label) => RMASK === id
+  ? `<span class="rmask"><button class="btn line" ${attr}="${value}" aria-label="Confirm removing ${esc(label)}">Confirm · frees ${frees}</button> <button class="linkbtn" data-rmcancel>Cancel</button></span>`
+  : `<button class="linkbtn" data-rmask="${id}" aria-label="Remove ${esc(label)}">Remove</button>`;
+const triBtn = (k, label) => `<button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(label)}">${I.play}</button>`;
+const dlNote = id => DLP[id] ? `<span class="note">Downloading… ${mb(DLP[id].loaded)}${DLP[id].total ? ` of ${mb(DLP[id].total)}` : ""}</span>` : "";
+/* a speaker or voice row: chosen with a tick when it is on this device, otherwise its size and a Download button */
+function voiceRow({ id, attr, name, note, on, have, size, extraRemove, tryKey }) {   // size: what it takes, and frees when removed
+  if (!have) return `<div class="voicerow"><span class="opt pick" style="cursor:default"><span style="flex:1"><b>${esc(name)}</b> <span class="note">${esc(note)}</span></span></span>${
+    DLP[id] ? dlNote(id) : `<button class="btn line" ${attr}dl="${id.slice(2)}">Download · ${size}</button>`}</div>`;
+  return `<div class="voicerow"><button class="opt pick ${on ? "on" : ""}" ${attr}="${id.slice(2)}"><span style="flex:1"><b>${esc(name)}</b> <span class="note">${esc(note)}</span></span>${on ? `<span class="tick" aria-label="chosen">✓</span>` : ""}</button>${triBtn(tryKey, name)}${
+    extraRemove ? rmCtl(id, attr + "rm", id.slice(2), size, name) : ""}</div>`;
+}
+function kokoroRow(k, n) {
+  const [name, note] = n.split(" · "), extra = !KOKORO_CORE.includes(k);
+  return voiceRow({ id: "k:" + k, attr: "data-kvoice", name, note, on: kokoroChoice() === k, have: kokoroHas(k), size: "0.5 MB", extraRemove: extra, tryKey: k });
+}
+function piperRow(v) {
+  const x = PIPER_VOICES[v];
+  return voiceRow({ id: "p:" + v, attr: "data-pvoice", name: x.name, note: x.note, on: piperHas(v) && piperChoice() === v, have: piperHas(v), size: `${x.mb} MB`, extraRemove: true, tryKey: "piper:" + v });
+}
+function engineList() {
+  const V = VX(), e = engineChoice(), st = VSTAT || {};
+  const has = engineHas;
+  /* an engine's voices show when it is chosen, and also whenever something of it is on this device, so a voice can
+     always be removed (or chosen) without first switching engines */
+  const row = (id, title, text, extra, shown) => `<div class="voicerow"><button class="opt ${e === id ? "on" : ""}" data-engine="${id}"><span class="radio ${e === id ? "on" : ""}"></span><span style="flex:1"><b>${title}</b><br><span class="note">${text}</span></span></button></div>${(e === id || shown) && extra ? `<div class="enginesub">${extra}</div>` : ""}`;
+  const dl = (id, size) => {
+    if (DLP[id]) return `<div class="note dlvoice">Downloading… ${mb(DLP[id].loaded)}${DLP[id].total ? ` of ${mb(DLP[id].total)}` : ""}</div>`;
+    if (!has(id)) return `<div class="dlvoice"><button class="btn gold" data-vdl="${id}">Download (${size})</button> <span class="note">Until it's downloaded, your ${DEVICE}'s voice reads.</span></div>`;
+    const how = NE.kind === id && NE.how ? ` · runs on the ${NE.how}` : "";
+    const bytes = id === "natural" ? (NK.on() ? NK.bytes : st.bytes) : 0;
+    return `<div class="dlvoice"><span class="note">On this ${DEVICE}${bytes ? ` · ${mb(bytes)}` : ""}${how}.</span> ${rmCtl(id, "data-vrm", id, bytes ? mb(bytes) : `about ${NK.on() ? NK.SIZE_MB : VX().SIZE_MB} MB`, ENGINE_NAME[id] || id)}</div>`;
+  };
+  const tri = (k, label) => `<button class="iconbtn" data-ktry="${k}" aria-label="Hear ${esc(label)}">${I.play}</button>`;
+  let out = "";
+  if (V) {
+    const rtf = rtfs();
+    const sp = id => rtf[id] ? ` Measured here: ${rtf[id].toFixed(1)}× real time${rtf[id] < 1 ? ", too slow to read without pauses" : ""}.` : "";
+    out += row("natural", "Natural (Kokoro)", `The most natural voice, and it says the Hebrew guttural ḥ. Made on this ${DEVICE}, nothing is sent anywhere. Fast on a Mac or a recent iPad; on most phones expect pauses. One model holds all its voices, so after the model each voice is a small download (about 0.5 MB).${sp("natural")}`,
+      dl("natural", `about ${NK.on() ? NK.SIZE_MB : V.SIZE_MB} MB`) + (has("natural") ? `<div class="note sublabel">Speaker</div>${Object.entries(KOKORO_VOICES).map(([k, n]) => kokoroRow(k, n)).join("")}` : ""), has("natural"));
+    out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is a whole model of its own (about 63 MB). Only voices whose recordings are public domain.${sp("piper")}`,
+      `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
+  }
+  if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
+    `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`}`);
+  if (V) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
+  return out;
+}
+function refreshEngines() { document.querySelectorAll("[data-engines]").forEach(n => { n.innerHTML = engineList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
+function voiceStatus() { const V = VX(); if (V) V.status().then(x => { VSTAT = x; refreshEngines(); }).catch(() => {}); checkVoices().then(refreshEngines); }
+function reloadVoice() { if (audio.speaking && cur()) load(!audio.paused); }
+function setEngine(id) { state.prefs.voiceEngine = id; neuralFailed = false; save.prefs(); refreshEngines(); setLang(langPref()); reloadVoice(); }
+async function downloadVoice(id) {
+  const V = VX(); if (!V || DLP[id]) return;
+  const size = id === "natural" && NK.on() ? NK.SIZE_MB : V.sizeMb(id, "eng"), ok = V.mayDownload(size);
+  if (!ok.ok) { toast(ok.why.replace(/ in Aa → Voice downloads/, " below")); return; }
+  if (ok.ask && !confirm(`${ok.why} Download it now?`)) return;
+  const files = new Map(); DLP[id] = { loaded: 0, total: size * 1e6 }; refreshEngines();
+  try {
+    await NE.load(id, { net: true, onBytes: m => { files.set(m.url, m.loaded); let n = 0; for (const x of files.values()) n += x; DLP[id] = { loaded: n, total: size * 1e6 }; refreshEngines(); } });
+    VSTAT = await V.status().catch(() => VSTAT);
+    if (NK.on()) await NK.status().catch(() => {});
+    delete DLP[id]; toast(`${ENGINE_NAME[id]} is on this ${DEVICE}`);
+    if (engineChoice() === id) { neuralFailed = false; setLang(langPref()); reloadVoice(); }
+  } catch (err) { delete DLP[id]; VSTAT = await V.status().catch(() => VSTAT); toast(`The ${ENGINE_NAME[id]} voice didn't start: ${err.message}`); }
+  refreshEngines();
+}
+/* one Piper voice, or one more Kokoro speaker: downloaded only when asked for, then chosen */
+async function downloadOne(kind, v) {
+  const V = VX(), id = kind + ":" + v; if (!V || DLP[id]) return;
+  const size = kind === "p" ? PIPER_VOICES[v].mb : 0.5, ok = V.mayDownload(size);
+  if (!ok.ok) { toast(ok.why.replace(/ in Aa → Voice downloads/, " below")); return; }
+  if (ok.ask && !confirm(`${ok.why} Download it now?`)) return;
+  const files = new Map(); DLP[id] = { loaded: 0, total: size * 1e6 }; refreshEngines();
+  const name = kind === "p" ? PIPER_VOICES[v].name : KOKORO_VOICES[v].split(" · ")[0];
+  try {
+    if (kind === "p") await NE.load("piper", { net: true, voice: v, onBytes: m => { files.set(m.url, m.loaded); let n = 0; for (const x of files.values()) n += x; DLP[id] = { loaded: n, total: size * 1e6 }; refreshEngines(); } });
+    else if (NK.on()) await NK.voice(v, V.wifiOnly());
+    else { const [store, f] = await voiceFilesModule(); await store.save(f.kokoroVoice(v), m => { DLP[id] = { loaded: m.loaded, total: m.total || size * 1e6 }; refreshEngines(); }); }
+    VHAVE.set(id, true); delete DLP[id];
+    if (kind === "p") { state.prefs.piperVoice = v; if (engineChoice() !== "piper") state.prefs.voiceEngine = "piper"; } else state.prefs.kokoroVoice = v;
+    save.prefs(); neuralFailed = false; toast(`${name} is on this ${DEVICE}`); setLang(langPref()); reloadVoice();
+  } catch (err) { delete DLP[id]; toast(`${name} didn't download: ${err.message}`); }
+  refreshEngines();
+}
+async function removeOne(kind, v) {
+  const id = kind + ":" + v, name = kind === "p" ? PIPER_VOICES[v].name : KOKORO_VOICES[v].split(" · ")[0];
+  try {
+    if (kind === "p") { if (NE.kind === "piper" && NE.voice === v) NE.stop(); const [store, f] = await voiceFilesModule(); for (const u of f.piperVoice(v).slice(0, 2)) await store.remove(u); VSTAT = await VX().status().catch(() => VSTAT); }
+    else if (NK.on()) await NK.voiceRemove(v);
+    else { const [store, f] = await voiceFilesModule(); await store.remove(f.kokoroVoice(v)); }
+  } catch (e) { toast(`Couldn't remove ${name}: ${e.message}`); return; }
+  VHAVE.set(id, false); toast(`${name} removed from this ${DEVICE}`); setLang(langPref()); reloadVoice(); refreshEngines();
+}
+const trialEl = new Audio(); let trialTurn = 0;
+function tryNeural(k) {
+  const id = String(k).startsWith("piper") ? "piper" : "natural", my = ++trialTurn, voice = id === "piper" ? String(k).split(":")[1] || piperChoice() : k;
+  if (audio.speaking && !audio.paused) audio.pause();
+  trialEl.src = SILENT; trialEl.play().catch(() => {});   // inside the tap, so the sample may play when it's ready
+  if (!(NE.loaded && NE.kind === id)) toast(`Loading the ${id === "natural" ? "natural" : "light"} voice…`);
+  NE.say(id, "Shabbat is a day of rest, blessing and holiness. Ḥanukka and Pesaḥ come in their seasons.", voice, state.speed || 1).then(a => {
+    if (my !== trialTurn) return;
+    trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = 1;
+    trialEl.play().then(() => vlog("sample playing"), e => toast(`Couldn't play the sample: ${e.message}`)); refreshEngines();
+  }).catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); refreshEngines(); });
+}
+function appleVoiceList() {
+  const L = AV.list, on = appleChoice();
+  if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  const good = L.some(v => QUALITY[v.quality]);
+  const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(avName(v))}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(avName(v))}">${I.play}</button></div>`).join("");
+}
+function voiceList() {
+  if (AV.on()) return appleVoiceList();
+  const vs = voices(), on = pickVoice();
+  if (!vs.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  const rank = v => (/premium/i.test(v.name) ? 0 : /enhanced|siri/i.test(v.name) ? 1 : 2) * 10 + (/en-(US|GB)/i.test(v.lang) ? 0 : 1);
+  return vs.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).map(v => `<div class="voicerow"><button class="opt ${on && v.voiceURI === on.voiceURI ? "on" : ""}" data-voice="${esc(v.voiceURI)}"><span class="radio ${on && v.voiceURI === on.voiceURI ? "on" : ""}"></span><span style="flex:1"><b>${esc(v.name.replace(/\s*\(.*\)$/, ""))}</b> <span class="note">${esc(v.lang.replace("_", "-"))}${v.localService ? "" : " · online"}</span></span></button><button class="iconbtn" data-try="${esc(v.voiceURI)}" aria-label="Hear ${esc(v.name)}">${I.play}</button></div>`).join("");
+}
+function tryVoice(uri) {
+  if (AV.on()) {   // the app renders the sample, so Premium and Enhanced voices can be heard too
+    const my = ++trialTurn; if (audio.speaking && !audio.paused) audio.pause();
+    trialEl.src = SILENT; trialEl.play().catch(() => {});
+    AV.say("Shabbat is a day of rest, blessing and holiness.", uri, state.speed || 1).then(a => { if (my !== trialTurn) return; trialEl.src = URL.createObjectURL(a.blob); trialEl.playbackRate = 1; trialEl.play().catch(e => toast(`Couldn't play the sample: ${e.message}`)); })
+      .catch(e => { if (my === trialTurn) toast(`Couldn't make the sample: ${e.message}`); });
+    return;
+  }
+  const v = voices().find(x => x.voiceURI === uri); if (!v) return;
+  const wasPlaying = audio.speaking && !audio.paused; if (wasPlaying) audio.pause();
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance("Shabbat is a day of rest, blessing and holiness."); u.voice = v; u.lang = v.lang; u.rate = state.speed || 1; speechSynthesis.speak(u); } catch {}
+}
+function wireVoiceField(s) {
+  const f = $("[data-voicefield]", s); if (!f) return;
+  voiceStatus();
+  $("[data-aivoice]", f).onclick = () => { state.prefs.aiVoice = state.prefs.aiVoice === false; save.prefs(); const on = state.prefs.aiVoice !== false;
+    $("[data-aivoice] .switch", f).classList.toggle("on", on); $("[data-aivoice]", f).setAttribute("aria-pressed", on); $("[data-enginefield]", f).hidden = !on; setLang(langPref()); };
+  f.onclick = e => {
+    const g = x => e.target.closest(x);
+    let b;
+    if ((b = g("[data-ktry]"))) { tryNeural(b.dataset.ktry); return; }
+    if ((b = g("[data-try]"))) { tryVoice(b.dataset.try); return; }
+    if ((b = g("[data-vdl]"))) { downloadVoice(b.dataset.vdl); return; }
+    if ((b = g("[data-rmask]"))) { RMASK = b.dataset.rmask; refreshEngines(); return; }
+    if ((b = g("[data-rmcancel]"))) { RMASK = ""; refreshEngines(); return; }
+    if ((b = g("[data-vrm]"))) { RMASK = ""; const id = b.dataset.vrm; if (NE.kind === id) NE.stop(); (id === "natural" && NK.on() ? NK.remove() : VX().remove(id, "eng")).then(() => { toast(`${ENGINE_NAME[id]} removed from this ${DEVICE}`); voiceStatus(); setLang(langPref()); reloadVoice(); }); return; }
+    if ((b = g("[data-vwifi]"))) { VX().setWifiOnly(!VX().wifiOnly()); refreshEngines(); return; }
+    if ((b = g("[data-engine]"))) { if (b.dataset.engine !== engineChoice()) setEngine(b.dataset.engine); return; }
+    if ((b = g("[data-kvoice]"))) { state.prefs.kokoroVoice = b.dataset.kvoice; state.prefs.voiceEngine = "natural"; neuralFailed = false; save.prefs(); refreshEngines(); tryNeural(b.dataset.kvoice); setLang(langPref()); reloadVoice(); return; }
+    if ((b = g("[data-pvoice]"))) { state.prefs.piperVoice = b.dataset.pvoice; state.prefs.voiceEngine = "piper"; neuralFailed = false; save.prefs(); refreshEngines(); tryNeural("piper:" + b.dataset.pvoice); setLang(langPref()); reloadVoice(); return; }
+    if ((b = g("[data-kvoicedl]"))) { downloadOne("k", b.dataset.kvoicedl); return; }
+    if ((b = g("[data-pvoicedl]"))) { downloadOne("p", b.dataset.pvoicedl); return; }
+    if ((b = g("[data-kvoicerm]"))) { RMASK = ""; removeOne("k", b.dataset.kvoicerm); return; }
+    if ((b = g("[data-pvoicerm]"))) { RMASK = ""; removeOne("p", b.dataset.pvoicerm); return; }
+    if (!(b = g("[data-voice]"))) return;
+    state.prefs.voice = b.dataset.voice; save.prefs(); tryVoice(b.dataset.voice);
+    refreshEngines(); setLang(langPref()); reloadVoice();
+  };
+}
+function refreshVoiceUI() { document.querySelectorAll("[data-voices]").forEach(n => { n.innerHTML = voiceList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
+function voiceDialog() {
+  dialog(`<h3>AI voice</h3><p class="note">Chapters with no English recording are read aloud by an AI voice. Pick one; ▶ plays a sample.</p>${voiceField()}
+    <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-x>Done</button></div>`, (s, close) => { wireVoiceField(s); $("[data-x]", s).onclick = close; });
+}
+/* while the AI voice reads, mark the paragraph it is on (chapter view of the chapter playing) */
+function paintSpokenPara(p) {
+  document.querySelectorAll(".reader .spoken, .nptext .spoken").forEach(e => e.classList.remove("spoken"));
+  const npb = $("#npText"); if (npb) npb.dataset.p = p == null ? "" : p;
+  const t = cur(); if (p == null || p === "" || +p < 0 || !t) return; p = +p;
+  const nb = npb && npb.querySelector(".en-body");
+  if (nb) { const ttl = nb.querySelector(":scope > h3"), ls = [...nb.querySelectorAll("p, li, h2, h3, h4")].filter(b => b !== ttl), e = ls[p]; if (e) { e.classList.add("spoken"); const br = npb.getBoundingClientRect(), er = e.getBoundingClientRect(); if (er.top < br.top || er.bottom > br.bottom) npb.scrollTop += er.top - br.top - 40; } }
+  if (location.hash !== `#ch-${t.id}`) return;
+  const sec = $(`#sec-${P.part + 1}`); if (!sec) return;
+  const body = sec.querySelector(".en-body, .ai-sec"); if (!body) return;
+  const blocks = body.querySelectorAll("p, li, h2, h3, h4"), title = body.querySelector(":scope > h3"), list = [...blocks].filter(b => b !== title && !b.closest(".sectools"));
+  const el = list[p]; if (!el) return;
+  el.classList.add("spoken");
+  const rc = el.getBoundingClientRect(); if (rc.top > innerHeight * .8 || rc.bottom < 80) { const prev = list[p - 1]; const pr = prev && prev.getBoundingClientRect(); if (!prev || (pr.bottom > 0 && pr.top < innerHeight)) el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+}
+/* language picker: one segmented control on the chapter page and in the player */
 function langBar(t) {
   const r = state.prefs.read || "en";
-  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"]];
-  return `<div class="langbar"><div class="segrow"><span class="seglabel">Read</span><div class="seg" role="radiogroup" aria-label="Reading language">
+  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"], ["side", "Side by side"]];
+  return `<div class="langbar"><div class="segrow"><span class="seglabel">Language</span><div class="seg" role="radiogroup" aria-label="Reading language">
     ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div></div>
-    ${listenSeg(t)}</div>`;
+    <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
-const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew" };
-/* Show the chapter in the reader's language: English, Hebrew, or both (Hebrew under each English section). */
+const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" };
+/* Show the chapter in the reader's language: English, Hebrew, both (Hebrew under each English section) or side by side
+   (English and Hebrew in two columns, paragraph beside paragraph; on a phone each Hebrew paragraph sits under its English). */
 function applyReadLang(t, r) {
   const mode = state.prefs.read || "en";
-  r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both");
+  r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both"); r.classList.toggle("read-side", mode === "side");
   if (mode === "en") { r.querySelectorAll(".hebslot").forEach(s => { if (!s.dataset.user) s.hidden = true; }); r.querySelectorAll(".heb-orig").forEach(h => { if (!h.dataset.user) h.hidden = true; }); return; }
   const slots = [...r.querySelectorAll(".hebslot, .heb-orig")];
   slots.forEach(s => { s.hidden = false; });
   const empty = slots.filter(s => !s.innerHTML.trim());
+  if (mode === "side") sideAlign(r);
   if (!empty.length) return;
   empty.forEach(s => { s.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`; });
   hebrewChapter(t).then(() => empty.forEach(s => {
     const h = hebCache[`${t.id}-${String(s.dataset.sec).padStart(2, "0")}`];
     s.innerHTML = h ? `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}` : `<p class="note" dir="ltr">No Hebrew found for this section.</p>`; hebDone(s, t);
-  })).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
+  })).then(() => { if ((state.prefs.read || "en") === "side" && document.body.contains(r)) sideAlign(r); }).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
+}
+/* Side by side: pair each English block with its Hebrew one so they share a row. The translations keep the Hebrew's
+   paragraphs, so the pairing is by position, and only where both columns have the same number of blocks; where they
+   don't (an official translation that merged or split paragraphs), the section shows as two whole columns instead,
+   rather than setting a paragraph beside one it doesn't translate. Nothing moves in the DOM: the blocks get their row
+   from CSS variables (--sr wide, --so narrow), so read-along, citations and saved places work unchanged. */
+function sideAlign(r) {
+  r.querySelectorAll("section").forEach(sec => {
+    const en = sec.querySelector(":scope > .en-body, :scope > .ai-sec"), he = sec.querySelector(":scope > .hebslot, :scope > .heb-orig");
+    sec.classList.remove("sbs-pair", "sbs-cols");
+    if (!en || !he || he.hidden || !he.innerHTML.trim() || he.querySelector(":scope > .loading")) return;
+    const ea = [...en.children].filter(e => !e.matches(".secfoot")), ha = [...he.children].filter(e => !e.matches(".foot, .note"));
+    if (ea.length > 1 && ea.length === ha.length) {
+      ea.forEach((e, i) => { e.style.setProperty("--sr", i + 1); e.style.setProperty("--so", 2 * i); });
+      ha.forEach((e, i) => { e.style.setProperty("--sr", i + 1); e.style.setProperty("--so", 2 * i + 1); });
+      [...en.children, ...he.children].filter(e => !ea.includes(e) && !ha.includes(e)).forEach(e => { e.style.setProperty("--sr", ea.length + 1); e.style.setProperty("--so", 2 * ea.length); });
+      sec.classList.add("sbs-pair");
+    } else sec.classList.add("sbs-cols");
+  });
 }
 function toggleSave(t, sec) {
   const slug = `${t.id}-${String(sec).padStart(2, "0")}`, k = state.saved.findIndex(s => s.id === slug);
@@ -1456,7 +2354,7 @@ function studyLog() {
 function dlSummary() {
   dlRefresh();
   const n = TRACKS.filter(isDownloaded).length, busy = TRACKS.filter(t => ["loading", "waiting"].includes(dlState(t).s)).length;
-  return `${n} chapter${n === 1 ? "" : "s"} on this phone${n ? ` · ${fmtMB(dlUsed())}` : ""}${busy ? ` · ${busy} downloading` : ""} · smart downloads ${DL.prefs.smart ? "on" : "off"}`;
+  return `${n} chapter${n === 1 ? "" : "s"} on this ${DEVICE}${n ? ` · ${fmtMB(dlUsed())}` : ""}${busy ? ` · ${busy} downloading` : ""} · smart downloads ${DL.prefs.smart ? "on" : "off"}`;
 }
 function hebSaved() { if (!NATIVE) return []; try { return JSON.parse(NATIVE.textList()).filter(f => /^he-\d\d-\d\d\.json$/.test(f.n)); } catch { return []; } }
 const HEALL = { run: false, done: 0, total: 0, failed: 0 };
@@ -1481,7 +2379,7 @@ function offlineCard() {
 }
 function vDownloads() {
   setTop("Downloads"); setTab("library");
-  if (!NATIVE) { view.innerHTML = `<div class="view"><h1 class="hello">Downloads</h1><p class="note">Downloading audio for offline listening works in the Android app.</p></div>`; return; }
+  if (!NATIVE) { view.innerHTML = `<div class="view"><h1 class="hello">Downloads</h1><p class="note">Downloading audio for offline listening works in the Pearls app for Android, iPhone and iPad.</p></div>`; return; }
   dlRefresh();
   const p = DL.prefs, have = TRACKS.filter(isDownloaded), busy = TRACKS.filter(t => ["loading", "waiting"].includes(dlState(t).s));
   const heb = hebSaved(), hebMB = heb.reduce((a, f) => a + f.s, 0), enN = TRACKS.filter(t => !t.vol.he).length, aiN = TRACKS.filter(t => t.vol.he && t.translated).length;
@@ -1490,12 +2388,12 @@ function vDownloads() {
   view.innerHTML = `<div class="view">
     <div><h1 class="hello">Downloads</h1>
       <p class="sub">${have.length} chapter${have.length === 1 ? "" : "s"} · ${fmtMB(dlUsed())} of audio${DL.free ? ` · ${fmtMB(DL.free)} free` : ""} · ${online() ? "online" : "<b>offline</b>"}</p></div>
-    ${!DL.ok ? `<div class="panel note">This phone's storage isn't available right now, so audio can't be downloaded.</div>` : ""}
+    ${!DL.ok ? `<div class="panel note">This ${DEVICE}'s storage isn't available right now, so audio can't be downloaded.</div>` : ""}
     ${busy.length ? `<section><div class="sec-h"><h2>Downloading</h2><button class="more" data-act="dlcancel">Cancel all</button></div>
       <div class="list">${busy.map(t => trackRow(t, { why: dlLabel(t).text, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Cancel">${I.x}</button>` })).join("")}</div>
       ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
     <section class="panel dlset"><div class="eyebrow">Smart downloads</div>
-      ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the phone, plus chapters you're partway through, so they play without a connection.`)}
+      ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the ${DEVICE}, plus chapters you're partway through, so they play without a connection.`)}
       <div class="field"><label>Chapters ahead</label><div class="chips">${[1, 3, 5, 10].map(n => `<button class="chip ${p.ahead === n ? "on" : ""}" data-ahead="${n}">${n}</button>`).join("")}</div></div>
       ${tog("autoDelete", "Delete after listening", "Removes chapters that smart downloads fetched once you've heard them. Chapters you download yourself stay until you remove them.")}
       ${tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
@@ -1504,13 +2402,13 @@ function vDownloads() {
     </section>
     <section class="panel dlset"><div class="eyebrow">Reading offline</div>
       <p class="note" style="margin:0"><b>English:</b> all ${enN} chapters of the official translation and the ${aiN} AI-translated chapters are inside the app, so they read without a connection.</p>
-      <p class="note" style="margin:0"><b>Hebrew:</b> ${heb.length} of ${TRACKS.length} chapters saved on this phone${heb.length ? ` (${fmtMB(hebMB)})` : ""}. A chapter's Hebrew is saved the first time it loads, and when you download its audio.</p>
+      <p class="note" style="margin:0"><b>Hebrew:</b> ${heb.length} of ${TRACKS.length} chapters saved on this ${DEVICE}${heb.length ? ` (${fmtMB(hebMB)})` : ""}. A chapter's Hebrew is saved the first time it loads, and when you download its audio.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         ${HEALL.run ? `<button class="btn line" data-act="dlhebstop">${DLI.wait}<span>Saving Hebrew ${HEALL.done}/${HEALL.total} · stop</span></button>`
           : heb.length < TRACKS.length ? `<button class="btn line" data-act="dlheb" ${online() ? "" : "disabled"}>${DLI.get}<span>Save all the Hebrew (~${fmtMB(Math.max(0, TRACKS.length - heb.length) * 60e3)})</span></button>` : `<span class="note">${DLI.done} All the Hebrew is saved.</span>`}
         ${heb.length ? `<button class="btn line" data-act="dlhebclear">Delete saved Hebrew</button>` : ""}</div>
     </section>
-    <section><div class="sec-h"><h2>On this phone</h2>${have.length ? `<button class="more" data-act="playdl">Play all</button>` : ""}</div>
+    <section><div class="sec-h"><h2>On this ${DEVICE}</h2>${have.length ? `<button class="more" data-act="playdl">Play all</button>` : ""}</div>
       ${have.length ? `<div class="list">${have.map(t => trackRow(t, { why: `${fmtMB(sizeOf(t))}${DL.idx[t.id].auto ? " · smart" : ""}`, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Remove download">${I.x}</button>` })).join("")}</div>
         <div style="display:flex;justify-content:flex-end"><button class="btn line" data-act="dlrmall">Delete all downloads</button></div>`
         : `<div class="panel empty"><div class="em-orb"></div><span>Nothing downloaded yet. Tap <b>Download</b> on a chapter, or <b>Download all</b> on a book or playlist. With smart downloads on, what you're listening to downloads by itself.</span><button class="btn ghost" data-go="books">Browse the books</button></div>`}</section>
@@ -1689,7 +2587,7 @@ function syncWire(s) {
     const code = q("#syncCode").value.trim(); if (!code) return;
     try {
       const r = await fetch(SYNC.base + "/api/claim", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "omit",
-        body: JSON.stringify({ code, device: window.PearlsNative ? "Android app" : location.protocol === "pearls:" ? "Apple app" : "Pearls app" }) });
+        body: JSON.stringify({ code, device: location.protocol === "pearls:" ? (window.PEARLS_SHELL === "ipad" ? "iPad app" : window.PEARLS_SHELL === "mac" ? "Mac app" : "iPhone app") : window.PearlsNative ? "Android app" : "Pearls app" }) });
       const j = await r.json();
       if (!r.ok) { toast(j.error || "That code didn't work"); return; }
       store.set("syncToken", j.token); syncNote({ who: j.who || "", err: "" });
@@ -1738,11 +2636,10 @@ function settingsDialog() {
       <a class="note" href="#spelling" data-credits style="color:var(--gold-2)">All spelling schemes, compared</a></div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
-    <div class="field"><label>Read in</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${(state.prefs.read || "en") === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
-      <span class="note">Hebrew is Rav Melamed's original from ph.yhb.org.il. ${NATIVE ? "Once a chapter's Hebrew has loaded it stays on the phone for offline reading." : "It needs a connection."}</span></div>
-    <div class="field"><label>Listen in</label><div class="chips">${[["auto", "Match my reading"], ["he", "Hebrew"], ["en", "English"]].map(([v, l]) => `<button class="chip ${audioLang === v ? "on" : ""}" data-alang="${v}">${l}</button>`).join("")}</div>
-      <span class="note">"Match my reading" plays the English reading when you read in English and one exists, and the Hebrew otherwise. English readings exist for Shabbat, Prayer, Zemanim and Festivals, and parts of Pesach, Sukkot and Days of Awe; elsewhere the Hebrew plays.</span></div>
-    <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the phone's speaker.${window.PearlsNative ? "" : " Works in the Android app."}</span></span></button>
+    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"], ["side", "Side by side"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
+      <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English. ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
+    ${voiceField()}
+    <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
     ${syncField()}
@@ -1758,8 +2655,8 @@ function settingsDialog() {
     s.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => { state.prefs.skin = b.dataset.skin; if (b.dataset.skin === "daf" && !state.prefs.readSet) state.prefs.read = "both"; save.prefs(); applyPrefs(); s.querySelectorAll("[data-skin]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
     s.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { state.prefs.mode = b.dataset.mode; save.prefs(); applyPrefs(); s.querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b)); });
     s.querySelectorAll("[data-hefont]").forEach(b => b.onclick = () => { state.prefs.hefont = b.dataset.hefont; save.prefs(); applyHebFont(); s.querySelectorAll("[data-hefont]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); });
-    s.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { state.prefs.read = b.dataset.read; save.prefs(); s.querySelectorAll("[data-read]").forEach(x => x.classList.toggle("on", x === b)); });
-    s.querySelectorAll("[data-alang]").forEach(b => b.onclick = () => { audioLang = b.dataset.alang; store.set("audioLang", audioLang); s.querySelectorAll("[data-alang]").forEach(x => x.classList.toggle("on", x === b)); if (P.queue && P.queue.length) load(!audio.paused); });
+    s.querySelectorAll("[data-read]").forEach(b => b.onclick = () => { setLang(b.dataset.read); s.querySelectorAll("[data-read]").forEach(x => x.classList.toggle("on", x === b)); });
+    wireVoiceField(s);
     s.querySelectorAll("[data-size]").forEach(b => b.onclick = () => { state.prefs.size = +b.dataset.size; save.prefs(); applyPrefs(); s.querySelectorAll("[data-size]").forEach(x => x.classList.toggle("on", x === b)); });
     $("[data-unplug]", s).onclick = () => { state.prefs.unplugPause = state.prefs.unplugPause === false; save.prefs();
       $("[data-unplug] .radio", s).classList.toggle("on", state.prefs.unplugPause); toast(state.prefs.unplugPause ? "Pauses when headphones disconnect" : "Keeps playing when headphones disconnect"); };
@@ -1870,10 +2767,10 @@ function mTools(t, labelled) {   // the mini player's Read along / Favorite / Pl
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
   document.body.classList.add("has-mini");
-  const both = hasEn(t) && hasHe(t);
+  const both = hasHe(t) && (hasEn(t) || (enText(t) && aiVoiceOn()));
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
       <span class="mwide">${mTools(t)}</span>
-      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Audio language">${P.lang === "en" ? "EN" : "עב"}</button>
+      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening">${P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
     <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
@@ -1920,6 +2817,7 @@ function syncNP(full) {
   const liked = state.likes.has(t.id);
   if (full || npEl.dataset.id !== t.id + ':' + P.part + ':' + P.lang) {
     npEl.dataset.id = t.id + ':' + P.part + ':' + P.lang;
+    setTimeout(() => fillNPText(t, P.part), 0);
     const upnext = upcoming(3).filter(i => i !== t.id).map(i => BYID[i]).filter(Boolean), pm = PLAY_MODES.find(x => x[0] === playMode());
     npEl.innerHTML = `<div class="sheet-h"><button class="iconbtn" data-act="npclose" aria-label="Close">${I.down}</button>
         <div class="eyebrow">${P.ctx ? esc(P.ctx) : "Now playing"}</div><button class="iconbtn" data-act="trackmenu" data-id="${t.id}" aria-label="More">${I.more}</button></div>
@@ -1935,7 +2833,8 @@ function syncNP(full) {
           <button class="play" data-act="toggle" id="npPlay" aria-label="Play or pause">${audio.paused ? I.play : I.pause}</button>
           <button class="skip" data-act="f30" aria-label="Forward 30 seconds">${I.fwd30}</button>
           <button class="sm" data-act="next" aria-label="Next">${I.next}</button></div>
-        ${listenSeg(t, P.lang)}
+        ${langBar(t)}
+        <div class="nptext" id="npText" aria-label="The text of this section"><div class="loading"><div class="spin"></div></div></div>
         <div class="np-tools"><button class="pill ${pm[0] !== "next" ? "on" : ""}" data-act="playmode">${I[pm[3]] || I.order}${pm[1]}</button>
           <button class="pill" data-act="speed" id="speedPill">${state.speed}×</button>
           <button class="pill ${P.sleepAt || P.sleepEnd ? "on" : ""}" data-act="sleep" id="sleepPill">${I.moon}${P.sleepEnd ? "End of chapter" : P.sleepAt ? "Sleep" : "Sleep timer"}</button>
@@ -2071,7 +2970,7 @@ function like(id) {
   smartSoon();
 }
 let toastT;
-function toast(msg) { document.querySelectorAll(".toast").forEach(t => t.remove()); const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
+function toast(msg) { if (window.PEARLS_LOG) window.PEARLS_LOG("toast: " + msg); document.querySelectorAll(".toast").forEach(t => t.remove()); const t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
 
 /* ---------- actions ---------- */
 const IN_APP = /; wv\)/.test(navigator.userAgent);   // Android WebView shell
@@ -2108,17 +3007,12 @@ document.addEventListener("click", e => {
     case "addto": addTo(id); break;
     case "trackmenu": trackMenu(id); break;
     case "spelling": settingsDialog(); break;
-    case "setread": { state.prefs.read = b.dataset.v; state.prefs.readSet = true; save.prefs();
-      document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === state.prefs.read; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
-      const r = $("#reader"); if (r && BYID[id]) applyReadLang(BYID[id], r); break; }
-    case "setlisten": { audioLang = b.dataset.v; store.set("audioLang", audioLang);
-      document.querySelectorAll('[data-act="setlisten"]').forEach(x => { const on = x.dataset.v === audioLang; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
-      const pl = document.querySelector('[data-act="playch"] .plang'); if (pl && BYID[id]) pl.textContent = ` · ${wantsEnglish(BYID[id]) ? "English" : "Hebrew"}`;
-      if (cur() && cur().id === id) { load(!audio.paused); renderMini(); }
-      toast(audioLang === "en" ? "English audio" : "Hebrew audio"); break; }
-    case "readlang": { const order = ["en", "he", "both"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % 3]; save.prefs();
+    case "setread": setLang(b.dataset.v); break;
+    case "voice": voiceDialog(); break;
+    case "playsec": { const t = BYID[id]; const ids = TRACKS.filter(x => x.vol === t.vol).map(x => x.id); playQueue(ids, ids.indexOf(id), t.vol.title, +b.dataset.sec - 1); break; }
+    case "readlang": { const order = ["en", "he", "both", "side"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % order.length]; save.prefs();
       b.textContent = "Read · " + READ_LABEL[state.prefs.read]; const r = $("#reader"); if (r && BYID[id || (location.hash.match(/ch-(\d\d-\d\d)/) || [])[1]]) applyReadLang(BYID[id || location.hash.match(/ch-(\d\d-\d\d)/)[1]], r);
-      toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : "Reading in English"); break; }
+      toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : state.prefs.read === "side" ? "English and Hebrew side by side" : "Reading in English"); break; }
     case "savesec": { const on = toggleSave(BYID[id], +b.dataset.sec); b.classList.toggle("on", on); b.innerHTML = `${on ? I.bookOn : I.book}<span>${on ? "Saved" : "Save"}</span>`; break; }
     case "sharesec": shareSection(BYID[id], +b.dataset.sec); break;
     case "plan": planDialog(); break;
@@ -2135,20 +3029,17 @@ document.addEventListener("click", e => {
         $("[data-ok]", d).onclick = () => { s.note = $("#noteTxt", d).value.trim(); save.saved(); close(); render(); };
         $("[data-del]", d).onclick = () => { state.saved.splice(+b.dataset.i, 1); save.saved(); close(); render(); }; }); break; }
     case "hebsec": { const sec = b.closest("section"), slot = sec.querySelector(".hebslot");
-      slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; break; }
+      slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; if ((state.prefs.read || "en") === "side") sideAlign(sec.parentNode); break; }
       slot.hidden = false; slot.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`;
-      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); })
+      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); if ((state.prefs.read || "en") === "side") sideAlign(sec.parentNode); })
         .catch(() => { slot.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew for this section. You need a connection.</p>`; }); break; }
     case "markdone": { if (state.read[id]) { delete state.read[id]; syncGoneRead(id); } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
     case "togglelist": toggleList(b.dataset.list, id); break;
     case "playmode": dialog(`<h3>Playback order</h3>${PLAY_MODES.map(([k, n, d, ic]) => `<button class="opt" data-m="${k}"><span class="radio ${playMode() === k ? "on" : ""}"></span><span style="flex:1;min-width:0"><b>${n}</b><br><span class="note">${d}</span></span></button>`).join("")}
-      <p class="foot" style="margin:0">${NATIVE ? "Smart downloads follow this order, so what plays next is already on the phone." : ""}</p>`, (s2, close) => {
+      <p class="foot" style="margin:0">${NATIVE ? `Smart downloads follow this order, so what plays next is already on the ${DEVICE}.` : ""}</p>`, (s2, close) => {
         s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); renderMini(); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
-    case "audiolang": { audioLang = (cur() ? P.lang : (audioLang === "auto" ? (wantsEnglish(BYID[id] || {}) ? "en" : "he") : audioLang)) === "en" ? "he" : "en"; store.set("audioLang", audioLang); const pos = audio.currentTime; load(!audio.paused);
-      document.querySelectorAll('.chhead [data-act="audiolang"]').forEach(c => { if (BYID[c.dataset.id]) c.textContent = "Listen · " + (wantsEnglish(BYID[c.dataset.id]) ? "English" : "Hebrew"); });
-      const pb = document.querySelector('[data-act="playch"] .plang'), pid = pb && pb.parentNode.dataset.id; if (pb && BYID[pid]) pb.textContent = ` · ${wantsEnglish(BYID[pid]) ? "English" : "Hebrew"}`;
-      toast(audioLang === "en" ? "English reading where available; Hebrew otherwise" : "Hebrew reading"); break; }
+    case "audiolang": { const t = cur() || BYID[id]; setLang(t && listenLang(t) === "he" ? "en" : "he"); toast(langPref() === "he" ? "Hebrew: reading and listening" : t && listenLang(t) === "tts" ? "English: the AI voice reads it" : "English: reading and listening"); break; }
     case "dl": { const t = BYID[id], st = dlState(t);
       if (st.s === "none") { if (!DL.ok) { toast("Storage isn't available for downloads"); break; }
         downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're back online" : `Downloading in ${dlLang(t) === "en" ? "English" : "Hebrew"} · about ${fmtMB(dlBytes(t, dlLang(t)))}`); }
@@ -2220,6 +3111,7 @@ function render() {
   else if (h === "credits") vCredits();
   else if (h === "spelling") vSpelling();
   else if (h === "calendar") vCalendar();
+  else if (h === "daily") vDaily();
   else if (h === "downloads") vDownloads();
   else vHome();
   window.scrollTo(0, 0); refreshPlaying();
@@ -2248,5 +3140,6 @@ applyPrefs();
 renderMini();
 render();
 syncStart();
-window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio };   // handy for debugging
+setTimeout(dailyLook, 5000);
+window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang, NE, NK, Neural };   // handy for debugging
 })();

@@ -43,12 +43,18 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_flat.py`: the flat rule (see Rules). It must end "flat: no soft gradients or blurs".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
+  - `python3 test_daily.py`: the Daily Pearl schedule against the catalogue, the Home card and `#daily`, and finding
+    next year's bookmark by itself (a stand-in PDF from `make_test_bookmark.py`, served through a fake proxy). It must
+    end "daily pearl: 26/26".
   - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 13/13".
   - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
     "6/6 checks passed".
   - `WRANGLER=… node test_sync.mjs`: sync's merge rules and API (`wrangler pages dev`). It must end "sync: 30/30".
   - `WRANGLER=… node test_sync_app.mjs`: sync end to end, a signed-in browser plus a stand-in for the app. It must end
     "sync app: 15/15". Needs Playwright (`NODE_PATH=$(npm root -g)`).
+  - `python3 test_apple_shell.py`: the Apple bridge (`native-shim.js` against a stand-in for the Swift side), the
+    device word ("on this iPad") and the iPad side rail. It must end "apple shell: 16/16". The Swift itself only
+    builds on a Mac: `apple/README.md` has the steps.
 
 ## Android 2.0 shell (Google Play ready)
 
@@ -116,7 +122,49 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   and Continue the book toggles, which set `prefs.playMode` like the order pill. Continue the book now runs on into the
   next book (`nextInOrder()`, skipping chapters with no recording). Every book card has a play button that starts the
   book at its first unheard chapter.
-- The Apple app and the web version have no bridge. They read the bundled English offline, but don't download audio.
+- **One language, AI voice** (2.7): `prefs.read` (en, he, both) sets reading and listening together; `setLang()` is
+  the one switch (Settings, the chapter page, Now Playing, the mini player's EN/עב pill), and changing it reloads the
+  audio. `listenLang(t)` picks the audio: the English recording, else the **AI voice** (`tts`: the device's speech
+  engine reading the bundled English, labelled as AI) for AI-translated chapters, else Hebrew. The `Speaker` engine
+  mimics an `<audio>` element and the `audio` facade switches between it and the real one on `speech:<id>:<section>`
+  srcs. The voice is `prefs.voice` (Settings → Voice, or "Change voice" by the player); the paragraph being read is
+  highlighted in the reader and in Now Playing's text. A failed English recording falls back to the AI voice, then
+  Hebrew; an engine with no voice is detected and treated as a failure. Play order defaults to Continue the book.
+- **Natural voices** (2.7): Settings → Voice offers three engines for the AI voice: **Natural (Kokoro)**, about
+  370 MB once, four voices (`prefs.kokoroVoice`), says the guttural ḥ; **Light (Piper)**, about 93 MB, keeps up on any
+  phone; and the device's own voice. They are chosen with `prefs.voiceEngine`. Both run on the device (WebGPU or
+  WebAssembly), download only when asked (Wi-Fi only by default) and can be removed.
+  - The engine is Estante's (github.com/dendrito/estantes): `www/voice.js`, `voice-*.js`, `*-worker.js` and
+    `www/voice/lexicon-*.tsv`, **shipped unmodified**. Upgrade it by copying Estante's files, never by editing them here.
+  - In `app.js`, `NE` talks to Estante's workers directly and `Neural` mimics `<audio>` the way `Speaker` does; the
+    `audio` facade picks it for `speech:` srcs when `neuralReady()`. Each piece is made in the worker and played as a
+    WAV through its own `<audio>` element (`neuralEl`), not Web Audio, because an iPad left Web Audio silent.
+  - Kokoro steps down when the full model doesn't fit (measured on an iPad: "[webgpu] RangeError: Out of memory"):
+    fp32 on WebGPU, then fp16 on WebGPU (a second ~163 MB download), then fp32 on the processor. What worked is kept
+    in `pearls.kokoroRun`; Settings says where it runs.
+  - A natural voice that fails falls back to the device voice for the session (`neuralFailed`), and the toast says why.
+  - **In the Apple app Kokoro runs natively** (`apple/Pearls/KokoroNative.swift`): ONNX Runtime (Swift package
+    `onnxruntime-swift-package-manager`) runs the same fp32 model through Core ML where Core ML takes the graph, else on
+    the processor, with no WebKit memory cap. The app downloads the model, the four voices, `tokenizer.json` and eSpeak
+    (`phonemizer.js`) into Application Support/Pearls/kokoro/ and serves `pearls://app/native/kokoro/`
+    (status · download · load · say · remove · phonemizer.js). The page still makes the phonemes (`www/pearls-phonemes.js`,
+    Estante's `english()` plus Pearls' Hebrew rule, so the ḥ stays) and plays the WAV the app returns. `NK` in app.js is
+    the client; the page uses it when `PearlsNative.info().kokoro` is true. Piper stays in the web worker.
+  - Test: `python3 test_voice.py` (a stand-in for voice.js, since its models come from the network). It must end
+    "voice: 29/29".
+  - **The device's own voices in the Apple app** come from the app (`apple/Pearls/AppleVoice.swift`): WKWebView's
+    speechSynthesis lists only compact voices, so the app lists the English ones (`AVSpeechSynthesisVoice`, Premium and
+    Enhanced labelled, best and male first) and renders each piece to a WAV (`AVSpeechSynthesizer.write`) at
+    `pearls://app/native/apple-voice/` (list · say). `AV` in app.js is the client (on when `PearlsNative.info().appleVoices`);
+    reading goes through `Neural`'s two players like the natural voices. With no Premium or Enhanced English voice,
+    Settings → Voice shows how to download one. The web and Android keep speechSynthesis (`Speaker`).
+  - **Voices are downloads of their own:** each Piper voice (medium quality, which keeps up on an iPad; Ryan is the
+    default) and each extra Kokoro speaker (about 0.5 MB; George is the default) downloads only when chosen, and every
+    download has its own Remove (two taps). Default voices are male. Licences are on the Credits page.
+- The Apple app (2.7) has the same bridge: `apple/Pearls/PearlsNative.swift` plus `native-shim.js`, which gives the page
+  Android's synchronous interface on top of WKWebView's asynchronous messages (state pushed by the app, requests posted to
+  it, `readText` a synchronous read from `pearls://app/native/text/`). The web version has no bridge: it reads the bundled
+  English offline but doesn't download audio.
 
 ## Where things are
 
@@ -126,6 +174,7 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
 | `www/meldar-cite.js`, `www/pearls-cite-links.js`, `.css` | Citation links. Footnote and body citations (SA 345:2, MB, Shabbat 6a, Rambam, Tosafot, Tanakh, Arukh HaShulchan…) become links; a tap opens a sheet with the passage from Sefaria (Hebrew, English, each version's licence) and "Open on Sefaria / in Meldar". `meldar-cite.js` is Meldar's citation grammar, **shipped unmodified** like `meldar-record.js`: upgrade it by copying Meldar's file, never by editing it here. `linkCites()` in app.js runs before respelling and Hebrew tints (both rewrite text nodes); clicks are delegated (`citeClicks`) because chapter HTML is rebuilt as strings. A bare Shulchan Arukh siman takes its section from the chapter (`sefRef` → the grammar's section table) and the sheet says that part is our reading; with no chapter context it is not linked. Bare names ("Rashi") are not marked. "Peninei Halakha: Shabbat 21:8" opens that Pearls chapter. |
 | `functions/api/`, `webauth/sync.js`, `www/pearls-sync-merge.js` | Sync across devices: where you stopped reading (`state.where`, chapter + section) and listening, finished chapters, lists, playlists, saved passages and settings. Browsers on pearls.pages.dev use the sign-in pass; the apps link with a one-time code from a signed-in browser (Settings → Sync across devices) and keep a device token. Stored in KV (`SYNC`, else `INVITES`). The merge rules are one file shared by the app and the server; anything in `store.set` that is in `WHOLE` or a per-chapter map syncs automatically. Device-only: text size, downloads, the Meldar study record. Setup and limits: `docs/cloudflare-pages.md`. |
 | `www/calendar.js` | The Jewish calendar and its readings: 22 festivals and fasts plus Rosh Ḥodesh, with postponements, study windows (30 days before a festival) and chapters. Drives Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and the calendar boost in `recommend()`. Method: `docs/calendar-readings.md`. Test: `python3 test_calendar.py` (must end "calendar: 14/14"). |
+| `www/daily-pearl.js` | The Daily Pearl (הפנינה היומית), Peninei Halakha's own two halakhot a day. No feed exists (it goes out by WhatsApp, email, Telegram), so the year's schedule is copied from PH's printed study bookmark (PDF linked in the file), one token per day; `PH_DAILY.forDate()`. Drives Home's Daily Pearl card and `#daily`. **Next year's schedule is found by the app:** from two months before the schedule ends, once a day, `dailyLook()` (app.js) reads PH's Daily Pearl page through the proxy, finds a bookmark link for a newer year ("סימניית הלימוד - תשפ"ח"), reads the PDF with `www/pdf-text.js` (a small PDF text reader, loaded only then), turns the grid into the same token string (`parseBookmark`), and keeps it in `localStorage` `pearls.dailyYears` only if every printed date matches the Hebrew calendar, the day count matches the year, every book name in the margin is known, and every reference is in the catalogue. Otherwise nothing changes and the card links to PH. Reading the real 5787 bookmark this way reproduces the bundled string exactly. Bundling the year in `YEARS` is still the better release path; a bundled year always wins over a found one. The proxies allow `cdn1.yhb.org.il` too, where some bookmarks live. The bookmark is the Hebrew program; the English WhatsApp group may differ. |
 | `www/fonts/` | Shofar and Keter YG (Culmus, GPL+FE). Every Hebrew font must have GPOS `mark` and `mkmk`. |
 | `make_catalog.py`, `make_translit.py`, `make_he_books.py` | Build www data: the English catalogue, KTS transliteration, and the Hebrew-only books with AI translations. |
 | `work/he`, `work/en`, `work/TRANSLATE.md`, `work/check.py` | Hebrew sources, AI translations, the translation brief (fidelity rules plus licence evidence), and the validator. |
@@ -133,7 +182,8 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
 | `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
 | Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
 | `functions/`, `webauth/`, `docs/cloudflare-pages.md` | The web edition on Cloudflare Pages (pearls.pages.dev): output dir `www`, no build. `proxy.js` fetches ph.yhb.org.il text (only that host). The site is private: `_middleware.js` requires a pass, which comes from Cloudflare Access (Google or an email code, on `/signin`) or from an invite link made on `/admin` (stored in KV, can be cancelled). It also adds noindex. Setup steps are in the doc. Test: `WRANGLER=… node test_webauth.mjs`, which must end "webauth: 23/23". |
-| `apple/` | Xcode project. One multiplatform target. The `pearls://` scheme handler also proxies ph.yhb.org.il, which sends duplicate CORS headers. Run `apple/sync_www.sh` after changing www. |
+| `apple/` | Xcode project. One multiplatform target (iPhone, iPad, Mac). iOS starts from UIKit (status bar follows the skin, background downloads); the Mac from SwiftUI. The `pearls://` scheme handler serves www, proxies ph.yhb.org.il (duplicate CORS headers), serves downloads at `/dl/` with byte ranges and saved text at `/native/text/`. Run `apple/sync_www.sh` after changing www; `apple/build_ios.sh ipa` makes an App Store Connect build on a Mac. |
+| `www/wide.css` | The wide layout (2.7), from 768px: side rail instead of the tab bar, a wider column, centred dialogs, Now Playing side by side in landscape. Layout only, so every skin works unchanged. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
 | `docs/` | S&P house rules (KTS), the calendar readings method, and the notes on how Pearls links to Meldar. |
 
