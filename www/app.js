@@ -1448,9 +1448,10 @@ function vHome() {
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
     ${offlineCard()}
     ${along}
+    ${dailyCard()}
     ${todayCard()}
     ${hero ? `<section class="hero"><div class="orb"></div>
-      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Today's pearl</div>
+      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Recommended for you</div>
       <h3>${esc(R(hero.t.title))}</h3>
       <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
       <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
@@ -1467,6 +1468,62 @@ function vHome() {
     <section><div class="sec-h"><h2>The books</h2><button class="more" data-go="books">See all</button></div>
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
+  </div>`;
+}
+/* ---------- the Daily Pearl: Peninei Halakha's own two halakhot a day (daily-pearl.js) ---------- */
+const DAILY = window.PH_DAILY;
+const dpHalakha = (t, n) => { const st = t && t.sectionTitles[n - 1]; return st ? R(st) : `Halakha ${n}`; };
+function dpItems(parts) {   // [{t, sec}] for every halakha that day, in order
+  const out = [];
+  for (const p of parts) {
+    const t = BYID[`${p.book}-${String(p.ch).padStart(2, "0")}`];
+    const to = p.to == null ? (t && nSections(t) || p.from) : p.to;
+    for (let n = p.from; n <= to; n++) out.push({ t, book: p.book, ch: p.ch, sec: n });
+  }
+  return out;
+}
+function dpRef(parts) {   // "Kashrut 11:12–13", "Days of Awe 10:18 · Kashrut 1:1"
+  const vol = b => { const v = VOLS.find(x => x.book === b); return v ? R(v.short) : `Book ${b}`; };
+  const out = []; let i = 0;
+  while (i < parts.length) {
+    const a = parts[i], b = parts[i + 1];
+    if (b && b.book === a.book && a.to == null) { out.push(`${vol(a.book)} ${a.ch}:${a.from}–${b.ch}:${b.to}`); i += 2; }
+    else { out.push(`${vol(a.book)} ${a.ch}:${a.from}${a.to != null && a.to !== a.from ? `–${a.to}` : ""}`); i++; }
+  }
+  return out.join(" · ");
+}
+const dpRow = it => it.t
+  ? `<button class="dprow" data-act="resumeread" data-id="${it.t.id}" data-sec="${it.sec}"><span class="n">${it.ch}:${it.sec}</span><span class="tx"><b dir="auto">${esc(dpHalakha(it.t, it.sec))}</b><span class="m" dir="auto">${esc(R(it.t.title))}</span></span><span class="dur">›</span></button>`
+  : `<div class="dprow"><span class="n">${it.ch}:${it.sec}</span><span class="tx"><b>Halakha ${it.sec}</b><span class="m">Not in Pearls yet</span></span></div>`;
+function dailyCard() {
+  if (!DAILY) return "";
+  const d = DAILY.forDate(new Date());
+  if (!d) return `<section class="panel daily"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div>
+    <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.</p>
+    <div><a class="btn line" href="${DAILY.page}" target="_blank" rel="noopener">${I.ext}The Daily Pearl on Peninei Halakha</a></div></section>`;
+  const items = dpItems(d.parts), first = items.find(x => x.t), kinds = [...new Set(items.filter(x => x.t).map(x => kindOf(x.t)))];
+  return `<section class="panel daily"><div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
+    <div class="dphead"><b>${esc(dpRef(d.parts))}</b><span class="kinds">${kinds.map(kindTag).join("")}</span></div>
+    <div class="list">${items.map(dpRow).join("")}</div>
+    ${first ? `<div class="row"><button class="btn gold" data-act="resumeread" data-id="${first.t.id}" data-sec="${first.sec}">${I.read}${kindOf(first.t) === "he" ? "Read the Hebrew" : "Read today's halakhot"}</button></div>` : ""}
+    <p class="note" style="margin:0">Two halakhot a day, the order Peninei Halakha's own study follows.</p></section>`;
+}
+function vDaily() {
+  setTop("The Daily Pearl"); setTab("");
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const days = [];
+  for (let k = -2; k <= 7; k++) { const dt = new Date(today.getTime() + k * 864e5), d = DAILY && DAILY.forDate(dt); if (d) days.push({ dt, k, d }); }
+  view.innerHTML = `<div class="view">
+    <div><div class="eyebrow"><span lang="he" dir="rtl">הפנינה היומית</span> · Peninei Halakha</div>
+      <h1 class="hello">Two halakhot <em>a day</em>.</h1>
+      <p class="sub">The Daily Pearl is Peninei Halakha's own daily study: two halakhot every day, about two minutes, sent each morning by Yeshivat Har Bracha on WhatsApp, email and Telegram. It goes through the books in order and turns to the laws of each festival in the weeks before it. Pearls follows the schedule Peninei Halakha prints on its study bookmark for ${DAILY ? DAILY.YEARS.map(y => y.year).join(", ") : ""} (the Hebrew program), and opens each halakha in the English or AI translation where Pearls has one.</p></div>
+    ${days.map(({ dt, k, d }) => `<section><div class="sec-h"><h2>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : k === -1 ? "Yesterday" : esc(dt.toLocaleDateString("en-GB", { weekday: "long" }))}</h2><span class="note">${esc(dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${esc(dpRef(d.parts))}</span></div>
+      <div class="list">${dpItems(d.parts).map(dpRow).join("")}</div></section>`).join("") || `<p class="note">Pearls doesn't have this year's schedule yet.</p>`}
+    <section class="panel dpget"><div class="eyebrow">Get it from Peninei Halakha</div>
+      <p class="note" style="margin:0">Sign up for the messages, in English or Hebrew, on Peninei Halakha's site. The English group may follow its own order; the days above are the Hebrew program's.</p>
+      <div class="row"><a class="btn gold" href="${DAILY ? DAILY.page : "https://ph.yhb.org.il/pninayomit-en/"}" target="_blank" rel="noopener">${I.ext}The Daily Pearl in English</a>
+        <a class="btn line" href="${DAILY ? DAILY.pageHe : "https://ph.yhb.org.il/pninayomit/"}" target="_blank" rel="noopener">${I.ext}In Hebrew</a>
+        ${DAILY ? `<a class="btn line" href="${DAILY.YEARS[DAILY.YEARS.length - 1].source}" target="_blank" rel="noopener">${I.ext}The ${DAILY.YEARS[DAILY.YEARS.length - 1].year} schedule (PDF)</a>` : ""}</div></section>
   </div>`;
 }
 /* ---------- read along: the text of what's playing is one tap away ---------- */
@@ -3039,6 +3096,7 @@ function render() {
   else if (h === "credits") vCredits();
   else if (h === "spelling") vSpelling();
   else if (h === "calendar") vCalendar();
+  else if (h === "daily") vDaily();
   else if (h === "downloads") vDownloads();
   else vHome();
   window.scrollTo(0, 0); refreshPlaying();

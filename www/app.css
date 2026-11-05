@@ -563,3 +563,16 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .enginesub .dlvoice { margin-left: 0; }
 .sublabel { text-transform: uppercase; letter-spacing: .08em; margin: 6px 0 2px; }
 .opt.pick .tick { color: var(--gold); font-weight: 800; margin-left: 8px; }
+
+/* The Daily Pearl */
+.daily{display:flex;flex-direction:column;gap:10px}
+.dphead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.dphead b{font-family:var(--f-display);font-size:22px;line-height:1.15;font-weight:var(--dw);letter-spacing:var(--dls)}
+.dprow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:10px 0;background:none;border:0;border-bottom:1px solid var(--hair);color:inherit;font:inherit;cursor:pointer}
+.dprow:last-child{border-bottom:0}
+.dprow .n{min-width:3.4em;font-size:12.5px;color:var(--gold-2);font-variant-numeric:tabular-nums}
+.dprow .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.dprow .tx b{font-weight:600;font-size:15px;line-height:1.3}
+.dprow .m{font-size:12.5px;color:var(--mist)}
+.dprow .tx [dir="auto"]:dir(rtl){font-family:var(--f-heb);text-align:right}
+.daily a.btn,.dpget a.btn{text-decoration:none}
