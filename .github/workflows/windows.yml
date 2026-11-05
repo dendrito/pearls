@@ -1,0 +1,31 @@
+# Builds Pearls for Windows (installer + portable zip, x64 and ARM) on a Windows machine, so Pearls.exe carries the
+# Pearls icon and version (on Linux that step needs Wine). Run it by hand: Actions -> Windows app -> Run workflow.
+name: Windows app
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: windows
+        run: npm ci --no-audit --no-fund
+      - name: Build
+        shell: bash
+        run: ./windows/build_windows.sh
+      - name: Test the shell
+        shell: bash
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" node test_windows_shell.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pearls-Windows
+          path: |
+            dist/windows/*.exe
+            dist/windows/*.zip
+          if-no-files-found: error

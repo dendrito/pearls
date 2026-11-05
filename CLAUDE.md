@@ -1,10 +1,11 @@
 # Pearls: notes for Claude Code
 
 Pearls is an English *Peninei Halakha* (Rabbi Eliezer Melamed, Yeshivat Har Bracha) reader and listener. One web app (`www/`)
-ships three ways:
+ships four ways:
 
 - an Android APK, built without the Android SDK;
 - an iPad / iPhone / Mac app (`apple/`, WKWebView);
+- a Windows app (`windows/`, Electron);
 - a web artifact on claude.ai.
 
 Pearls is its own project, with its own claude.ai project "Pearls". Meldar (meldar.pages.dev) is a separate product.
@@ -52,6 +53,20 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_apple_shell.py`: the Apple bridge (`native-shim.js` against a stand-in for the Swift side), the
     device word ("on this iPad") and the iPad side rail. It must end "apple shell: 16/16". The Swift itself only
     builds on a Mac: `apple/README.md` has the steps.
+  - `NODE_PATH=$(npm root -g) xvfb-run -a node test_windows_shell.mjs` (after `cd windows && npm ci`): the real
+    Windows shell, `windows/main.js`, launched with this www/. It must end "windows shell: 24/24".
+
+## Windows app (2.6.2)
+
+- `windows/main.js` serves www on `app://pearls/` and gives the page Android's `PearlsNative` bridge, answered
+  synchronously over IPC (`windows/preload.js`): downloads into `%APPDATA%\Pearls\dl` (served at `/dl/` with byte
+  ranges), kept Hebrew in `text/`, `/proxy?u=` for ph.yhb.org.il only. `PEARLS_SHELL = "windows"`, so the page says
+  "this PC" (`SHELL_WORD`) and hides the Wi-Fi-only switches (`DESKTOP`).
+- Voices, sync and the media keys need nothing from the shell: Kokoro/Piper run in Chromium as on the web, sync uses
+  the app token flow, and `navigator.mediaSession` reaches Windows' media overlay. The shell adds taskbar
+  prev/play/next, a sleep blocker while playing, and a headphones-gone check (an output device vanishes).
+- Build: `./windows/build_windows.sh` (installer + zip, x64 and arm64, into `dist/windows/`). On Linux it needs Wine;
+  the "Windows app" GitHub Action builds on Windows instead. The installer is not code-signed. `windows/README.md`.
 
 ## Android 2.0 shell (Google Play ready)
 
@@ -178,6 +193,7 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
 | `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
 | Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
 | `functions/`, `webauth/`, `docs/cloudflare-pages.md` | The web edition on Cloudflare Pages (pearls.pages.dev): output dir `www`, no build. `proxy.js` fetches ph.yhb.org.il text (only that host). The site is private: `_middleware.js` requires a pass, which comes from Cloudflare Access (Google or an email code, on `/signin`) or from an invite link made on `/admin` (stored in KV, can be cancelled). It also adds noindex. Setup steps are in the doc. Test: `WRANGLER=… node test_webauth.mjs`, which must end "webauth: 23/23". |
+| `windows/` | Electron shell for Windows: `main.js`, `preload.js`, `build_windows.sh`, `README.md`. Icons from `android/make_icons.py`. |
 | `apple/` | Xcode project. One multiplatform target (iPhone, iPad, Mac). iOS starts from UIKit (status bar follows the skin, background downloads); the Mac from SwiftUI. The `pearls://` scheme handler serves www, proxies ph.yhb.org.il (duplicate CORS headers), serves downloads at `/dl/` with byte ranges and saved text at `/native/text/`. Run `apple/sync_www.sh` after changing www; `apple/build_ios.sh ipa` makes an App Store Connect build on a Mac. |
 | `www/wide.css` | The wide layout (2.7), from 768px: side rail instead of the tab bar, a wider column, centred dialogs, Now Playing side by side in landscape. Layout only, so every skin works unchanged. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |

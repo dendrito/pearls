@@ -49,6 +49,19 @@ def vector(viewport, translate, scale, color, comment):
 </vector>
 """
 
+def thumbar(px=32):
+    """the taskbar thumbnail's previous / play / pause / next buttons: white glyphs on transparent (Windows draws the
+    button itself), at 32 px so they stay sharp at 200% scaling"""
+    out = {}
+    W = (255, 255, 255, 255)
+    def canvas():
+        S = px * SS; img = Image.new("RGBA", (S, S), (0, 0, 0, 0)); return img, ImageDraw.Draw(img), S
+    img, d, S = canvas(); d.polygon([(S*.30, S*.20), (S*.30, S*.80), (S*.80, S*.50)], fill=W); out["play"] = img
+    img, d, S = canvas(); d.rectangle([S*.26, S*.20, S*.42, S*.80], fill=W); d.rectangle([S*.58, S*.20, S*.74, S*.80], fill=W); out["pause"] = img
+    img, d, S = canvas(); d.polygon([(S*.22, S*.22), (S*.22, S*.78), (S*.64, S*.50)], fill=W); d.rectangle([S*.68, S*.22, S*.78, S*.78], fill=W); out["next"] = img
+    img, d, S = canvas(); d.rectangle([S*.22, S*.22, S*.32, S*.78], fill=W); d.polygon([(S*.78, S*.22), (S*.78, S*.78), (S*.36, S*.50)], fill=W); out["prev"] = img
+    return {k: v.resize((px, px), Image.LANCZOS) for k, v in out.items()}
+
 def main():
     res = os.path.join(HERE, "res")
     for name, px in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]:
@@ -82,6 +95,11 @@ def main():
         pts = int(im["size"].split("x")[0]); px = pts * int(im.get("scale", "1x")[0])
         out = icon(px, "square") if im.get("platform") == "ios" else icon(px, "mac", inset=100 / 1024, radius=0.225)
         out.save(os.path.join(apple, fn))
+    # Windows desktop app: one .ico (16-256 px, rounded like the launcher) and the taskbar thumbnail buttons
+    win = os.path.join(ROOT, "windows", "build"); os.makedirs(win, exist_ok=True)
+    icon(256).save(os.path.join(win, "icon.ico"), sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    icon(512).save(os.path.join(win, "icon.png"))
+    for name, img in thumbar().items(): img.save(os.path.join(ROOT, "windows", "icons", f"{name}.png"))
     print("icons ok")
 
 if __name__ == "__main__":

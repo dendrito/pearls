@@ -1,0 +1,51 @@
+{
+  "name": "pearls",
+  "productName": "Pearls",
+  "version": "2.6.2",
+  "description": "Peninei Halakha in English: read and listen. By Rabbi Eliezer Melamed, Yeshivat Har Bracha.",
+  "author": "Pearls",
+  "license": "SEE LICENSE IN credits",
+  "private": true,
+  "main": "main.js",
+  "devDependencies": {
+    "electron": "44.9.3",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "app.pearls.halakha",
+    "productName": "Pearls",
+    "copyright": "Text: Rabbi Eliezer Melamed and Yeshivat Har Bracha, CC BY 4.0, not for resale",
+    "directories": {
+      "output": "../dist/windows",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icons/**",
+      "build/icon.png",
+      "www/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "artifactName": "Pearls-${version}-${arch}.${ext}",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Pearls",
+      "artifactName": "Pearls-Setup-${version}-${arch}.${ext}",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
