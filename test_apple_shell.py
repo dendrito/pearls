@@ -102,7 +102,7 @@ def run():
         if errors: print("   ", errors[:3])
         pg.close()
 
-        # phone: bottom tab bar, device word "phone"
+        # iPhone: bottom tab bar, device word "iPhone"
         pg = b.new_page(viewport={"width": 393, "height": 852})
         pg.add_init_script("localStorage.setItem('pearls:interests', JSON.stringify(['Shabbat']));")
         pg.add_init_script("window.PEARLS_SHELL = 'ios';")
@@ -111,7 +111,7 @@ def run():
         pg.goto(url + "#downloads"); pg.wait_for_timeout(1000)
         r = pg.evaluate("(() => { const r = document.querySelector('.tabs').getBoundingClientRect(); return [r.bottom, r.width]; })()")
         check("iPhone: tabs stay at the bottom", r[0] == 852 and r[1] == 393)
-        check("iPhone: says phone", "On this phone" in pg.inner_text("main"))
+        check("iPhone: says iPhone", "On this iPhone" in pg.inner_text("main"))
         pg.close()
         b.close()
     print(f"apple shell: {ok}/{total}")
