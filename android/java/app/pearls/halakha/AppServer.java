@@ -22,6 +22,7 @@ import java.util.Map;
  *   https://appassets.androidplatform.net/dl/NAME    a downloaded recording, with Range support for seeking
  *   https://appassets.androidplatform.net/proxy?u=   text from ph.yhb.org.il, fetched natively (the site sends
  *                                                    duplicate CORS headers, which browsers reject)
+ *   https://appassets.androidplatform.net/native/device-voice/list|say   the phone's own voices (DeviceVoice)
  * Everything else (the audio CDN, links) goes to the network as usual.
  */
 final class AppServer {
@@ -43,6 +44,7 @@ final class AppServer {
             if (path.startsWith("/www/")) return asset(path.substring(1));
             if (path.startsWith("/dl/")) return download(path.substring(4), header(req, "Range"));
             if (path.equals("/proxy")) return proxy(u.getQueryParameter("u"));
+            if (path.startsWith("/native/device-voice/")) return deviceVoice(path.substring(21), u);
         } catch (Exception e) { /* fall through to 404 */ }
         return notFound();
     }
@@ -121,6 +123,28 @@ final class AppServer {
         String ct = c.getContentType() == null ? "application/json" : c.getContentType().split(";")[0].trim();
         String reason = c.getResponseMessage();
         return new WebResourceResponse(ct, "utf-8", code, reason == null || reason.isEmpty() ? "OK" : reason, new HashMap<String, String>(), in);
+    }
+
+    private WebResourceResponse deviceVoice(String what, Uri u) {
+        Map<String, String> h = new HashMap<>();
+        h.put("Cache-Control", "no-store");
+        DeviceVoice dv = DeviceVoice.get(ctx);
+        try {
+            if (what.equals("list")) return new WebResourceResponse("application/json", "utf-8", 200, "OK", h, new ByteArrayInputStream(dv.list().getBytes("UTF-8")));
+            if (what.equals("say")) {
+                String text = u.getQueryParameter("text"), id = u.getQueryParameter("id"), rate = u.getQueryParameter("rate");
+                if (text == null || text.trim().isEmpty()) throw new IOException("no text");
+                float r = 1f;
+                try { if (rate != null) r = Float.parseFloat(rate); } catch (NumberFormatException e) { /* normal speed */ }
+                Object[] out = dv.say(text, id == null ? "" : id, r);
+                h.put("X-Gen-Seconds", String.valueOf(out[1]));
+                return new WebResourceResponse("audio/wav", null, 200, "OK", h, new ByteArrayInputStream((byte[]) out[0]));
+            }
+        } catch (Exception e) {
+            String msg = e.getMessage() == null ? "the phone's voice failed" : e.getMessage().replace("\\", "").replace("\"", "'");
+            return new WebResourceResponse("application/json", "utf-8", 500, "Error", h, new ByteArrayInputStream(("{\"error\":\"" + msg + "\"}").getBytes()));
+        }
+        return notFound();
     }
 
     static WebResourceResponse notFound() {

@@ -67,6 +67,7 @@ public class PearlsBridge {
             }
             o.put("online", online());
             o.put("metered", metered());
+            o.put("deviceVoices", true);   // the phone's own voices, listed and rendered by the app (DeviceVoice, AppServer)
         } catch (Exception e) { /* return what we have */ }
         return o.toString();
     }
