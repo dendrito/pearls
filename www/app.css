@@ -363,6 +363,29 @@ body.hc .reader{color:#fff}
 .reader.read-he .en-body, .reader.read-he .ai-sec { display: none; }
 .reader.read-both .hebslot, .reader.read-both .heb-orig { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: color-mix(in srgb, var(--gold, #d8b46a) 7%, transparent); border-inline-start: 3px solid color-mix(in srgb, var(--gold, #d8b46a) 45%, transparent); }
 .reader.read-he .hebslot, .reader.read-he .heb-orig { font-size: calc(1.08em * var(--read-scale, 1)); line-height: 1.85; }
+/* Side by side (2.8): English left, Hebrew right, each paragraph beside its own (sideAlign() in app.js sets --sr, the
+   row, and --so, the order on a phone). Where the paragraphs don't pair up, two whole columns (.sbs-cols). On a narrow
+   screen the columns stack, and paired sections interleave: each Hebrew paragraph under its English. Flat: a hairline
+   between the columns, no shadows. */
+.reader.read-side section.sbs-pair,.reader.read-side section.sbs-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:32px;align-items:start;position:relative}
+.reader.read-side section.sbs-pair>*,.reader.read-side section.sbs-cols>*{grid-column:1/-1}
+.reader.read-side section.sbs-pair::after,.reader.read-side section.sbs-cols::after{content:"";position:absolute;top:6px;bottom:0;left:50%;border-left:1px solid var(--line);pointer-events:none}
+.reader.read-side section.sbs-pair>.en-body,.reader.read-side section.sbs-pair>.ai-sec,.reader.read-side section.sbs-pair>.hebslot,.reader.read-side section.sbs-pair>.heb-orig{display:contents}
+.reader.read-side section.sbs-pair>.en-body>*,.reader.read-side section.sbs-pair>.ai-sec>*{grid-column:1;grid-row:var(--sr)}
+.reader.read-side section.sbs-pair>.hebslot>*,.reader.read-side section.sbs-pair>.heb-orig>*{grid-column:2;grid-row:var(--sr)}
+.reader.read-side section.sbs-cols>.en-body,.reader.read-side section.sbs-cols>.ai-sec{grid-column:1;grid-row:1}
+.reader.read-side section.sbs-cols>.hebslot,.reader.read-side section.sbs-cols>.heb-orig{grid-column:2;grid-row:1;margin:0;padding:0;border:0}
+.reader.read-side section>.hebslot,.reader.read-side section>.heb-orig{margin-top:14px}
+.reader.read-side .hebslot h3,.reader.read-side .heb-orig h3,.reader.read-side .en-body>h3:first-child,.reader.read-side .ai-sec>h3:first-child{margin-top:0}
+@media (max-width:699px){
+  .reader.read-side section.sbs-pair,.reader.read-side section.sbs-cols{grid-template-columns:minmax(0,1fr)}
+  .reader.read-side section.sbs-pair::after,.reader.read-side section.sbs-cols::after{display:none}
+  .reader.read-side section.sbs-pair>*{order:100000}
+  .reader.read-side section.sbs-pair>.en-body>*,.reader.read-side section.sbs-pair>.ai-sec>*,
+  .reader.read-side section.sbs-pair>.hebslot>*,.reader.read-side section.sbs-pair>.heb-orig>*{grid-column:1;grid-row:auto;order:var(--so)}
+  .reader.read-side section.sbs-pair>.hebslot>*,.reader.read-side section.sbs-pair>.heb-orig>*{border-right:3px solid var(--line);padding-right:12px;margin-bottom:18px}
+  .reader.read-side section.sbs-cols>.hebslot,.reader.read-side section.sbs-cols>.heb-orig{grid-column:1;grid-row:2;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+}
 
 /* language pickers (segmented controls) */
 .langbar{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:16px;background:var(--ink-2);border:1px solid var(--line)}

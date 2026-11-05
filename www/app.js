@@ -410,7 +410,8 @@ const partUrl = (t, i, lang) => {
 };
 const AUD = window.PH_AUDIO || {};
 const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AUD[t.id][1]);
-/* One language for reading and listening (state.prefs.read: en, he or both; "both" listens in English).
+/* One language for reading and listening (state.prefs.read: en, he, both or side; "both" and "side" listen in English,
+   because the English column is the one read along and the AI voice can only read English).
    English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
 const langPref = () => state.prefs.read || "en";
 const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
@@ -1831,9 +1832,10 @@ function renderHebrewChapter(t, d, r) {
   nowSecShown = null; paintNowSec();
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
+    const resync = () => { if ((state.prefs.read || "en") === "side") sideAlign(r); }; resync();
     if (!he.hidden && !he.innerHTML.trim()) {   // lite build: the Hebrew is fetched on demand
       he.innerHTML = `<p class="note">Loading the Hebrew…</p>`;
-      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); })
+      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); resync(); })
         .catch(() => { he.innerHTML = `<p class="note">Couldn't load the Hebrew. It needs a connection.</p>`; });
     } };
 }
@@ -2139,26 +2141,47 @@ function paintSpokenPara(p) {
 /* language picker: one segmented control on the chapter page and in the player */
 function langBar(t) {
   const r = state.prefs.read || "en";
-  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"]];
+  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"], ["side", "Side by side"]];
   return `<div class="langbar"><div class="segrow"><span class="seglabel">Language</span><div class="seg" role="radiogroup" aria-label="Reading language">
     ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div></div>
     <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
-const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew" };
-/* Show the chapter in the reader's language: English, Hebrew, or both (Hebrew under each English section). */
+const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" };
+/* Show the chapter in the reader's language: English, Hebrew, both (Hebrew under each English section) or side by side
+   (English and Hebrew in two columns, paragraph beside paragraph; on a phone each Hebrew paragraph sits under its English). */
 function applyReadLang(t, r) {
   const mode = state.prefs.read || "en";
-  r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both");
+  r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both"); r.classList.toggle("read-side", mode === "side");
   if (mode === "en") { r.querySelectorAll(".hebslot").forEach(s => { if (!s.dataset.user) s.hidden = true; }); r.querySelectorAll(".heb-orig").forEach(h => { if (!h.dataset.user) h.hidden = true; }); return; }
   const slots = [...r.querySelectorAll(".hebslot, .heb-orig")];
   slots.forEach(s => { s.hidden = false; });
   const empty = slots.filter(s => !s.innerHTML.trim());
+  if (mode === "side") sideAlign(r);
   if (!empty.length) return;
   empty.forEach(s => { s.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`; });
   hebrewChapter(t).then(() => empty.forEach(s => {
     const h = hebCache[`${t.id}-${String(s.dataset.sec).padStart(2, "0")}`];
     s.innerHTML = h ? `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}` : `<p class="note" dir="ltr">No Hebrew found for this section.</p>`; hebDone(s, t);
-  })).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
+  })).then(() => { if ((state.prefs.read || "en") === "side" && document.body.contains(r)) sideAlign(r); }).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
+}
+/* Side by side: pair each English block with its Hebrew one so they share a row. The translations keep the Hebrew's
+   paragraphs, so the pairing is by position, and only where both columns have the same number of blocks; where they
+   don't (an official translation that merged or split paragraphs), the section shows as two whole columns instead,
+   rather than setting a paragraph beside one it doesn't translate. Nothing moves in the DOM: the blocks get their row
+   from CSS variables (--sr wide, --so narrow), so read-along, citations and saved places work unchanged. */
+function sideAlign(r) {
+  r.querySelectorAll("section").forEach(sec => {
+    const en = sec.querySelector(":scope > .en-body, :scope > .ai-sec"), he = sec.querySelector(":scope > .hebslot, :scope > .heb-orig");
+    sec.classList.remove("sbs-pair", "sbs-cols");
+    if (!en || !he || he.hidden || !he.innerHTML.trim() || he.querySelector(":scope > .loading")) return;
+    const ea = [...en.children].filter(e => !e.matches(".secfoot")), ha = [...he.children].filter(e => !e.matches(".foot, .note"));
+    if (ea.length > 1 && ea.length === ha.length) {
+      ea.forEach((e, i) => { e.style.setProperty("--sr", i + 1); e.style.setProperty("--so", 2 * i); });
+      ha.forEach((e, i) => { e.style.setProperty("--sr", i + 1); e.style.setProperty("--so", 2 * i + 1); });
+      [...en.children, ...he.children].filter(e => !ea.includes(e) && !ha.includes(e)).forEach(e => { e.style.setProperty("--sr", ea.length + 1); e.style.setProperty("--so", 2 * ea.length); });
+      sec.classList.add("sbs-pair");
+    } else sec.classList.add("sbs-cols");
+  });
 }
 function toggleSave(t, sec) {
   const slug = `${t.id}-${String(sec).padStart(2, "0")}`, k = state.saved.findIndex(s => s.id === slug);
@@ -2541,7 +2564,7 @@ function settingsDialog() {
       <a class="note" href="#spelling" data-credits style="color:var(--gold-2)">All spelling schemes, compared</a></div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
-    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
+    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"], ["side", "Side by side"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
       <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English. ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
     ${voiceField()}
     <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
@@ -2915,9 +2938,9 @@ document.addEventListener("click", e => {
     case "setread": setLang(b.dataset.v); break;
     case "voice": voiceDialog(); break;
     case "playsec": { const t = BYID[id]; const ids = TRACKS.filter(x => x.vol === t.vol).map(x => x.id); playQueue(ids, ids.indexOf(id), t.vol.title, +b.dataset.sec - 1); break; }
-    case "readlang": { const order = ["en", "he", "both"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % 3]; save.prefs();
+    case "readlang": { const order = ["en", "he", "both", "side"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % order.length]; save.prefs();
       b.textContent = "Read · " + READ_LABEL[state.prefs.read]; const r = $("#reader"); if (r && BYID[id || (location.hash.match(/ch-(\d\d-\d\d)/) || [])[1]]) applyReadLang(BYID[id || location.hash.match(/ch-(\d\d-\d\d)/)[1]], r);
-      toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : "Reading in English"); break; }
+      toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : state.prefs.read === "side" ? "English and Hebrew side by side" : "Reading in English"); break; }
     case "savesec": { const on = toggleSave(BYID[id], +b.dataset.sec); b.classList.toggle("on", on); b.innerHTML = `${on ? I.bookOn : I.book}<span>${on ? "Saved" : "Save"}</span>`; break; }
     case "sharesec": shareSection(BYID[id], +b.dataset.sec); break;
     case "plan": planDialog(); break;
@@ -2934,9 +2957,9 @@ document.addEventListener("click", e => {
         $("[data-ok]", d).onclick = () => { s.note = $("#noteTxt", d).value.trim(); save.saved(); close(); render(); };
         $("[data-del]", d).onclick = () => { state.saved.splice(+b.dataset.i, 1); save.saved(); close(); render(); }; }); break; }
     case "hebsec": { const sec = b.closest("section"), slot = sec.querySelector(".hebslot");
-      slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; break; }
+      slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; if ((state.prefs.read || "en") === "side") sideAlign(sec.parentNode); break; }
       slot.hidden = false; slot.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`;
-      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); })
+      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); if ((state.prefs.read || "en") === "side") sideAlign(sec.parentNode); })
         .catch(() => { slot.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew for this section. You need a connection.</p>`; }); break; }
     case "markdone": { if (state.read[id]) { delete state.read[id]; syncGoneRead(id); } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
     case "togglelist": toggleList(b.dataset.list, id); break;
