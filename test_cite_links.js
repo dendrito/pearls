@@ -1,4 +1,4 @@
-// node test_cite_links.js  -> must end "cite links: 13/13"
+// node test_cite_links.js  -> must end "cite links: 24/24"
 global.window = global;
 global.localStorage = {getItem: () => null, setItem() {}, removeItem() {}, key: () => null, length: 0};
 require('./www/meldar-cite.js');

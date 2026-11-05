@@ -1165,13 +1165,16 @@ async function fetchSections(t) {
 function cleanHeb(html) {
   const d = document.createElement("div"); d.innerHTML = html;
   d.querySelectorAll("script,style,iframe,form,svg,noscript").forEach(e => e.remove());
+  // ph.yhb.org.il embeds its YouTube shiurim as a still frame (Embed Plus "facade": a thumbnail from i.ytimg.com
+  // plus a play button). It is not the text, plays nothing here, and Curió asked for it gone (5 Nov 2026).
+  d.querySelectorAll(".epyt-video-wrapper,.epyt-facade,img[alt='YouTube player'],img[src*='ytimg.com'],button.epyt-facade-play,button[aria-label='Play']").forEach(e => e.remove());
   d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
   d.querySelectorAll("[style]").forEach(e => e.removeAttribute("style"));
   return d.innerHTML;
 }
 function cleanHTML(html, t) {
   const d = document.createElement("div"); d.innerHTML = html;
-  d.querySelectorAll("script,style,iframe,form,img[src^='http:']").forEach(e => e.remove());
+  d.querySelectorAll("script,style,iframe,form,img[src^='http:'],.epyt-video-wrapper,.epyt-facade,img[alt='YouTube player'],img[src*='ytimg.com']").forEach(e => e.remove());
   d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
   d.querySelectorAll("[style]").forEach(e => { if (!/padding-left/.test(e.getAttribute("style"))) e.removeAttribute("style"); });
   if (t) linkCites(d, t);

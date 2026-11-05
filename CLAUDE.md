@@ -43,7 +43,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_flat.py`: the flat rule (see Rules). It must end "flat: no soft gradients or blurs".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
-  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 13/13".
+  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 24/24".
   - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
     "6/6 checks passed".
   - `WRANGLER=… node test_sync.mjs`: sync's merge rules and API (`wrangler pages dev`). It must end "sync: 30/30".
