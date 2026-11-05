@@ -1499,7 +1499,7 @@ function dailyCard() {
   if (!DAILY) return "";
   const d = DAILY.forDate(new Date());
   if (!d) return `<section class="panel daily"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div>
-    <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.</p>
+    <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.${window.PEARLS_PROXY ? " Pearls looks for it on Peninei Halakha's site once a day and adds it when it's out." : ""}</p>
     <div><a class="btn line" href="${DAILY.page}" target="_blank" rel="noopener">${I.ext}The Daily Pearl on Peninei Halakha</a></div></section>`;
   const items = dpItems(d.parts), first = items.find(x => x.t), kinds = [...new Set(items.filter(x => x.t).map(x => kindOf(x.t)))];
   return `<section class="panel daily"><div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
@@ -1513,18 +1513,33 @@ function vDaily() {
   const today = new Date(); today.setHours(12, 0, 0, 0);
   const days = [];
   for (let k = -2; k <= 7; k++) { const dt = new Date(today.getTime() + k * 864e5), d = DAILY && DAILY.forDate(dt); if (d) days.push({ dt, k, d }); }
+  const ys = DAILY ? DAILY.years() : [], dt0 = DAILY && DAILY.forDate(today);
+  const dpYear = (dt0 && ys.find(y => y.year === dt0.year)) || ys[ys.length - 1];
   view.innerHTML = `<div class="view">
     <div><div class="eyebrow"><span lang="he" dir="rtl">הפנינה היומית</span> · Peninei Halakha</div>
       <h1 class="hello">Two halakhot <em>a day</em>.</h1>
-      <p class="sub">The Daily Pearl is Peninei Halakha's own daily study: two halakhot every day, about two minutes, sent each morning by Yeshivat Har Bracha on WhatsApp, email and Telegram. It goes through the books in order and turns to the laws of each festival in the weeks before it. Pearls follows the schedule Peninei Halakha prints on its study bookmark for ${DAILY ? DAILY.YEARS.map(y => y.year).join(", ") : ""} (the Hebrew program), and opens each halakha in the English or AI translation where Pearls has one.</p></div>
+      <p class="sub">The Daily Pearl is Peninei Halakha's own daily study: two halakhot every day, about two minutes, sent each morning by Yeshivat Har Bracha on WhatsApp, email and Telegram. It goes through the books in order and turns to the laws of each festival in the weeks before it. Pearls follows the schedule Peninei Halakha prints on its study bookmark for ${DAILY ? DAILY.years().map(y => y.year).join(", ") : ""} (the Hebrew program), and opens each halakha in the English or AI translation where Pearls has one.${window.PEARLS_PROXY ? " When a year's schedule nears its end, Pearls looks for the next bookmark on Peninei Halakha's site and reads it, and uses it only if every day and every halakha in it checks out." : ""}</p></div>
     ${days.map(({ dt, k, d }) => `<section><div class="sec-h"><h2>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : k === -1 ? "Yesterday" : esc(dt.toLocaleDateString("en-GB", { weekday: "long" }))}</h2><span class="note">${esc(dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${esc(dpRef(d.parts))}</span></div>
       <div class="list">${dpItems(d.parts).map(dpRow).join("")}</div></section>`).join("") || `<p class="note">Pearls doesn't have this year's schedule yet.</p>`}
     <section class="panel dpget"><div class="eyebrow">Get it from Peninei Halakha</div>
       <p class="note" style="margin:0">Sign up for the messages, in English or Hebrew, on Peninei Halakha's site. The English group may follow its own order; the days above are the Hebrew program's.</p>
       <div class="row"><a class="btn gold" href="${DAILY ? DAILY.page : "https://ph.yhb.org.il/pninayomit-en/"}" target="_blank" rel="noopener">${I.ext}The Daily Pearl in English</a>
         <a class="btn line" href="${DAILY ? DAILY.pageHe : "https://ph.yhb.org.il/pninayomit/"}" target="_blank" rel="noopener">${I.ext}In Hebrew</a>
-        ${DAILY ? `<a class="btn line" href="${DAILY.YEARS[DAILY.YEARS.length - 1].source}" target="_blank" rel="noopener">${I.ext}The ${DAILY.YEARS[DAILY.YEARS.length - 1].year} schedule (PDF)</a>` : ""}</div></section>
+        ${dpYear ? `<a class="btn line" href="${dpYear.source}" target="_blank" rel="noopener">${I.ext}The ${dpYear.year} schedule (PDF)</a>` : ""}</div>
+      ${dpYear && dpYear.found ? `<p class="note" style="margin:0">Pearls read the ${dpYear.year} schedule from Peninei Halakha's bookmark by itself on ${esc(new Date(dpYear.found + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}. If a day looks wrong, the PDF is the authority.</p>` : ""}</section>
   </div>`;
+}
+/* Next year's schedule: from two months before this one ends, look for Peninei Halakha's new bookmark once a day
+   (daily-pearl.js does the reading and checking; pdf-text.js, loaded only then, reads the PDF). Needs the proxy. */
+function dailyLook() {
+  if (!DAILY || !window.PEARLS_PROXY || !DAILY.due()) return;
+  const get = (u, as) => fetch(net(u)).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return as === "bytes" ? r.arrayBuffer() : r.text(); });
+  const lib = window.PDF_TEXT ? Promise.resolve() : new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "pdf-text.js"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+  lib.then(() => DAILY.update(get)).then(y => {
+    if (!y) return;
+    toast(`The Daily Pearl: Peninei Halakha's ${y.year} schedule is in`);
+    const h = location.hash.slice(1); if (!h || h === "daily") render();
+  }).catch(() => { /* offline or no PDF reader: try again tomorrow */ });
 }
 /* ---------- read along: the text of what's playing is one tap away ---------- */
 function alongCard() {
@@ -3125,5 +3140,6 @@ applyPrefs();
 renderMini();
 render();
 syncStart();
+setTimeout(dailyLook, 5000);
 window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang, NE, NK, Neural };   // handy for debugging
 })();

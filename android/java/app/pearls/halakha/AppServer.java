@@ -110,7 +110,7 @@ final class AppServer {
     private WebResourceResponse proxy(String target) throws IOException {
         if (target == null) return notFound();
         Uri t = Uri.parse(target);
-        if (!"https".equals(t.getScheme()) || !"ph.yhb.org.il".equals(t.getHost())) return notFound();
+        if (!"https".equals(t.getScheme()) || !("ph.yhb.org.il".equals(t.getHost()) || "cdn1.yhb.org.il".equals(t.getHost()))) return notFound();
         HttpURLConnection c = (HttpURLConnection) new URL(target).openConnection();
         c.setConnectTimeout(20000); c.setReadTimeout(25000);
         c.setRequestProperty("User-Agent", UA);

@@ -9,7 +9,7 @@ import WebKit
 /// headers, which browsers reject, so the page can't read the text directly.
 final class PearlsScheme: NSObject, WKURLSchemeHandler {
     static let name = "pearls"
-    private static let allowedHosts: Set<String> = ["ph.yhb.org.il"]
+    private static let allowedHosts: Set<String> = ["ph.yhb.org.il", "cdn1.yhb.org.il"]   // cdn1: some study bookmarks (daily-pearl.js)
 
     private let root: URL = Bundle.main.resourceURL!.appendingPathComponent("www", isDirectory: true)
     private var stopped = Set<ObjectIdentifier>()
