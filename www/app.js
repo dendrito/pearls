@@ -1166,7 +1166,7 @@ function mediaSession(t) {
    BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
    language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
 /* The word for the device in "saved on this phone": the Apple app says what it runs on (PEARLS_SHELL, set by apple/). */
-const DEVICE = window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : "phone";
+const DEVICE = window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : window.PEARLS_SHELL === "ios" ? "iPhone" : "phone";
 const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
 const DL = {
   ok: false, dir: "", free: 0, files: new Map(), active: new Map(), timer: null,
