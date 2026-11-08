@@ -21,11 +21,11 @@ Clear, natural French of France, as written in French Jewish study books. Impers
 with non-breaking spaces as French typography requires (a plain space is acceptable if it is consistent).
 
 ## Hebrew terms (the usage of French-speaking Jewish communities)
-- ח → **'h** (Pessa'h, 'Hanouka, Choul'han Aroukh, 'Hazal), כ without dagesh → **kh** (berakha, halakha, Birkat).
+- ח → **'h** (Pessa'h, 'Hanouka, 'Hazal), כ without dagesh → **kh** (berakha, halakha, Birkat).
 - ש → ch (Chabbat, Kiddouch), the u sound → ou (Kiddouch, Souccot), צ → ts (mitsva, matsa), ק → k, final ה not written.
 - Prefix ה written **Ha** joined, capitalised in names: Hamazon, Hamotsi, Haguefen.
 - Established forms: Chabbat, Kiddouch, Havdala, Pessa'h, Souccot, Roch Hachana, Yom Kippour, 'Hanouka, Pourim, Torah,
-  'Hazal, Guemara, Michna, Talmud, Choul'han Aroukh, Rambam, Rachi, téfillines, tsitsit, cacherout, cacher, mitsva/mitsvot,
+  'Hazal, Guemara, Michna, Talmud, Rambam, Rachi, téfillines, tsitsit, cacherout, cacher, mitsva/mitsvot,
   halakha/halakhot, berakha/berakhot, mélakha/mélakhot.
 - Translate ordinary words (pain, vin, fruit, bénédiction when generic). Gloss a rare term once in parentheses.
 
@@ -39,6 +39,10 @@ with non-breaking spaces as French typography requires (a plain space is accepta
 Keep the English house forms of `TRANSLATE.md` (SA OḤ 163:2, MB, Rema, Berakhot 49a, Rambam, Hilkhot Berakhot 3:2,
 Yabi'a Omer, Peninei Halakha 3:4). They are references, not prose, and the app links them; do not translate them.
 The series name is always **Peninei Halakha**, in prose and in citations. A note reference reads "note 4".
+**Names of works keep the house spelling of `TRANSLATE.md` too, wherever they appear**, because the app's citation links
+only recognise those forms: Arukh Ha-shulḥan (not Aroukh Hachoul'han), Kaf Ha-ḥayim (not Kaf Ha'hayim), Mishnah Berurah,
+Beur Halakha, Shulḥan Arukh, Halikhot Shlomo, Yabi'a Omer, Ben Ish Ḥai and so on. Check a helper (`work/es`, `work/pt`) to see
+the form used. The French spelling rules above are for Hebrew words in running prose, not for book titles.
 
 ## Numbers and measures
 Arabic numerals; kezayit, révi'it, kebeitsa keep the Hebrew term, with the author's own conversions.
