@@ -42,7 +42,8 @@ The series name is always **Peninei Halakha**, in prose and in citations. A note
 **Names of works keep the house spelling of `TRANSLATE.md` too, wherever they appear**, because the app's citation links
 only recognise those forms: Arukh Ha-shulḥan (not Aroukh Hachoul'han), Kaf Ha-ḥayim (not Kaf Ha'hayim), Mishnah Berurah,
 Beur Halakha, Shulḥan Arukh, Halikhot Shlomo, Yabi'a Omer, Ben Ish Ḥai and so on. Check a helper (`work/es`, `work/pt`) to see
-the form used. The French spelling rules above are for Hebrew words in running prose, not for book titles.
+the form used. The same goes for tractates with a page (Pesaḥim 7a), Rishonim cited as sources (Rashi, Tosafot, Rosh)
+and Tanakh books in a reference (Mishlei 3:6). The French spelling rules above are for Hebrew words in running prose.
 
 ## Numbers and measures
 Arabic numerals; kezayit, révi'it, kebeitsa keep the Hebrew term, with the author's own conversions.
