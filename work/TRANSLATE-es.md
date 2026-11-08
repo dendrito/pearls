@@ -38,6 +38,7 @@ Halajá*) reads. Use "usted"-free impersonal constructions where the Hebrew is i
 ## Citations
 Keep the English house forms of `TRANSLATE.md` (SA OḤ 163:2, MB, Rema, Berakhot 49a, Rambam, Hilkhot Berakhot 3:2,
 Yabi'a Omer, Peninei Halakha 3:4). They are references, not prose, and the app links them; do not hispanise them.
+The series name is always **Peninei Halakha**, in prose and in citations, never "Peninei Halajá" or "Pninei Halajá".
 
 ## Numbers and measures
 Arabic numerals; kezait, reviit, kebeitzá keep the Hebrew term, with the author's own conversions.
