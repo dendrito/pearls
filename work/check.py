@@ -37,8 +37,9 @@ def check(cid):
         ew = words(b) + sum(words(n.get(L, "")) for n in t.get(f"notes_{L}", []))
         lo, hi = RATIO[L]
         if hw > 40 and not (lo <= ew / hw <= hi): errs.append(f"{s['slug']}: length ratio {ew / hw:.2f} ({L} {ew} / he {hw} words) — check for omissions or padding")
-        for n in t.get(f"notes_{L}", []):
-            hnote = next((x for x in s["notes_he"] if x["n"] == n.get("n")), None)
+        for i, n in enumerate(t.get(f"notes_{L}", [])):
+            # pair by position: the source sometimes repeats a note number (21-06-05 has 4, 6, 6)
+            hnote = s["notes_he"][i] if hn == en_ else None
             if hnote and words(hnote["he"]) > 25 and words(n.get(L, "")) < 0.9 * words(hnote["he"]):
                 errs.append(f"{s['slug']}: note {n.get('n')} looks shortened")
         txt = b + " ".join(n.get(L, "") for n in t.get(f"notes_{L}", []))
