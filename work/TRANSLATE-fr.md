@@ -46,3 +46,10 @@ the form used. The French spelling rules above are for Hebrew words in running p
 
 ## Numbers and measures
 Arabic numerals; kezayit, révi'it, kebeitsa keep the Hebrew term, with the author's own conversions.
+
+## Settled in the first chapters (match these)
+- Cross-references: "plus haut 3:6", "plus loin 10, note 11".
+- Blessing names: Hamotsi, Mezonot, Al Ha-miḥya, Méein Chaloch, Boré Néfachot, Haguéfen, Chéhakol, Ha'ets, Ha'adama,
+  Hatov Vehamétiv.
+- "a priori" / "a posteriori" for lekhatḥila / bediavad.
+- A person's name follows the French prose rules (Rav Mordekhaï Eliyahou); a book title keeps the house form.
