@@ -1,4 +1,4 @@
-"""Other reading languages (www/xl, make_xl_books.py): choose Español, read a chapter that has a Spanish AI translation,
+"""Other reading languages (www/xl, make_xl_books.py): choose Español (then Português), read a chapter that has a Spanish AI translation,
 see the AI label and the credit, and get English with a note on a chapter that has none. Offline, like test_app.py.
 Must end "other languages: N/N"."""
 import os, sys
@@ -62,6 +62,14 @@ with sync_playwright() as p:
     chip = pg.query_selector('[data-read="es"]')
     check("Settings offers Español, selected", bool(chip) and "on" in (chip.get_attribute("class") or ""))
     pg.keyboard.press("Escape"); pg.goto(url + "#ch-10-01"); pg.wait_for_timeout(600)
+    # Português works the same way
+    btn = pg.query_selector('.langbar [data-act="setread"][data-v="pt"]')
+    check("chapter page offers Português", bool(btn) and "Português" in btn.text_content())
+    btn.click(); pg.wait_for_timeout(700)
+    body = pg.eval_on_selector('.ai-sec[lang="pt"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="pt"]') else ""
+    check("Portuguese body shown with lang=pt", "reconhecimento do bem" in body and "pt/10-01.js" in loaded)
+    banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
+    check("Portuguese labelled as an AI translation", "AI translation" in banner and "Portuguese" in banner and "Claude" in banner)
     pg.evaluate("PEARLS.setLang('en')"); pg.wait_for_timeout(700)
     check("back to English redraws the chapter", not pg.query_selector('.ai-sec[lang="es"]') and pg.evaluate("document.querySelectorAll('#reader .ai-sec').length") > 0)
     b.close()

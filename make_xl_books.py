@@ -16,7 +16,8 @@ WORK = os.path.join(HERE, "work"); OUT = os.path.join(HERE, "www", "xl")
 LANGS = {
     "es": {"name": "Español", "short": "ES", "english": "Spanish",
            "video": "[Vídeo en la página original en hebreo]"},
-    # "pt": {"name": "Português", "short": "PT", "english": "Portuguese", "video": "[Vídeo na página original em hebraico]"},
+    "pt": {"name": "Português", "short": "PT", "english": "Portuguese",
+           "video": "[Vídeo na página original em hebraico]"},
     # "fr": {"name": "Français", "short": "FR", "english": "French", "video": "[Vidéo sur la page originale en hébreu]"},
 }
 
