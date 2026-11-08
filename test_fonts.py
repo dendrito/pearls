@@ -5,7 +5,7 @@ letter (the "weird dotted letters"). This test fails if:
   1. a font family named first in any font stack in app.css / skins.css / modes.css isn't bundled in www/fonts/web/
      (system fonts excepted below), or
   2. a bundled Latin family/style doesn't cover, inside its unicode-range, every letter and every punctuation mark that
-     occurs in the app's text (www/*.js, www/en, www/books) or that a spelling scheme can produce.
+     occurs in the app's text (www/*.js, www/en, www/books, www/xl) or that a spelling scheme can produce.
 Fix a failure with `python3 patch_webfonts.py` (adds composite letters built from the font's own parts) or by choosing
 another typeface. Must end "fonts: all letters covered"."""
 import glob, os, re, sys, unicodedata
@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); WWW = os.path.join(HERE, "www
 SYSTEM = {"system-ui", "sans-serif", "serif", "monospace", "ui-monospace", "Georgia", "Segoe UI", "Roboto",
           "Iowan Old Style", "Palatino Linotype", "Noto Serif Hebrew", "David", "inherit"}
 HEBREW_ONLY = {"Shofar", "Keter YG"}   # bundled in www/fonts/, Hebrew block only; Latin falls through to the next font
-PUNCT_OK = set("’‘“”–—…§·×°½¾º‑")   # punctuation in running text that must match the face too
+PUNCT_OK = set("’‘“”–—…§·×°½¾º‑¿¡«»")   # punctuation in running text that must match the face too (¿ ¡ « »: Spanish)
 
 def ranges(rng):
     out = []
@@ -27,12 +27,15 @@ def needed():
     chars = set()
     # Estante's voice engine (voice*.js, *-worker.js) and pearls-phonemes.js hold sound tables that are never shown
     files = [f for f in glob.glob(os.path.join(WWW, "*.js")) if not re.match(r"(voice.*|.*-worker|pearls-phonemes)\.js$", os.path.basename(f))] + glob.glob(os.path.join(WWW, "en", "**", "*"), recursive=True) \
-        + glob.glob(os.path.join(WWW, "books", "**", "*"), recursive=True)
+        + glob.glob(os.path.join(WWW, "books", "**", "*"), recursive=True) + glob.glob(os.path.join(WWW, "xl", "**", "*"), recursive=True)
     for f in files:
         if not os.path.isfile(f) or not f.endswith((".js", ".json", ".html", ".txt")): continue
         for ch in open(f, encoding="utf8").read():
             o = ord(ch)
             if o < 128 or 0x0590 <= o <= 0x05FF or 0xFB1D <= o <= 0xFB4F: continue
+            # a word quoted in another script (21-11 names God in Arabic and Russian) is drawn by the system's font for
+            # that script, as Hebrew is by the Hebrew faces; no Latin face is meant to show it
+            if 0x0400 <= o <= 0x052F or 0x0600 <= o <= 0x06FF: continue
             cat = unicodedata.category(ch)
             if cat.startswith("L") or cat == "Lm" or ch in PUNCT_OK: chars.add(ch)
     return chars
