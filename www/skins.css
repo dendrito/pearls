@@ -29,7 +29,7 @@ body[data-skin="mint"]{--ink:#0b1210;--ink-2:#0f1915;--ink-3:#16231e;--line:#1f2
 
 /* ---------- Illuminated: vellum, lapis and vermilion, a manuscript ---------- */
 body[data-skin="illuminated"]{--scheme:light;--ink:#f3ead6;--ink-2:#f8f1e1;--ink-3:#ebdfc4;--line:#cdb88c;--hair:#e0d1ae;--pearl:#2b1d12;--mist:#53412e;--dim:#735e44;--gold:#1f3a93;--gold-2:#1a3180;--on-gold:#f8f1e1;--text:#2b1d12;--rubric:#a8261c;
-  --f-display:"Cormorant Garamond","EB Garamond",Georgia,serif;--f-body:"EB Garamond",Georgia,serif;--f-label:"Cormorant Garamond",Georgia,serif;--f-read:"EB Garamond",Georgia,serif;--dw:600;--dls:0;
+  --f-display:"Cormorant Garamond","EB Garamond",Georgia,serif;--f-body:"EB Garamond",Georgia,serif;--f-label:"Cormorant Garamond",Georgia,serif;--f-read:"EB Garamond",Georgia,serif;--f-cyr:"Noto Serif",serif;--f-ar:"Noto Naskh Arabic",serif;--dw:600;--dls:0;
   --r:4px;--r-hero:4px;--r-pill:6px;--bstyle:double;--bw:3px;
   --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--ink-2);--hero-line:var(--line);--hero-shadow:none;--shadow:0 1px 0 var(--line);--glow:none;--cover-filter:sepia(.45) saturate(.8);
   --chip-on-bg:transparent;--chip-on-line:var(--gold);--glass:rgba(248,241,225,.96);--glass-line:var(--line);--float-shadow:none;--track:rgba(43,29,18,.15);--scrim:rgba(43,29,18,.35);
@@ -84,7 +84,7 @@ body.light .cover .cap,body.light .plart .badge{color:#fff}
 
 /* ---------- Parchment: warm paper, a book typeface, reading first ---------- */
 body[data-skin="parchment"]{--scheme:light;--ink:#f6f0e4;--ink-2:#fbf7ee;--ink-3:#ebe1cd;--line:#e0d4bd;--hair:#e7dcc7;--pearl:#2a2118;--mist:#55473a;--dim:#6e5e49;--gold:#b0622a;--gold-2:#8f4c1c;--on-gold:#fff;--text:#2f2519;
-  --f-display:"Newsreader",Georgia,serif;--f-body:"Inter","Figtree",system-ui,sans-serif;--f-read:"Newsreader",Georgia,serif;--f-label:var(--f-body);--dw:400;--dls:-0.01em;
+  --f-display:"Newsreader",Georgia,serif;--f-body:"Inter","Figtree",system-ui,sans-serif;--f-read:"Newsreader",Georgia,serif;--f-cyr:"Noto Serif",serif;--f-ar:"Noto Naskh Arabic",serif;--f-label:var(--f-body);--dw:400;--dls:-0.01em;
   --r:20px;--r-hero:24px;
   --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--ink-3);--hero-line:var(--line);--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:sepia(.25);
   --chip-on-bg:rgba(176,98,42,.1);--chip-on-line:rgba(176,98,42,.5);--glass:#2a2118;--glass-line:#2a2118;--float-shadow:none;--track:rgba(0,0,0,.12);--scrim:rgba(42,33,24,.35);
@@ -109,7 +109,7 @@ body[data-skin="studio"] .hero .btn.ghost{background:rgba(14,14,16,.12);color:#0
 
 /* ---------- Daf: a printed page ---------- */
 body[data-skin="daf"]{--scheme:light;--ink:#fbfaf7;--ink-2:#ffffff;--ink-3:#f3f1ea;--line:#d6d1c4;--hair:#e4e0d6;--pearl:#1d1b18;--mist:#46423a;--dim:#6b665c;--gold:#1d1b18;--gold-2:#1d1b18;--on-gold:#fbfaf7;--text:#1d1b18;--mark:#f5e6b8;
-  --f-display:"EB Garamond",Georgia,serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-read:"EB Garamond",Georgia,serif;--f-label:"IBM Plex Sans",system-ui,sans-serif;--dw:600;--dls:0;
+  --f-display:"EB Garamond",Georgia,serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-read:"EB Garamond",Georgia,serif;--f-cyr:"Noto Serif",serif;--f-ar:"Noto Naskh Arabic",serif;--f-label:"IBM Plex Sans",system-ui,sans-serif;--dw:600;--dls:0;
   --r:10px;--r-hero:10px;--r-pill:10px;
   --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:var(--ink-3);--hero-line:var(--line);--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:grayscale(.6);
   --chip-on-bg:var(--mark);--chip-on-line:#1d1b18;--glass:#f3f1ea;--glass-line:#d6d1c4;--float-shadow:0 -1px 0 #d6d1c4;--track:rgba(0,0,0,.12);--scrim:rgba(0,0,0,.3);
@@ -154,7 +154,7 @@ body[data-skin="clear"] .btn.gold,body[data-skin="clear"] .ctrls .play{backgroun
 /* ---------- Nacre: warm ink, bone type, pearl sheen only on what's live ---------- */
 body[data-skin="nacre"]{--ink:#12110F;--ink-2:#1B1916;--ink-3:#24211D;--line:#2C2925;--hair:rgba(239,231,216,.10);--pearl:#EFE7D8;--text:#EFE7D8;--mist:#A9A193;--dim:#9A9284;
   --gold:#E9E4EC;--gold-2:#EFE7D8;--on-gold:#12110F;--ok:#BFD9C7;
-  --f-display:"Bellefair","Frank Ruhl Libre",Georgia,serif;--f-body:"Instrument Sans",system-ui,sans-serif;--f-label:"Instrument Sans",system-ui,sans-serif;--f-read:"Frank Ruhl Libre",Georgia,serif;--dw:400;--dls:.005em;
+  --f-display:"Bellefair","Frank Ruhl Libre",Georgia,serif;--f-body:"Instrument Sans",system-ui,sans-serif;--f-label:"Instrument Sans",system-ui,sans-serif;--f-read:"Frank Ruhl Libre",Georgia,serif;--f-cyr:"Noto Serif",serif;--f-ar:"Noto Naskh Arabic",serif;--dw:400;--dls:.005em;
   --r:20px;--r-hero:24px;
   --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:#1B1916;--hero-line:rgba(239,231,216,.12);--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:grayscale(.85) brightness(.7);
   --chip-on-bg:rgba(239,231,216,.08);--chip-on-line:rgba(239,231,216,.55);--glass:#24211D;--glass-line:#33302A;--float-shadow:none;--track:rgba(239,231,216,.14);
@@ -174,7 +174,7 @@ body[data-skin="nacre"] .eyebrow,body[data-skin="nacre"] .seglabel{letter-spacin
 /* ---------- Folio: paper, black type, one vermilion; square and editorial ---------- */
 body[data-skin="folio"]{--scheme:light;--ink:#F7F4EE;--ink-2:#FBF9F5;--ink-3:#EFEAE0;--line:#D8D2C6;--hair:#E2DCD0;--pearl:#111111;--text:#111111;--mist:#3A3732;--dim:#5F5A52;
   --gold:#111111;--gold-2:#C2311A;--on-gold:#F7F4EE;--ok:#1F6B45;
-  --f-display:"Newsreader",Georgia,serif;--f-body:"Inter Tight",system-ui,sans-serif;--f-label:"Inter Tight",system-ui,sans-serif;--f-read:"Newsreader",Georgia,serif;--dw:400;--dls:-.01em;
+  --f-display:"Newsreader",Georgia,serif;--f-body:"Inter Tight",system-ui,sans-serif;--f-label:"Inter Tight",system-ui,sans-serif;--f-read:"Newsreader",Georgia,serif;--f-cyr:"Noto Serif",serif;--f-ar:"Noto Naskh Arabic",serif;--dw:400;--dls:-.01em;
   --r:0px;--r-hero:0px;--r-pill:0px;
   --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:transparent;--hero-line:transparent;--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:grayscale(1) contrast(1.15);
   --chip-on-bg:#111111;--chip-on-line:#111111;--glass:#111111;--glass-line:#111111;--float-shadow:none;--track:rgba(247,244,238,.3);--scrim:rgba(0,0,0,.35);
@@ -216,7 +216,7 @@ body[data-skin="sunlit"] .reader{font-weight:400;--dw:600}
 /* ---------- Ner: Jerusalem stone, olive, candle gold; arches ---------- */
 body[data-skin="ner"]{--scheme:light;--ink:#E8DDC8;--ink-2:#F1E9DA;--ink-3:#DED1B8;--line:#CDBF9F;--hair:#D9CCB2;--pearl:#2A2620;--text:#2A2620;--mist:#4A4335;--dim:#5E5646;
   --gold:#3D4A2C;--gold-2:#3D4A2C;--on-gold:#F3ECDD;--ok:#3D4A2C;
-  --f-display:"Suez One","Frank Ruhl Libre",Georgia,serif;--f-body:"Assistant",system-ui,sans-serif;--f-label:"Assistant",system-ui,sans-serif;--f-read:"Frank Ruhl Libre",Georgia,serif;--dw:400;--dls:0;
+  --f-display:"Suez One","Frank Ruhl Libre",Georgia,serif;--f-body:"Assistant",system-ui,sans-serif;--f-label:"Assistant",system-ui,sans-serif;--f-read:"Frank Ruhl Libre",Georgia,serif;--f-cyr:"Noto Serif",serif;--f-ar:"Noto Naskh Arabic",serif;--dw:400;--dls:0;
   --r:18px;--r-hero:22px;
   --top-bg:var(--ink);--tabs-bg:var(--ink);--hero-bg:#3D4A2C;--hero-line:#3D4A2C;--hero-shadow:none;--shadow:none;--glow:none;--cover-filter:sepia(.35) saturate(.8);
   --chip-on-bg:#3D4A2C;--chip-on-line:#3D4A2C;--glass:#2E3822;--glass-line:#2E3822;--float-shadow:none;--track:rgba(243,236,221,.25);--scrim:rgba(30,26,18,.45);
