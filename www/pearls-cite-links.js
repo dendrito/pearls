@@ -53,7 +53,7 @@
   var SAH_RE = /Shul(?:ch|ḥ|h)an [ʿ’']?Ar[uo](?:kh|ch|ḥ) Ha-?Rav\s+(\d{1,3}):(\d{1,3})(?:\s*[-\u2013]\s*(\d{1,3}))?/g;
 
   // PH citing itself: "Peninei Halakha: Shabbat 21:8" / "Peninei Halakhah, Shabbat 21:8"
-  var PH_SELF = /Peninei Halakha?h?[:,]?\s*([A-Z][A-Za-z’' ]{2,30}?)\s+(\d{1,2}):(\d{1,3})/g;
+  var PH_SELF = /Peninei Hala(?:kh|ch)a?h?(?:\s*[:,]|\s+on)?\s*([A-Z][A-Za-z’' ]{2,30}?),?\s+(\d{1,2}):(\d{1,3})/g;
 
   // What the reader sees says "Peninei Halakha"; the ref itself keeps Sefaria's "Peninei Halakhah" for lookups.
   function shown(s) { return String(s || '').replace(/\bPeninei\s+Hala(?:kh|ch|k)(?:a|ah)\b/gi, 'Peninei Halakha'); }
@@ -396,9 +396,10 @@
     ];
   })();
   // returns {t, at(i)}: the rewritten text and a function from a position in it to one in the original
-  function heNormalize(text) {
+  function heNormalize(text) { return normalize(text, HE_NORM); }
+  function normalize(text, rules) {
     var edits = [];
-    HE_NORM.forEach(function (rule) {
+    rules.forEach(function (rule) {
       var re = rule[0], m; re.lastIndex = 0;
       while ((m = re.exec(text))) {
         var s = m.index, e = s + m[0].length, rep = rule[1](m), src = m[0];
@@ -674,11 +675,299 @@
       }]
   ];
 
+
+  /* ── English forms the grammar does not read (2026-11-16) ────────────────────────────────────────────
+   * Found the same way as the Hebrew ones: every chapter of the official English and of the AI
+   * translations run through find(), and the leftovers listed (tools/cite_audit.js). Every ref shape
+   * below was fetched from Sefaria before it was written down (16 Nov 2026).
+   *  1. EN_NORM (through normalize(), like heNormalize): Ĥ/ĥ become Ḥ/ḥ (the official English uses both);
+   *     a tractate spelled another way before a folio becomes Sefaria's spelling ("Avoda Zara 5b",
+   *     "Menaḥot 65b", "Rosh Ha-shana 16b"); "Arukh Ha-shulḥan", "Biur Halakha".
+   *  2. EN_WORKS: the Rambam by "Hilkhot X" / "Laws of X" (with or without "Rambam"/"MT"), Tanakh in
+   *     transliteration, a Mishnah, and works the grammar does not hold. A "Laws of X" after ANOTHER
+   *     author ("Agur, Laws of Tzitzit 27") is not the Rambam and is left alone.
+   *  3. Works Sefaria does not have are MARKED and NAMED when they carry a location. */
+  function foldMT(s) {
+    return String(s).replace(/[ḥĥ]/g, 'ch').replace(/[ḤĤ]/g, 'Ch').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/\bthe\b|\band\b|\bof\b/g, ' ').replace(/h\b/g, '').replace(/[^a-z]/g, '')
+      .replace(/kh/g, 'ch').replace(/(.)\1+/g, '$1');
+  }
+  var FT = 'Foundations of the Torah', HD = 'Human Dispositions', FW = 'Foreign Worship and Customs of the Nations',
+    PR = 'Prayer and the Priestly Blessing', TM = 'Tefillin, Mezuzah and the Torah Scroll', SH = 'Shofar, Sukkah and Lulav',
+    ME = 'Scroll of Esther and Hanukkah', FI = 'Forbidden Intercourse', FF = 'Forbidden Foods', ST = "Second Tithes and Fourth Year's Fruit",
+    BK = 'First Fruits and other Gifts to Priests Outside the Sanctuary', SY = 'Sabbatical Year and the Jubilee',
+    MU = 'Murderer and the Preservation of Life', KW = 'Kings and Wars', RH = 'Rest on a Holiday';
+  var MT_EN = {};
+  [[FT, 'Yesodei Ha-Torah', 'Yesodei HaTorah', 'Foundations of the Torah', 'the Foundations of the Torah'],
+    [HD, "De'ot", 'Deot', 'Dei\'ot', 'Character Traits', 'Dispositions', 'Human Dispositions', 'Ethics'],
+    ['Torah Study', 'Talmud Torah', 'Torah Study'],
+    [FW, 'Avoda Zara', 'Avodah Zarah', 'Avodat Kokhavim', 'Avodat Kochavim', 'Idolatry', 'Idol Worship', 'Foreign Worship'],
+    ['Repentance', 'Teshuva', 'Repentance'], ['Reading the Shema', "Keri'at Shema", 'Kriat Shema', 'Keriat Shema', 'Keri’at Shema', 'Reading the Shema'],
+    [PR, 'Tefilla', 'Tefila', 'Tefillah', 'Tefilla U-Nesi\'at Kapayim', 'Prayer'],
+    [TM, 'Tefillin', 'Mezuza', 'Mezuzah', 'Sefer Torah', 'Tefillin U-Mezuza Ve-Sefer Torah', 'Torah Scroll', 'Mezuzah and Torah Scroll'],
+    ['Fringes', 'Tzitzit', 'Fringes'], ['Blessings', 'Berakhot', 'Brakhot', 'Blessings'], ['Circumcision', 'Mila', 'Milah', 'Circumcision'],
+    ['Sabbath', 'Shabbat', 'Sabbath'], ['Eruvin', 'Eruvin', 'Eiruvin'], ['Rest on the Tenth of Tishrei', "Shevitat Asor", 'Shvitat Asor'],
+    [RH, 'Yom Tov', 'Shevitat Yom Tov', 'Rest on a Holiday', 'Festivals'],
+    ['Leavened and Unleavened Bread', 'Ḥametz U-Matza', 'Chametz U-Matzah', 'Ḥametz', 'Chametz and Matzah', 'Leavened and Unleavened Bread'],
+    [SH, 'Shofar', 'Sukka', 'Sukkah', 'Lulav', 'Shofar Ve-Sukka Ve-Lulav', 'Shofar, Sukkah and Lulav'],
+    ['Sheqel Dues', 'Shekalim'], ['Sanctification of the New Month', 'Kiddush Ha-ḥodesh', 'Kiddush HaChodesh', 'Sanctification of the Month', 'Sanctification of the New Month'],
+    ['Fasts', "Ta'aniyot", 'Taaniyot', 'Fasts', 'Fast Days'], [ME, 'Megilla', 'Megillah', 'Ḥanuka', 'Chanukah', 'Megilla Ve-Ḥanuka', 'Megillah and Chanukah'],
+    ['Marriage', 'Ishut', 'Marriage'], ['Divorce', 'Gerushin', 'Divorce'], ['Levirate Marriage and Release', 'Yibum Ve-Ḥalitza', 'Yibbum'],
+    ['Virgin Maiden', "Na'ara Betula"], ['Woman Suspected of Infidelity', 'Sota', 'Sotah'],
+    [FI, "Issurei Bi'ah", "Issurei Bi'a", 'Isurei Biah', 'Forbidden Relations', 'Forbidden Sexual Relations', 'Sexual Prohibitions', 'Forbidden Intercourse', 'Prohibited Relations'],
+    [FF, "Ma'akhalot Asurot", "Ma'akhalot Assurot", 'Maachalot Asurot', 'Forbidden Foods', 'Forbidden Food'],
+    ['Ritual Slaughter', 'Sheḥita', 'Shechita', 'Ritual Slaughter', 'Slaughter'], ['Oaths', "Shevu'ot", 'Oaths'], ['Vows', 'Nedarim', 'Vows'],
+    ['Nazariteship', 'Nezirut'], ['Appraisals and Devoted Property', 'Arakhin Va-Ḥaramin'],
+    ['Diverse Species', "Kil'ayim", 'Kilayim', 'Diverse Species', 'Mixed Species'], ['Gifts to the Poor', 'Matanot Aniyim', 'Matnot Aniyim', 'Gifts to the Poor', 'Gifts to the Needy'],
+    ['Heave Offerings', 'Terumot', 'Heave Offerings'], ['Tithes', "Ma'aser", "Ma'asrot", 'Maaser', 'Tithes'],
+    [ST, "Ma'aser Sheni", 'Maaser Sheni', "Ma'aser Sheni Ve-Neta Revai", 'Neta Revai', 'Second Tithe', 'Second Tithes'],
+    [BK, 'Bikkurim', 'Bikurim', 'First Fruits'], [SY, 'Shemita Ve-Yovel', 'Shemitta Ve-Yovel', 'Shmita Ve-Yovel', 'Shemita', 'Shemitah', 'Sabbatical Year', 'Sabbatical Year and the Jubilee'],
+    ['The Chosen Temple', 'Beit Ha-beḥira', 'Beit HaBechirah', 'The Chosen Temple', 'Chosen Temple'],
+    ['Vessels of the Sanctuary and Those Who Serve Therein', 'Klei Ha-Mikdash'], ['Admission into the Sanctuary', "Bi'at Ha-Mikdash"],
+    ['Things Forbidden on the Altar', "Issurei Mizbe'aḥ", 'Issurei Mizbeach'], ['Sacrificial Procedure', "Ma'aseh Ha-Korbanot"],
+    ['Daily Offerings and Additional Offerings', 'Temidin U-Musafin'], ['Sacrifices Rendered Unfit', 'Pesulei Ha-Mukdashin'],
+    ['Service on the Day of Atonement', 'Avodat Yom Ha-Kippurim'], ['Trespass', "Me'ila"], ['Paschal Offering', 'Korban Pesaḥ'],
+    ['Festival Offering', 'Ḥagiga'], ['Firstlings', 'Bekhorot'], ['Offerings for Unintentional Transgressions', 'Shegagot'],
+    ['Substitution', 'Temura'], ['Defilement by a Corpse', "Tum'at Met"], ['Red Heifer', 'Para Aduma'], ['Immersion Pools', "Mikva'ot", 'Mikvaot', 'Immersion Pools'],
+    ['Vessels', 'Kelim'], ['Damages to Property', 'Nizkei Mamon'], ['Theft', 'Geneiva', 'Theft'], ['Robbery and Lost Property', "Gezeila Va-Aveida", 'Gzeila Va-Aveida'],
+    ['One Who Injures a Person or Property', 'Ḥovel U-Mazik'], [MU, "Rotze'aḥ U-Shemirat Ha-Nefesh", "Rotze'aḥ", 'Rotzeach', 'Murderer'],
+    ['Sales', 'Mekhira'], ['Ownerless Property and Gifts', 'Zekhiya U-Matana'], ['Neighbors', 'Shekhenim'], ['Agents and Partners', 'Sheluḥin Ve-Shutafin', 'Sheluḥin'],
+    ['Slaves', 'Avadim', 'Slaves'], ['Hiring', 'Sekhirut'], ['Borrowing and Deposit', "She'ela U-Fikadon"], ['Creditor and Debtor', 'Malveh Ve-Loveh', 'Malve Ve-Love'],
+    ['Plaintiff and Defendant', "To'en Ve-Nit'an"], ['Inheritances', 'Naḥalot'], ['The Sanhedrin and the Penalties within Their Jurisdiction', 'Sanhedrin'],
+    ['Testimony', 'Edut', 'Testimony'], ['Rebels', 'Mamrim', 'Rebels'], ['Mourning', 'Evel', 'Avel', 'Mourning'],
+    [KW, 'Melakhim', 'Melachim', 'Melakhim U-Milḥamot', 'Melakhim U-Milḥemoteihem', 'Kings', 'Kings and Wars', 'Kings and Their Wars']
+  ].forEach(function (r) { r.slice(1).forEach(function (k) { MT_EN[foldMT(k)] = r[0]; }); });
+
+  // Tanakh in transliteration; the chapter must exist. Books in two parts need the part.
+  var TNK_EN = {}, TNK_EN_P = {};
+  [['Bereishit', 'Genesis'], ['Bereshit', 'Genesis'], ['Yehoshua', 'Joshua'], ['Shoftim', 'Judges'], ['Yirmiyahu', 'Jeremiah'],
+    ['Yirmeyahu', 'Jeremiah'], ['Yirmiya', 'Jeremiah'], ['Yeḥezkel', 'Ezekiel'], ['Yechezkel', 'Ezekiel'], ['Hoshea', 'Hosea'],
+    ['Yoel', 'Joel'], ['Ovadya', 'Obadiah'], ['Ovadia', 'Obadiah'], ['Ovadyah', 'Obadiah'], ['Yona', 'Jonah'], ['Mikha', 'Micah'],
+    ['Micha', 'Micah'], ['Naḥum', 'Nahum'], ['Ḥavakuk', 'Habakkuk'], ['Chavakuk', 'Habakkuk'], ['Tzefanya', 'Zephaniah'],
+    ['Ḥaggai', 'Haggai'], ['Ḥagai', 'Haggai'], ['Chaggai', 'Haggai'], ['Zekharya', 'Zechariah'], ['Zecharya', 'Zechariah'],
+    ['Malakhi', 'Malachi'], ['Malachi', 'Malachi'], ['Tehilim', 'Psalms'], ['Iyov', 'Job'], ['Shir Ha-shirim', 'Song of Songs'],
+    ['Shir HaShirim', 'Song of Songs'], ['Eikha', 'Lamentations'], ['Eicha', 'Lamentations'], ['Eikhah', 'Lamentations'],
+    ['Ester', 'Esther'], ['Rut', 'Ruth'], ['Neḥemya', 'Nehemiah'], ['Nechemya', 'Nehemiah'], ['Neḥemia', 'Nehemiah'], ['Yeshaya', 'Isaiah']
+  ].forEach(function (r) { var row = TANAKH_HE.filter(function (x) { return x[1] === r[1]; })[0]; TNK_EN[foldTr(r[0])] = [r[1], row[2]]; });
+  [['Shmuel', 'Samuel'], ['Shemuel', 'Samuel'], ['Melakhim', 'Kings'], ['Melachim', 'Kings'], ['Divrei Ha-yamim', 'Chronicles'],
+    ['Divrei HaYamim', 'Chronicles']].forEach(function (r) {
+    var row = TANAKH_HE_PART.filter(function (x) { return x[1] === r[1]; })[0]; TNK_EN_P[foldTr(r[0])] = [r[1], row[2]];
+  });
+  var TNK_EN_ALT = Object.keys(TNK_EN).concat(Object.keys(TNK_EN_P)).length && [
+    'Bere(?:i)?shit', 'Yehoshua', 'Shoftim', 'Yirm(?:i|e)yahu', 'Yirmiya', 'Ye(?:ḥ|ch)ezkel', 'Hoshea', 'Yoel', 'Ovad(?:y|i)ah?', 'Yona',
+    'Mi(?:kh|ch)a', 'Naḥum', '(?:Ḥ|Ch)avakuk', 'Tzefanya', '(?:Ḥ|Ch)agg?ai', 'Ze(?:kh|ch)arya', 'Mala(?:kh|ch)i', 'Tehilim', 'Iyov',
+    'Shir Ha-?[Ss]hirim', 'Ei(?:kh|ch)ah?', 'Ester', 'Rut', 'Ne(?:ḥ|ch)emi?ya', 'Yeshaya'].join('|');
+  var TNK_EN_P_ALT = 'Shm?e?uel|Mela(?:kh|ch)im|Divrei Ha-?[Yy]amim';
+  var NOT_TNK_BEFORE = /(?:Beit|Bet|Devar|Benei|Bnei|Ḥazon|Hazon|Chazon|Hilkhot|Hilchot|Laws of|Rabbi|Rav|R\.|Rabbeinu|Midrash|Yalkut|Sifrei|Rabba[h]?)\s*$/;
+
+  // the Shulchan Arukh section a citation names in English: "OḤ", "Y.D.", "Yoreh De’ah", "ḤM"...
+  var EN_SECRE = '(?:(O[ḤḥHC]|O\\.[CḤ]\\.|Ora[ḥc]h? [ḤḥC]h?ay?y?im|YD|Y\\.D\\.|Yoreh De[\'’]?ah|EH|E\\.H\\.|Even Ha-?[Ee]zer|[ḤH]M|Ḥ\\.M\\.|Choshen Mishpat|Ḥoshen Mishpat)[,\\s]+)?';
+  function secEn(s) {
+    if (!s) return '';
+    var k = s.replace(/[.\s’']/g, '').toUpperCase();
+    if (/^O/.test(k)) return 'OC'; if (/^Y/.test(k)) return 'YD'; if (/^E/.test(k)) return 'EH';
+    if (/^[ḤHC]/i.test(k)) return 'HM'; return '';
+  }
+  function enSec(mark, ctx, allowed, w) {
+    var s = secEn(mark), by = 'cite';
+    if (!s && ctx && ctx.secBy) { s = ctx.sec; by = ctx.secBy; }
+    if (!s || (allowed && allowed.indexOf(s) < 0)) return null;
+    return {sec: s, by: by};
+  }
+  function onSecEn(base, w, mark, ctx, allowed, loc) {
+    var s = enSec(mark, ctx, allowed);
+    if (!s) return named(w + ' is divided by section of the Shulchan Arukh, and neither this citation nor this chapter says which.');
+    var r = linked(base.replace('{sec}', SEC_EN[s.sec]) + ' ' + loc, w); r.sec = s.sec; r.secBy = s.by; return r;
+  }
+  var ROMAN = ['I', 'II', 'III', 'IV'];
+  var DH_PARTS = [['Part One', ['On the Creator', 'On the Purpose of Creation', 'On Mankind', 'On Human Responsibility', 'On the Spiritual Realm']],
+    ['Part Two', ['On Divine Providence in General', 'On Mankind in This World', 'On Personal Providence', 'On Israel and the Nations',
+      'On How Providence Works', 'On the System of Providence', 'On the Influence of the Stars', 'On Specific Modes of Providence']],
+    ['Part Three', ['On the Soul and Its Activities', 'On Divine Names and Witchcraft', 'On Divine Inspiration and Prophecy',
+      'On the Prophetic Experience', "On Moshe's Unique Status"]],
+    ['Part Four', ['On Divine Service', 'On Torah Study', 'On Love and Fear of God', "On the Sh'ma and Its Blessings", 'On Prayer',
+      'On the Daily Order of Prayer', 'On Divine Service and the Calendar', 'On Seasonal Commandments', 'On Blessings']]];
+  var ENS = '[,\\s]*\\(?\\s*';                 // what may sit between a work and its location
+  var NO_SEF = 'is not on Sefaria, so this is not linked.';
+  var NOT_ON_SEFARIA = [
+    'Levush', 'Menu[ḥh]at Ahava', "Ye[ḥh]aveh Da['’]?at", 'Yabi[\'’]?a Omer', 'Masoret Ha-?[Gg]iyur', 'Ketzot Ha-?[Ss]hul[ḥc]h?an',
+    'Mishpat Kohen', "Da['’]?at Kohen", 'Ora[ḥc]h? Mishpat', "Igrot Ha-?[Rr]e['’]?a?ya", 'Seridei Esh', 'A[ḥc]hiezer',
+    "Sha['’]?agat Aryeh", 'Shiyurei Berakha', 'Divrei Malkiel', 'Zera Emet', 'Amud Ha-?[Yy]emini', 'Or[ḥc]h?ot Shabbat',
+    'Shul[ḥc]h?an Gavoha', "Pe['’]?at Ha-?[Ss]hul[ḥc]h?an", "Mikra['’]?ei Kodesh", 'Badei Ha-?[Ss]hul[ḥc]h?an', 'Darkhei Teshuva',
+    'Bikurei Ya[\'’]?akov', 'Ziv[ḥc]h?ei Tzedek', 'Ma[ḥc]h?azik Berakha', 'Birkat Hashem', 'Sidrei Tahara', "Ketif Shevi['’]?it",
+    'Aseh Lekha Rav', 'Mishpetei Eretz', 'Shevitat Ha-?[Ss]adeh', 'Erekh Ha-?[Ss]hul[ḥc]h?an', "Ma['’]?amar Mordekhai",
+    'Tzava Ka-?[Hh]alakha', 'Sia[ḥc]h? Na[ḥc]h?um', 'Shul[ḥc]h?an Shlomo', 'Shevet Ha-?[Ll]evi', 'Birkei Yosef',
+    'Min[ḥc]h?at Shlomo', 'Min[ḥc]h?at Yit[zs]?[ḥc]h?ak', "Sha['’]?ar Ha-?[Tt]z?iyun", 'Darkhei Tahara', 'Taharat Ha-?[Bb]ayit',
+    'Mishneh Halakhot', 'Te[ḥc]h?umin'];
+
+  var PH_VOL_EN = {};
+  Object.keys(PH_VOL_HE).forEach(function (k) { PH_VOL_EN[foldMT(PH_VOL_HE[k])] = PH_VOL_HE[k]; });
+  [['Simḥat Ha-Bayit U-Virkhato', "Simchat Habayit U'Virkhato"], ['Simchat HaBayit UVirchato', "Simchat Habayit U'Virkhato"],
+    ['Emuna U-Mitzvoteha', 'Emunah Umitzvoteha'], ['Laws of Festivals', 'Festivals'], ['Mo’adim', 'Festivals'], ["Mo'adim", 'Festivals'],
+    ['Women’s Prayer', "Women's Prayer"], ['Family Purity', 'Family Purity'], ['Taharat Ha-Mishpaḥa', 'Family Purity'],
+    ['Shevi’it and Yovel', 'Shemitah and Yovel'], ["Shevi'it Ve-Yovel", 'Shemitah and Yovel'], ['Likutim I', 'Likkutim I'],
+    ['Likutim II', 'Likkutim II'], ['Conversion', 'Giyur']].forEach(function (r) { PH_VOL_EN[foldMT(r[0])] = r[1]; });
+
+  var EN_WORKS = [
+    // the Rambam: "Rambam, Hilkhot Shabbat 5:3", "MT, Laws of Kings 10:9", "Hilkhot Melakhim 5:1"
+    [/(?:\b(?:Rambam|MT|mt|Mishneh Torah|Maimonides)(?:['’]s)?[,\s]*\(?\s*(?:on\s+)?)?\b(?:Hilkhot|Hilchot|Hil\.|Laws of(?: the)?)\s+([A-Z][A-Za-zḥĥḤĤ'’ ,\-]{1,60}?)[,\s]*(?:ch(?:apter|\.)\s*)?(\d{1,2}):(\d{1,3})/g,
+      function (m) {
+        var before = m.input.slice(Math.max(0, m.index - 30), m.index);
+        var aw = /([A-Z][\wḥĥḤĤ'’\-]*)\s*[,(]\s*$/.exec(before);
+        if (!/^(?:Rambam|MT|mt|Mishneh|Maimonides)/.test(m[0]) && aw && !/^(?:See|Also|Cf|And|Rambam|MT|Torah|Maimonides)$/.test(aw[1])) return null;
+        var b = MT_EN[foldMT(m[1].replace(/,.*$/, ''))] || MT_EN[foldMT(m[1])];
+        var c = +m[2], h = +m[3];
+        if (!b || !c || !h || c > 30) return null;
+        return linked('Mishneh Torah, ' + b + ' ' + c + ':' + h, 'Mishneh Torah');
+      }],
+    // "Rambam (Tzitzit 3:11)": a book name straight after the Rambam. A name that is also a tractate
+    // ("Rambam, Berakhot 1:1") may be his commentary on the Mishnah, so it is left to the grammar.
+    [/\b(?:Rambam|MT)(?:['’]s)?(?:\s*,\s*|\s*\(\s*)([A-Z][A-Za-zḥĥḤĤ'’\- ]{2,40}?)\s*,?\s*(\d{1,2}):(\d{1,3})/g,
+      function (m) {
+        if (/^(?:Hilkhot|Hilchot|Hil\.|Laws)\b/.test(m[1]) || tractEn(m[1])) return null;
+        var b = MT_EN[foldMT(m[1])], c = +m[2], h = +m[3];
+        return b && c && h && c <= 30 ? linked('Mishneh Torah, ' + b + ' ' + c + ':' + h, 'Mishneh Torah') : null;
+      }],
+    // Tanakh in transliteration: "Yehoshua 1:8", "II Shmuel 7:12", "Divrei Ha-yamim I 29:11"
+    [new RegExp('\\b(?:(I{1,2}|[12])\\s+)?(' + TNK_EN_ALT + '|' + TNK_EN_P_ALT + ')(?:\\s+(I{1,2}|[12]|Alef|Bet))?\\s+(\\d{1,3}):(\\d{1,3})', 'g'),
+      function (m) {
+        if (NOT_TNK_BEFORE.test(m.input.slice(Math.max(0, m.index - 12), m.index))) return null;
+        var k = foldTr(m[2]), c = +m[4], v = +m[5], one = TNK_EN[k], two = TNK_EN_P[k];
+        if (one) return !m[1] && !m[3] && c >= 1 && c <= one[1] && v ? linked(one[0] + ' ' + c + ':' + v, one[0]) : null;
+        if (!two) return null;
+        var p = m[1] || m[3]; if (!p) return null;
+        var i = /^(?:I|1|Alef)$/.test(p) ? 0 : 1;
+        return c >= 1 && c <= two[1][i] && v ? linked(['I ', 'II '][i] + two[0] + ' ' + c + ':' + v, two[0]) : null;
+      }],
+    // a Mishnah: "Mishna Shevi'it 9:2", "Mishnah Berakhot 1:1"
+    [/\bMishnah?\s+([A-Z][A-Za-zḥĥḤĤ'’\-]+(?:\s+[A-Z][A-Za-zḥĥḤĤ'’\-]+)?)\s+(\d{1,2}):(\d{1,2})\b/g,
+      function (m) { var t = tractEn(m[1]), c = +m[2], h = +m[3]; return t && c && h && c <= 30 ? linked('Mishnah ' + t + ' ' + c + ':' + h, 'Mishnah') : null; }],
+    [/\bTerumat Ha-?[Dd]eshen\b[,\s]*\(?\s*(Pesakim[^\d]{0,20})?§?\s*(\d{1,3})\b(?!:)/g,
+      function (m) { var n = +m[2]; return n && n <= 354 ? linked('Terumat HaDeshen, Part ' + (m[1] ? 'II ' : 'I ') + n, 'Terumat HaDeshen') : null; }],
+    [/\b(?:Sefer\s+)?Ha-?[ḥĥ]inukh\b[,\s]*\(?\s*(?:§\s*|mitzva[h]?\s+)?(\d{1,3})\b(?!:)/gi,
+      function (m) { var n = +m[1]; return n && n <= 613 ? linked('Sefer HaChinukh ' + n, 'Sefer HaChinukh') : null; }],
+    [/\bMin[ḥĥc]h?at [ḤĤC]h?inukh\b[,\s]*\(?\s*(?:§\s*|mitzva[h]?\s+)?(\d{1,3})\b(?!:)/g,
+      function (m) { var n = +m[1]; return n && n <= 613 ? linked('Minchat Chinukh ' + n, 'Minchat Chinukh') : null; }],
+    [/\bKuzari\b[,\s]*\(?\s*([1-5]):(\d{1,3})/g, function (m) { return linked('Kuzari ' + m[1] + ':' + m[2], 'Kuzari'); }],
+    [/\b(?:Moreh Nevu(?:kh|ch)im|Guide (?:for|of|to) the Perplexed)\b[,\s]*\(?\s*(?:part\s+)?(I{1,3}|[123])[:,]\s*(?:chapter\s+)?(\d{1,3})/g,
+      function (m) { var a = {I: 1, II: 2, III: 3}[m[1]] || +m[1]; return linked('Guide for the Perplexed, Part ' + a + ' ' + m[2], 'Guide for the Perplexed'); }],
+    [/\bTashbetz\b(?!\s+Katan)[,\s]*\(?\s*(?:part\s+)?([123])[:,]\s*(\d{1,3})/g,
+      function (m) { return linked('Sefer HaTashbetz, Part ' + ROMAN[m[1] - 1] + ' ' + m[2], 'Tashbetz'); }],
+    [/\bMaharsham\b(?![,\s]*(?:in\s+)?Da['’]at Torah)[,\s]*\(?\s*(?:part\s+)?([123])[:,]\s*(\d{1,3})/g,
+      function (m) { return linked('Teshuvot Maharsham Volume ' + ROMAN[m[1] - 1] + ' ' + m[2], 'Maharsham'); }],
+    [/\bMelamed Le-?[Hh]o['’]il\b[,\s]*\(?\s*([123]):(\d{1,3})/g,
+      function (m) { return linked("Melamed Leho'il Part " + ROMAN[m[1] - 1] + ' ' + m[2], "Melamed Leho'il"); }],
+    [/\bBinyan Tziyon\b(?!\s+(?:Ḥ|Ch)adashot)[,\s]*\(?\s*(?:part\s+1,\s*)?§?\s*(\d{1,3})\b(?!:)/g,
+      function (m) { return linked('Binyan Tziyon ' + m[1], 'Binyan Tziyon'); }],
+    [/\bSemak\b[,\s]*\(?\s*§?\s*(\d{1,3})\b(?!:)/g, function (m) { return linked('Sefer Mitzvot Katan ' + m[1], 'Semak'); }],
+    [/\bSemag\b[,\s]*\(?\s*(positive|negative)\s+(?:commandments?|mitzv(?:a|ot))\s*§?\s*(\d{1,3})/gi,
+      function (m) { return linked('Sefer Mitzvot Gadol, ' + (/^p/i.test(m[1]) ? 'Positive' : 'Negative') + ' Commandments ' + m[2], 'Semag'); }],
+    [/\b(?:Sefer\s+)?Yere['’]?im\b[,\s]*\(?\s*§?\s*(\d{1,3})\b(?!:)/g, function (m) { return linked('Sefer Yereim ' + m[1], 'Yereim'); }],
+    [/\bOr Zaru['’]?a\b[,\s]*\(?\s*([12]):(\d{1,3})/g,
+      function (m) { return linked('Or Zarua, Volume ' + (m[1] === '1' ? 'I' : 'II') + ' ' + m[2], 'Or Zarua'); }],
+    // "Sha'arei Teshuva" is three works. Rabbeinu Yona's (gate:section) is linked when the text says it is his, or
+    // when the section is past 60 (no siman 1-4 of the Shulḥan Arukh commentary reaches that); the Geonim's responsa
+    // when the text says Ge'onim. The Shulḥan Arukh commentary is named: Sefaria's copy is sparsely segmented.
+    [/\bSha['’]?arei Teshuva[h]?\b(\s+of Rabbeinu Yona)?[,\s]*\(?\s*(?:(?:gate|Gate)\s*([1-4])[,\s]+(\d{1,3})|([1-4]):(\d{1,3})|(?:siman\s+)?(\d{1,3}))\b(?![:\d])/g,
+      function (m) {
+        var before = m.input.slice(Math.max(0, m.index - 60), m.index);
+        var gate = m[2] || m[4], sec = m[3] || m[5];
+        if (gate) {
+          var yona = m[1] || m[2] || /Yona/.test(before) || +sec > 60;
+          return yona ? linked('Sha\'arei Teshuvah ' + gate + ':' + sec, 'Sha\'arei Teshuvah') : null;
+        }
+        if (/Ge['’]?onim|Gaon\b/.test(before)) return linked('Teshuvot HaGeonim (Shaarei Teshuva) ' + m[6], 'Teshuvot HaGeonim');
+        return null;
+      }],
+    [/\bKol Bo\b[,\s]*\(?\s*§?\s*(\d{1,3})\b(?!:)/g, function (m) { return linked('Kol Bo ' + m[1], 'Kol Bo'); }],
+    [/\bMesil+at Yesharim\b[,\s]*\(?\s*(?:ch(?:apter|\.)\s*)?(\d{1,2})\b/g, function (m) { return +m[1] <= 26 ? linked('Mesillat Yesharim ' + m[1], 'Mesillat Yesharim') : null; }],
+    [/\bShib+olei Ha-?[Ll]eket\b[,\s]*\(?\s*§?\s*(\d{1,3})\b(?!:)/g, function (m) { return linked('Shibbolei HaLeket ' + m[1], 'Shibbolei HaLeket'); }],
+    [/\bRivash\b[,\s]*\(?\s*§\s*(\d{1,3})\b/g, function (m) { return linked('Teshuvot HaRivash ' + m[1], 'Rivash'); }],
+    [/\bAvot De-?(?:Rabbi|Rebbe) Natan\b[,\s]*\(?\s*(?:chap(?:ter|\.)?\s*)?(\d{1,2})(?::(\d{1,2}))?/g,
+      function (m) { return +m[1] <= 41 ? linked('Avot DeRabbi Natan ' + m[1] + (m[2] ? ':' + m[2] : ''), 'Avot DeRabbi Natan') : null; }],
+    [/\b(?:Shemon[ae]h?|Shmonah) Kevatzim\b[,\s]*\(?\s*([1-8]):(\d{1,4})/g, function (m) { return linked('Shmonah Kevatzim ' + m[1] + ':' + m[2], 'Shmonah Kevatzim'); }],
+    [/\bKeset Ha-?[Ss]ofer\b[,\s]*\(?\s*(\d{1,2}):(\d{1,2})/g, function (m) { return linked('Keset HaSofer ' + m[1] + ':' + m[2], 'Keset HaSofer'); }],
+    [/\bGevurot Hashem\b[,\s]*\(?\s*(?:ch(?:apter|s?\.)\s*)?(\d{1,2})\b/g, function (m) { return linked('Gevurot Hashem ' + m[1], 'Gevurot Hashem'); }],
+    [/(?:^|(?<![A-Za-zḥḤ]))(?:[ḤĤH]|Ch)avv?ot Ya['’]?ir\b[,\s]*\(?\s*(?:responsa\s+)?§?\s*(\d{1,3})\b/g, function (m) { return linked('Havot Yair ' + m[1], 'Havot Yair'); }],
+    [/\bShe['’]?ilat Ya['’]?avetz\b[,\s]*\(?\s*([12]):(\d{1,3})/g,
+      function (m) { return linked('Sheilat Yaavetz, Volume ' + ROMAN[m[1] - 1] + ' ' + m[2], 'Sheilat Yaavetz'); }],
+    [/\bMeshiv Davar\b[,\s]*\(?\s*([1-5]):(\d{1,3})/g,
+      // Sefaria holds text for volumes I and II only (III and IV are in its index with no text, checked 16 Nov 2026).
+      function (m) { return +m[1] <= 2 ? linked('Teshuvot Meshiv Davar, Volume ' + ROMAN[m[1] - 1] + ' ' + m[2], 'Meshiv Davar') : named('Sefaria has volumes I and II of the Meshiv Davar; volumes III and IV are listed there without text.'); }],
+    [/\bMateh Efrayim\b[,\s]*\(?\s*(?:O[ḤḥC]\s+)?(\d{3}):(\d{1,3})/g, function (m) { return linked('Mateh Efrayim ' + m[1] + ':' + m[2], 'Mateh Efrayim'); }],
+    [/\bDerekh Hashem\b[,\s]*\(?\s*(?:part\s+([1-4]),?\s*(?:chapter\s+)?(\d{1,2})(?::(\d{1,2}))?|([1-4]):(\d{1,2})(?::(\d{1,2}))?)/g,
+      function (m) {
+        var p = +(m[1] || m[4]), c = +(m[2] || m[5]), s = m[3] || m[6], part = DH_PARTS[p - 1], ch = part && part[1][c - 1];
+        if (!ch) return named('We could not find this chapter of Derekh Hashem.');
+        return linked('Derekh Hashem, ' + part[0] + ', ' + ch + (s ? ' ' + s : ''), 'Derekh Hashem');
+      }],
+    // Chayei Adam has two parts with their own numbering: the daily laws, and Shabbat and Festivals.
+    // A bare "Ḥayei Adam 30:2" in a volume on Shabbat or the festivals could be either, so it is named.
+    [/(?:^|(?<![A-Za-zḥḤ]))(?:Ḥ|Ch)ayy?ei Adam\b[,\s]*\(?\s*(?:(Hilkhot Shabbat|Shabbat and Festivals|Hilkhot Shabbat U-Mo['’]adim|part (?:2|II))[,\s]*)?(?:klal\s+)?(\d{1,3}):(\d{1,3})/g,
+      function (m, ctx, page) {
+        if (m[1]) return linked('Chayei Adam, Shabbat and Festivals ' + m[2] + ':' + m[3], 'Chayei Adam');
+        if (page && /^(?:Shabbat|Festivals|Pesach|Sukkot|Zemanim|Days of Awe|Women's Prayer)$/.test(page.vol))
+          return Object.assign(named('Chayei Adam has two parts, the daily laws and Shabbat and Festivals, each numbered from 1, and this citation does not say which.'), {work: 'Chayei Adam'});
+        // the daily laws have 69 klalim, so a higher klal can only be Shabbat and Festivals
+        if (+m[2] > 69) return +m[2] <= 155 ? linked('Chayei Adam, Shabbat and Festivals ' + m[2] + ':' + m[3], 'Chayei Adam') : null;
+        return linked('Chayei Adam ' + m[2] + ':' + m[3], 'Chayei Adam');
+      }],
+    // "y. Avoda Zara 5:15": the Jerusalem Talmud
+    [/\by\s*\.\s+([A-Z][A-Za-zḥḤ'’\-]+(?:\s+[A-Z][A-Za-zḥḤ'’\-]+)?)\s+(\d{1,2}):(\d{1,2})/g,
+      function (m) { var t = tractEn(m[1]); return t ? linked('Jerusalem Talmud ' + t + ' ' + m[2] + ':' + m[3], 'Jerusalem Talmud') : null; }],
+    // Igrot Moshe by section, part and siman: not on Sefaria
+    [/\bIgrot Moshe\b[,\s]*(?:Ora[ḥc]h? [ḤC]h?ay?y?im|Yoreh De['’]?ah|Even Ha-?[Ee]zer|[ḤC]h?oshen Mishpat)[,\s]+part\s+\d,\s*\d{1,3}/g,
+      function () { return Object.assign(named('Igrot Moshe ' + NO_SEF), {work: 'Igrot Moshe'}); }],
+    // another volume of Peninei Halakha by chapter: "Peninei Halakha: Prayer ch. 11"
+    [/\bPeninei Hala(?:kh|ch)ah?(?:[:,]|\s+on)?\s*([A-Z][A-Za-zḥḤ’'\- ]{2,40}?),?\s+(?:ch(?:apter|\.)\s*)?(\d{1,2})\b(?![:\d])/g,
+      function (m) {
+        var v = PH_VOL_EN[foldMT(m[1])], c = +m[2];
+        if (!v || !c || c > 40) return null;
+        return {resolved: true, internal: true, ref: 'Peninei Halakhah, ' + v + ' ' + c + ':1', work: 'Peninei Halakha'};
+      }],
+    // divided by section of the Shulchan Arukh: the citation's own section, else the chapter's
+    [new RegExp('\\bDarkhei Moshe\\b' + ENS + EN_SECRE + '(\\d{1,3})(?::(\\d{1,2}))?\\b', 'g'),
+      function (m, ctx) { return onSecEn('Darkhei Moshe, {sec}', 'Darkhei Moshe', m[1], ctx, null, m[2] + (m[3] ? ':' + m[3] : '')); }],
+    [new RegExp('\\bP(?:e)?risha\\b' + ENS + EN_SECRE + '(\\d{1,3}):(\\d{1,2})', 'g'),
+      function (m, ctx) { return onSecEn('Prisha, {sec}', 'Prisha', m[1], ctx, null, m[2] + ':' + m[3]); }],
+    [new RegExp('\\b(?:(?:Pri|Peri) Megadim|PM)\\b[,\\s]*' + EN_SECRE + '(Eshel Avraham|Mishb[ae]tz?ot Zahav|Siftei Da[\'’]?at)' + ENS + EN_SECRE + '(\\d{1,3}):(\\d{1,3})', 'g'),
+      function (m, ctx) { return pmd(m[2], m[1] || m[3], ctx, m[4] + ':' + m[5]); }],
+    [new RegExp('\\b(Mishb[ae]tz?ot Zahav)' + ENS + EN_SECRE + '(\\d{1,3}):(\\d{1,3})', 'g'),
+      function (m, ctx) { return pmd(m[1], m[2], ctx, m[3] + ':' + m[4]); }],
+    // works Sefaria does not have, cited with a location: marked and named
+    [new RegExp('\\b(' + NOT_ON_SEFARIA.join('|') + ')\\b' + ENS + '(?:(?:vol(?:ume)?\\.?|part)\\s*[IV\\d]+,?\\s*|[A-Z][A-Za-zḤḥ.]{0,6}\\s+|§\\s*)?\\d{1,4}(?:[:.]\\d{1,4})*', 'g'),
+      function (m) { return Object.assign(named(m[1] + ' ' + NO_SEF), {work: m[1]}); }]
+  ];
+  function pmd(partName, mark, ctx, loc) {
+    var part = /^E/.test(partName) ? 'Eshel Avraham' : /^S/.test(partName) ? "Siftei Da'at" : 'Mishbezot Zahav';
+    var allowed = part === 'Eshel Avraham' ? ['OC'] : part === "Siftei Da'at" ? ['YD'] : ['OC', 'YD'];
+    var s = enSec(mark, ctx, allowed);
+    if (!s && allowed.length === 1) s = {sec: allowed[0], by: 'work'};
+    if (!s) return named('The Peri Megadim’s Mishbetzot Zahav is on Orach Chayim and Yoreh De’ah, and neither this citation nor this chapter says which.');
+    var r = linked('Peri Megadim on ' + SEC_EN[s.sec] + ', ' + part + ' ' + loc, 'Peri Megadim'); r.sec = s.sec; r.secBy = s.by; return r;
+  }
+
+  // English spellings rewritten into ones the grammar reads (positions map back, as for Hebrew)
+  var EN_NORM = [
+    [/(^|[^A-Za-zḥḤ'’])((?:[A-Z][A-Za-zḥḤ'’]*)(?:[\s\-]+[A-Za-zḥḤ'’]+){0,2})(?=\s+\d{1,3}[ab]\b)/g,
+      function (m) {
+        var toks = m[2].split(/([\s\-]+)/);   // words and their separators
+        for (var i = 0; i < toks.length; i += 2) {
+          var name = toks.slice(i).join(''), t = tractEn(name);
+          if (t) return t === name ? null : m[1] + toks.slice(0, i).join('') + t;
+        }
+        return null;
+      }],
+    [/\bArukh Ha-?[Ss]hul(?:ch|ḥ)an\b/g, function () { return 'Aruch HaShulchan'; }],
+    [/\bShabbat Ha-Aretz\b/g, function () { return 'Shabbat HaAretz'; }],
+    [/\bBiur Hala(?:kh|ch)a\b/g, function () { return 'Beur Halakha'; }]
+  ];
+
   // returns [{start, end, ...hit}] for the works above; the caller masks them before the grammar runs
   function midrash(text, he, opts) {
     var ctx = ctxFor(opts), page = pageOf(opts && opts.ref);
     var out = [];
-    (he ? HE_RULES.concat(PH_HE_RULES, HE_WORKS) : EN_RULES).forEach(function (rule) {
+    (he ? HE_RULES.concat(PH_HE_RULES, HE_WORKS) : EN_RULES.concat(EN_WORKS)).forEach(function (rule) {
       var re = rule[0], m;
       re.lastIndex = 0;
       while ((m = re.exec(text))) {
@@ -697,14 +986,26 @@
     return out;
   }
 
-  function find(text, opts) {
+  // No tractate of the Mishnah has more than 30 chapters or a chapter of more than 40 mishnayot, so a
+  // tractate followed by bigger numbers ("Yam Shel Shlomo, Ḥullin 8:106") is another work's division.
+  function mishnahBound(h) {
+    var m = h && h.resolved && /^Mishnah (?!Berurah)[A-Z][A-Za-z ]+ (\d+):(\d+)/.exec(h.ref || '');
+    if (m && (+m[1] > 30 || +m[2] > 40)) {
+      h.resolved = false; h.ref = '';
+      h.why = 'These numbers are too large for a chapter of the Mishnah, so this is probably the division of another work and is not linked.';
+    }
+    return h;
+  }
+  function find(text, opts) { return findNorm(text, opts).map(mishnahBound); }
+  function findNorm(text, opts) {
     opts = opts || {};
     var orig = String(text || ''), he = isHebrew(orig);
-    if (!he) return findIn(orig, opts, false);
-    // Hebrew: read a rewritten copy (heNormalize) and map every link back onto the original text
-    var n = heNormalize(orig);
-    if (n.t === orig) return findIn(orig, opts, true);
-    return findIn(n.t, opts, true).map(function (h) {
+    // read a rewritten copy (HE_NORM / EN_NORM) and map every link back onto the original text.
+    // English: Ĥ/ĥ become Ḥ/ḥ first; one letter for one, so positions do not move.
+    var src = he ? orig : orig.replace(/ĥ/g, 'ḥ').replace(/Ĥ/g, 'Ḥ');
+    var n = normalize(src, he ? HE_NORM : EN_NORM);
+    if (n.t === orig) return findIn(orig, opts, he);
+    return findIn(n.t, opts, he).map(function (h) {
       h.start = n.at(h.start); h.end = n.at(h.end, true); h.text = orig.slice(h.start, h.end); return h;
     }).filter(function (h) { return h.end > h.start; });
   }
@@ -719,7 +1020,7 @@
     // Pearls' own chapters first, so the grammar never reads them as a tractate.
     var masked = text.replace(PH_SELF, function (m, vol, ch, se, at) {
       out.push({start: at, end: at + m.length, text: m, internal: true, resolved: true,
-        ref: 'Peninei Halakhah, ' + vol.trim() + ' ' + ch + ':' + se, work: 'Peninei Halakha'});
+        ref: 'Peninei Halakhah, ' + vol.trim().replace(/’/g, "'") + ' ' + ch + ':' + se, work: 'Peninei Halakha'});
       return new Array(m.length + 1).join('\u0000');
     });
     midrash(masked, he, opts).forEach(function (h) {
@@ -1014,7 +1315,20 @@
       ['Hagahot Beit Yosef 135:1', '', ['']],                                           // a different work
       ['(פר"ח יסה"ת ט, ג)', '', ['Peri Chadash on Mishneh Torah, Foundations of the Torah 9:3']],
       ['(פר"ח קטו, ו)', '', ['']],                                                     // on the SA: not on Sefaria
-      ['שבט הלוי ד, רכה; ברכ"י רמב, כא; מנח"י א, ס', '', ['', '', '']]                  // not on Sefaria: named
+      ['שבט הלוי ד, רכה; ברכ"י רמב, כא; מנח"י א, ס', '', ['', '', '']],                 // not on Sefaria: named
+      // the English and AI-translated volumes
+      ['Rambam, Hilkhot Shabbat 5:3', '', ['Mishneh Torah, Sabbath 5:3']],
+      ["And so wrote the Or Zarua (Hilkhot Keri'at Shema 1:15)", '', []],            // another author's Hilkhot, not the Rambam's
+      ['as it says (Yehoshua 1:8); II Shmuel 7:12', '', ['Joshua 1:8', 'II Samuel 7:12']],
+      ['Berachot 6a', '', ['Berakhot 6a']],                                           // a tractate spelled another way
+      ['Arukh Ha-shulḥan 345:2', 'Peninei Halakhah, Shabbat 21', ['Arukh HaShulchan, Orach Chaim 345:2']],
+      ['Ḥayei Adam 5:1', 'Peninei Halakhah, Kashrut 3', ['Chayei Adam 5:1']],
+      ['Ḥayei Adam 5:1', 'Peninei Halakhah, Shabbat 21', ['']],                       // which of its two parts: not guessed
+      ['Ḥavot Yair 184; Meshiv Davar 3:14', '', ['Havot Yair 184', '']],             // volume III has no text on Sefaria
+      ["Sha'ar Ha-tziyun 3; Igrot Moshe OḤ 4:74", '', ['', '']],                     // not on Sefaria: named
+      ['Peninei Halakha: Shabbat ch. 21', '', ['Peninei Halakhah, Shabbat 21:1']],
+      ["Rabbeinu Yona (Sha'arei Teshuva 3:31); Rav Hai Gaon, Sha'arei Teshuva 14; Sha'arei Teshuva 63:4", '',
+        ["Sha'arei Teshuvah 3:31", 'Teshuvot HaGeonim (Shaarei Teshuva) 14', '']]      // three works of one name
     ];
     var pass = 0, fail = 0, failures = [];
     cases.forEach(function (k) {

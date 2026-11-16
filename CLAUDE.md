@@ -47,7 +47,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_daily.py`: the Daily Pearl schedule against the catalogue, the Home card and `#daily`, and finding
     next year's bookmark by itself (a stand-in PDF from `make_test_bookmark.py`, served through a fake proxy). It must
     end "daily pearl: 26/26".
-  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 38/38". `node tools/cite_audit.js` counts linked and missed citations across every chapter (`docs/citation-audit-hebrew.md`).
+  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 49/49". `node tools/cite_audit.js` counts linked and missed citations across every chapter (`docs/citation-audit-hebrew.md`).
   - `python3 test_android_shell.py`: the https app address, the data handover, the bundled fonts and the phone's own
     voices through the app. It must end "8/8 checks passed".
   - `WRANGLER=… node test_sync.mjs`: sync's merge rules and API (`wrangler pages dev`). It must end "sync: 30/30".
