@@ -358,10 +358,308 @@
       }]
   ];
 
+
+  /* ── Hebrew forms the grammar does not read (2026-11-16) ─────────────────────────────────────────────
+   * Found by running every chapter of the Hebrew text through find() and listing what was left over
+   * (tools/cite_audit.js). Every ref shape below was fetched from Sefaria before it was written down
+   * (16 Nov 2026). Three kinds of fix:
+   *  1. heNormalize(): rewrites a form into one the grammar already reads, keeping a map back to the
+   *     original text so the link still covers what the reader sees. ע"ז יג, א -> עבודה זרה יג, א;
+   *     בעבודה זרה -> ב עבודה זרה (the grammar does not peel a prefix off a tractate); א"ר -> אליה רבה.
+   *  2. HE_WORKS: rules for works the grammar does not hold, read before it and masked, like the
+   *     midrash rules above. A work Sefaria divides in a way the citation does not say (the Or Zarua's
+   *     volume, the Tashbetz's part) is not guessed.
+   *  3. Pearls' own chapters: "לעיל ג, ד" / "להלן ג, ד" is this volume, chapter 3 section 4, and
+   *     "פנה"ל כשרות יב, א" is another volume of Peninei Halakha. Both open that chapter in Pearls.
+   * Not done, on purpose: a bare section in brackets "(יו"ד יז)" is NOT read as the Shulchan Arukh. In
+   * the footnotes it is just as often the section of the work named before the bracket ("משכנות יעקב
+   * (יו"ד יז)"), so reading it as the Shulchan Arukh would send a real passage under the wrong name. */
+  var HE_TR_ABBR = {'ע"ז': 'עבודה זרה', 'ב"מ': 'בבא מציעא', 'ב"ב': 'בבא בתרא', 'ב"ק': 'בבא קמא',
+    'מו"ק': 'מועד קטן', 'ר"ה': 'ראש השנה'};
+  var HE_WORK_ABBR = {'א"ר': 'אליה רבה', 'חכ"א': 'חכמת אדם', 'מג"א': 'מגן אברהם'};
+  var HN_SRC = '[א-ת]{1,3}(?:["״][א-ת])?|[א-ת][׳\']';
+  var HE_NORM = (function () {
+    var tr = TRACTATES.map(function (r) { return r[1]; }).sort(function (a, b) { return b.length - a.length; }).join('|');
+    var ab = Object.keys(HE_TR_ABBR).map(function (k) { return k.replace('"', '["״]'); }).join('|');
+    var wk = Object.keys(HE_WORK_ABBR).map(function (k) { return k.replace('"', '["״]'); }).join('|');
+    return [
+      // a tractate (or its abbreviation) with a prefix, or an abbreviation alone, before a folio "יג, א"
+      [new RegExp('(^|[^א-ת"״\'׳])([ובלה]{0,2})(' + tr + '|' + ab + ')(?=\\s+(?:' + HN_SRC + ')\\s*,\\s*[אב](?![א-ת]))', 'g'),
+        function (m) {
+          var name = m[3].replace('״', '"'), full = HE_TR_ABBR[name] || m[3];
+          if (!m[2] && full === m[3]) return null;
+          return m[1] + (m[2] ? m[2] + ' ' : '') + full;
+        }],
+      // a work's abbreviation the grammar does not hold, before a siman and se'if
+      [new RegExp('(^|[^א-ת"״\'׳])([ובלה]?)(' + wk + ')(?=\\s+(?:' + HN_SRC + ')(?:\\s*,\\s*(?:' + HN_SRC + '))?(?![א-ת]))', 'g'),
+        function (m) { return m[1] + (m[2] ? m[2] + ' ' : '') + HE_WORK_ABBR[m[3].replace('״', '"')]; }]
+    ];
+  })();
+  // returns {t, at(i)}: the rewritten text and a function from a position in it to one in the original
+  function heNormalize(text) {
+    var edits = [];
+    HE_NORM.forEach(function (rule) {
+      var re = rule[0], m; re.lastIndex = 0;
+      while ((m = re.exec(text))) {
+        var s = m.index, e = s + m[0].length, rep = rule[1](m), src = m[0];
+        if (rep != null) {   // only the part that changes is an edit, so the boundary and prefix map one to one
+          var k = 0; while (k < src.length && k < rep.length && src.charAt(k) === rep.charAt(k)) k++;
+          s += k; src = src.slice(k); rep = rep.slice(k);
+          var j = 0; while (j < src.length && j < rep.length && src.charAt(src.length - 1 - j) === rep.charAt(rep.length - 1 - j)) j++;
+          e -= j; rep = rep.slice(0, rep.length - j);
+        }
+        if (rep != null && s < e && rep !== m[0] && !edits.some(function (x) { return s < x.e && e > x.s; })) edits.push({s: s, e: e, rep: rep});
+        if (re.lastIndex === m.index) re.lastIndex++;
+      }
+    });
+    if (!edits.length) return {t: text, at: function (i) { return i; }};
+    edits.sort(function (a, b) { return a.s - b.s; });
+    var out = '', map = [], pos = 0;
+    edits.forEach(function (x) {
+      for (; pos < x.s; pos++) { map.push(pos); out += text.charAt(pos); }
+      for (var k = 0; k < x.rep.length; k++) map.push(x.s + Math.min(x.e - x.s - 1, Math.floor(k * (x.e - x.s) / x.rep.length)));
+      out += x.rep; pos = x.e;
+    });
+    for (; pos < text.length; pos++) { map.push(pos); out += text.charAt(pos); }
+    map.push(text.length);
+    // a position that is the END of a rewritten span maps to the end of the original span
+    var ends = {}; edits.forEach(function (x) { ends[x.s] = x; });
+    return {t: out, at: function (i, isEnd) {
+      if (i <= 0) return 0;
+      if (i >= map.length) return text.length;
+      if (isEnd) { var p = map[i - 1]; var ed = edits.filter(function (x) { return p >= x.s && p < x.e; })[0]; return ed ? ed.e : p + 1; }
+      return map[i];
+    }};
+  }
+
+  // Tanakh in Hebrew: "דברים יא, יב". Books that need a part (שמואל, מלכים, דברי הימים) are linked only
+  // with it; the chapter must exist in that book.
+  var TANAKH_HE = [['בראשית', 'Genesis', 50], ['שמות', 'Exodus', 40], ['ויקרא', 'Leviticus', 27], ['במדבר', 'Numbers', 36],
+    ['דברים', 'Deuteronomy', 34], ['יהושע', 'Joshua', 24], ['שופטים', 'Judges', 21], ['ישעיהו', 'Isaiah', 66], ['ישעיה', 'Isaiah', 66],
+    ['ירמיהו', 'Jeremiah', 52], ['ירמיה', 'Jeremiah', 52], ['יחזקאל', 'Ezekiel', 48], ['הושע', 'Hosea', 14], ['יואל', 'Joel', 4],
+    ['עמוס', 'Amos', 9], ['עובדיה', 'Obadiah', 1], ['יונה', 'Jonah', 4], ['מיכה', 'Micah', 7], ['נחום', 'Nahum', 3],
+    ['חבקוק', 'Habakkuk', 3], ['צפניה', 'Zephaniah', 3], ['חגי', 'Haggai', 2], ['זכריה', 'Zechariah', 14], ['מלאכי', 'Malachi', 3],
+    ['תהלים', 'Psalms', 150], ['תהילים', 'Psalms', 150], ['משלי', 'Proverbs', 31], ['איוב', 'Job', 42], ['שיר השירים', 'Song of Songs', 8],
+    ['רות', 'Ruth', 4], ['איכה', 'Lamentations', 5], ['קהלת', 'Ecclesiastes', 12], ['אסתר', 'Esther', 10], ['דניאל', 'Daniel', 12],
+    ['עזרא', 'Ezra', 10], ['נחמיה', 'Nehemiah', 13]];
+  var TANAKH_HE_PART = [['שמואל', 'Samuel', [31, 24]], ['מלכים', 'Kings', [22, 25]], ['דברי הימים', 'Chronicles', [29, 36]]];
+  var TNK_HE = {}; TANAKH_HE.forEach(function (r) { TNK_HE[r[0]] = r; });
+  var TNK_HE_P = {}; TANAKH_HE_PART.forEach(function (r) { TNK_HE_P[r[0]] = r; });
+
+  // Mishneh Torah books by their Hebrew names and the footnotes' abbreviations
+  var MT_HE = {'יסודי התורה': 'Foundations of the Torah', 'יסוה"ת': 'Foundations of the Torah', 'יסה"ת': 'Foundations of the Torah',
+    'דעות': 'Human Dispositions', 'דיעות': 'Human Dispositions', 'תלמוד תורה': 'Torah Study', 'ת"ת': 'Torah Study',
+    'עבודה זרה': 'Foreign Worship and Customs of the Nations', 'ע"ז': 'Foreign Worship and Customs of the Nations',
+    'עבודת כוכבים': 'Foreign Worship and Customs of the Nations', 'עכו"ם': 'Foreign Worship and Customs of the Nations',
+    'תשובה': 'Repentance', 'קריאת שמע': 'Reading the Shema', 'ק"ש': 'Reading the Shema',
+    'תפילה': 'Prayer and the Priestly Blessing', 'תפלה': 'Prayer and the Priestly Blessing',
+    'תפילין': 'Tefillin, Mezuzah and the Torah Scroll', 'תפילין ומזוזה וספר תורה': 'Tefillin, Mezuzah and the Torah Scroll',
+    'מזוזה': 'Tefillin, Mezuzah and the Torah Scroll', 'ספר תורה': 'Tefillin, Mezuzah and the Torah Scroll',
+    'ציצית': 'Fringes', 'ברכות': 'Blessings', 'מילה': 'Circumcision', 'שבת': 'Sabbath', 'עירובין': 'Eruvin',
+    'שביתת עשור': 'Rest on the Tenth of Tishrei', 'שביתת יום טוב': 'Rest on a Holiday', 'יום טוב': 'Rest on a Holiday', 'יו"ט': 'Rest on a Holiday',
+    'חמץ ומצה': 'Leavened and Unleavened Bread', 'שופר וסוכה ולולב': 'Shofar, Sukkah and Lulav', 'שופר': 'Shofar, Sukkah and Lulav',
+    'סוכה': 'Shofar, Sukkah and Lulav', 'לולב': 'Shofar, Sukkah and Lulav', 'שקלים': 'Sheqel Dues',
+    'קידוש החודש': 'Sanctification of the New Month', 'תעניות': 'Fasts', 'מגילה וחנוכה': 'Scroll of Esther and Hanukkah',
+    'חנוכה': 'Scroll of Esther and Hanukkah', 'מגילה': 'Scroll of Esther and Hanukkah', 'אישות': 'Marriage', 'גירושין': 'Divorce',
+    'יבום וחליצה': 'Levirate Marriage and Release', 'נערה בתולה': 'Virgin Maiden', 'סוטה': 'Woman Suspected of Infidelity',
+    'איסורי ביאה': 'Forbidden Intercourse', 'איסו"ב': 'Forbidden Intercourse', 'א"ב': 'Forbidden Intercourse',
+    'מאכלות אסורות': 'Forbidden Foods', 'מאכלות אסורים': 'Forbidden Foods', 'מאכ"א': 'Forbidden Foods', 'מ"א': 'Forbidden Foods',
+    'שחיטה': 'Ritual Slaughter', 'שבועות': 'Oaths', 'נדרים': 'Vows', 'נזירות': 'Nazariteship', 'ערכין וחרמין': 'Appraisals and Devoted Property',
+    'כלאים': 'Diverse Species', 'מתנות עניים': 'Gifts to the Poor', 'מ"ע': 'Gifts to the Poor', 'תרומות': 'Heave Offerings', 'מעשר': 'Tithes', 'מעשרות': 'Tithes',
+    'מעשר שני ונטע רבעי': "Second Tithes and Fourth Year's Fruit", 'מעשר שני': "Second Tithes and Fourth Year's Fruit",
+    'ביכורים': 'First Fruits and other Gifts to Priests Outside the Sanctuary', 'בכורים': 'First Fruits and other Gifts to Priests Outside the Sanctuary',
+    'שמיטה ויובל': 'Sabbatical Year and the Jubilee', 'שמיטה': 'Sabbatical Year and the Jubilee', 'שמו"י': 'Sabbatical Year and the Jubilee',
+    'בית הבחירה': 'The Chosen Temple', 'כלי המקדש': 'Vessels of the Sanctuary and Those Who Serve Therein',
+    'ביאת המקדש': 'Admission into the Sanctuary', 'איסורי מזבח': 'Things Forbidden on the Altar', 'מעשה הקרבנות': 'Sacrificial Procedure',
+    'תמידין ומוספין': 'Daily Offerings and Additional Offerings', 'פסולי המוקדשין': 'Sacrifices Rendered Unfit',
+    'עבודת יום הכיפורים': 'Service on the Day of Atonement', 'מעילה': 'Trespass', 'קרבן פסח': 'Paschal Offering', 'חגיגה': 'Festival Offering',
+    'בכורות': 'Firstlings', 'שגגות': 'Offerings for Unintentional Transgressions', 'תמורה': 'Substitution', 'טומאת מת': 'Defilement by a Corpse',
+    'פרה אדומה': 'Red Heifer', 'מקואות': 'Immersion Pools', 'מקוואות': 'Immersion Pools', 'כלים': 'Vessels',
+    'נזקי ממון': 'Damages to Property', 'גניבה': 'Theft', 'גזילה ואבידה': 'Robbery and Lost Property', 'גזלה ואבדה': 'Robbery and Lost Property',
+    'חובל ומזיק': 'One Who Injures a Person or Property', 'רוצח ושמירת הנפש': 'Murderer and the Preservation of Life', 'רוצח': 'Murderer and the Preservation of Life',
+    'רוצח וש"נ': 'Murderer and the Preservation of Life', 'מכירה': 'Sales', 'זכייה ומתנה': 'Ownerless Property and Gifts', 'שכנים': 'Neighbors',
+    'שלוחין ושותפין': 'Agents and Partners', 'עבדים': 'Slaves', 'שכירות': 'Hiring', 'שאלה ופיקדון': 'Borrowing and Deposit',
+    'מלוה ולוה': 'Creditor and Debtor', 'מלווה ולווה': 'Creditor and Debtor', 'טוען ונטען': 'Plaintiff and Defendant', 'נחלות': 'Inheritances',
+    'סנהדרין': 'The Sanhedrin and the Penalties within Their Jurisdiction', 'עדות': 'Testimony', 'ממרים': 'Rebels', 'אבל': 'Mourning', 'אבלות': 'Mourning',
+    'מלכים': 'Kings and Wars', 'מלכים ומלחמות': 'Kings and Wars', 'מלכים ומלחמותיהם': 'Kings and Wars'};
+  var MT_HE_ALT = Object.keys(MT_HE).sort(function (a, b) { return b.length - a.length; })
+    .map(function (k) { return k.replace(/"/g, '["״]'); }).join('|');
+  function mtHe(s) { return MT_HE[String(s).replace(/״/g, '"')] || ''; }
+
+  // Peninei Halakha's own volumes in Hebrew -> the names Pearls uses for them (www/sefaria.js)
+  var PH_VOL_HE = {'שבת': 'Shabbat', 'תפילה': 'Prayer', 'תפילת נשים': "Women's Prayer", 'פסח': 'Pesach', 'זמנים': 'Zemanim',
+    'מועדים': 'Festivals', 'סוכות': 'Sukkot', 'שמחת הבית וברכתו': "Simchat Habayit U'Virkhato", 'ימים נוראים': 'Days of Awe',
+    'ברכות': 'Berakhot', 'משפחה': 'Family', 'טהרת המשפחה': 'Family Purity', 'כשרות': 'Kashrut', 'ליקוטים א': 'Likkutim I',
+    'ליקוטים ב': 'Likkutim II', 'שביעית ויובל': 'Shemitah and Yovel', 'העם והארץ': 'The Nation and the Land',
+    'אמונה ומצוותיה': 'Emunah Umitzvoteha', 'אמונה ומצוותיהָ': 'Emunah Umitzvoteha', 'גיור': 'Giyur'};
+  var PH_VOL_HE_ALT = Object.keys(PH_VOL_HE).sort(function (a, b) { return b.length - a.length; }).join('|');
+  // these titles are Peninei Halakha's alone, so they are read even without פנה"ל in front
+  var PH_VOL_HE_OWN = 'שמחת הבית וברכתו|שביעית ויובל|אמונה ומצוותיה|טהרת המשפחה';
+
+  var SECN = {'או"ח': 'OC', 'יו"ד': 'YD', 'אה"ע': 'EH', 'חו"מ': 'HM'};
+  var SEC_EN = {OC: 'Orach Chayim', YD: "Yoreh De'ah", EH: 'Even HaEzer', HM: 'Choshen Mishpat'};
+  var HSEC = '(?:(או["״]ח|יו["״]ד|אה["״]ע|חו["״]מ)\\s+)?';
+  function secOf(s) { return s ? SECN[String(s).replace('״', '"')] : ''; }
+  // the section: the citation's own, else the chapter's (and the popup says that part is our reading)
+  function heSec(mark, ctx, allowed) {
+    var s = secOf(mark), by = 'cite';
+    if (!s && ctx && ctx.secBy) { s = ctx.sec; by = ctx.secBy; }
+    if (!s || (allowed && allowed.indexOf(s) < 0)) return null;
+    return {sec: s, by: by};
+  }
+  function onSec(base, w, sp, ctx, allowed, pair) {
+    var s = heSec(sp, ctx, allowed);
+    if (!s) return named(w + ' is divided by section of the Shulchan Arukh, and neither this citation nor this chapter says which.');
+    var r = linked(base.replace('{sec}', SEC_EN[s.sec]) + ' ' + pair, w); r.sec = s.sec; r.secBy = s.by; return r;
+  }
+  function pair(a, b) { var x = num(a), y = b ? num(b) : 0; return x && (!b || y) ? x + (y ? ':' + y : '') : ''; }
+
+  var P = '(?:^|[^א-ת"״\'׳])[ובלה]?';
+  var HP = '(' + HN_SRC + ')(?![א-ת])';                         // one Hebrew numeral
+  var HPAIR = HP + '\\s*,\\s*' + HP;
+  var SIM = '(?:סי(?:מן|[\'׳])\\s*|ס["״]\\s*)?';
+  var HE_WORKS = [
+    // Tanakh: "דברים יא, יב", "שמואל א ב, ג"
+    [new RegExp('(?:^|[^א-ת"״\'׳])[ובל]{0,2}(' + TANAKH_HE.map(function (r) { return r[0]; }).sort(function (a, b) { return b.length - a.length; }).join('|') + ')\\s+' + HPAIR, 'g'),
+      function (m) {
+        var b = TNK_HE[m[1]], c = num(m[2]), v = num(m[3]);
+        if (!b || !c || !v || c > b[2] || v > 176) return null;
+        return linked(b[1] + ' ' + c + ':' + v, b[1]);
+      }],
+    [new RegExp('(?:^|[^א-ת"״\'׳])[ובל]{0,2}(שמואל|מלכים|דברי הימים)\\s+([אב])[\'׳]?\\s+' + HPAIR, 'g'),
+      function (m) {
+        var b = TNK_HE_P[m[1]], part = m[2] === 'א' ? 0 : 1, c = num(m[3]), v = num(m[4]);
+        if (!b || !c || !v || c > b[2][part] || v > 176) return null;
+        return linked((part ? 'II ' : 'I ') + b[1] + ' ' + c + ':' + v, b[1]);
+      }],
+    // Mishnah when the footnote says so: "משנה שביעית ב, י"
+    [new RegExp(P + '(?:ב?משנה|מתני[\'׳])\\s+(?:מסכת\\s+)?(' + TRACT_ALT + ')\\s+' + HPAIR, 'g'),
+      function (m) { var t = tractHe(m[1]), c = num(m[2]), h = num(m[3]); return t && c && h && c <= 30 ? linked('Mishnah ' + t + ' ' + c + ':' + h, 'Mishnah') : null; }],
+    // Rambam by book: "רמב"ם הל' איסורי ביאה ה, ג", "רמב"ם איסו"ב ה, ג"
+    [new RegExp(P + '(?:ה?רמב["״]ם|משנה תורה)\\s*,?\\s*(?:(?:הל[\'׳]|הלכות)\\s+)?(' + MT_HE_ALT + ')\\s+' + HPAIR, 'g'),
+      function (m) { var b = mtHe(m[1]), c = num(m[2]), h = num(m[3]); return b && c && h ? linked('Mishneh Torah, ' + b + ' ' + c + ':' + h, 'Mishneh Torah') : null; }],
+    // Shibbolei HaLeket
+    [new RegExp(P + '(?:שבולי|שבלי)\\s+הלקט\\s*,?\\s*' + SIM + HP, 'g'),
+      function (m) { var n = num(m[1]); return n ? linked('Shibbolei HaLeket ' + n, 'Shibbolei HaLeket') : null; }],
+    // Terumat HaDeshen: the responsa (Part I) unless the footnote says פסקים
+    [new RegExp(P + '(?:תרומת\\s+הדשן|תרוה["״]ד)\\s*,?\\s*(פסקים\\s*,?\\s*|ח["״]ב\\s*,?\\s*)?' + SIM + HP, 'g'),
+      function (m) { var n = num(m[2]); return n ? linked('Terumat HaDeshen, Part ' + (m[1] ? 'II ' : 'I ') + n, 'Terumat HaDeshen') : null; }],
+    // Minchat Chinukh by mitzvah (before Sefer HaChinukh)
+    [new RegExp(P + 'מנחת\\s+חינוך\\s+(?:מצו?וה\\s+)?' + HP, 'g'),
+      function (m) { var n = num(m[1]); return n && n <= 613 ? linked('Minchat Chinukh ' + n, 'Minchat Chinukh') : null; }],
+    [new RegExp(P + '(?:ספר\\s+)?החינוך\\s+(?:מצו?וה\\s+)?' + HP, 'g'),
+      function (m) { var n = num(m[1]); return n && n <= 613 && /["״]|מצו|ספר/.test(m[0]) ? linked('Sefer HaChinukh ' + n, 'Sefer HaChinukh') : null; }],
+    // Kuzari
+    [new RegExp(P + 'ה?כוזרי\\s+(?:מאמר\\s+)?' + HPAIR, 'g'),
+      function (m) { var a = num(m[1]), b = num(m[2]); return a && b && a <= 5 ? linked('Kuzari ' + a + ':' + b, 'Kuzari') : null; }],
+    // Guide for the Perplexed: "מו"נ ג, מא", "מורה נבוכים ח"ג פרק מא"
+    [new RegExp(P + '(?:מו["״]נ|מורה\\s+(?:ה)?נבוכים)\\s+(?:' + HPAIR + '|ח["״]([אבג])\\s*(?:,\\s*)?(?:פרק\\s+|פ["״]?)?' + HP + ')', 'g'),
+      function (m) { var a = num(m[1] || m[3]), b = num(m[2] || m[4]); return a && b && a <= 3 ? linked('Guide for the Perplexed, Part ' + a + ' ' + b, 'Guide for the Perplexed') : null; }],
+    // Tashbetz (four parts; Sefaria's fourth part is one block, so only I-III)
+    [new RegExp(P + 'תשב["״]ץ\\s+(?:' + HPAIR + '|ח["״]([אבגד])\\s*,?\\s*' + SIM + HP + ')', 'g'),
+      function (m) {
+        var a = num(m[1] || m[3]), b = num(m[2] || m[4]);
+        if (!a || !b) return null;
+        return a <= 3 ? linked('Sefer HaTashbetz, Part ' + ['I', 'II', 'III'][a - 1] + ' ' + b, 'Tashbetz')
+          : named('Sefaria holds the fourth part of the Tashbetz as one block, without its simanim, so this is not linked.');
+      }],
+    [new RegExp(P + 'תשב["״]ץ\\s+' + SIM + HP, 'g'),
+      function (m) { return num(m[1]) ? named('The Tashbetz has four parts, and this citation does not say which.') : null; }],
+    // Shmonah Kevatzim
+    [new RegExp(P + 'שמונה\\s+קבצים\\s+' + HPAIR, 'g'),
+      function (m) { var a = num(m[1]), b = num(m[2]); return a && b && a <= 8 ? linked('Shmonah Kevatzim ' + a + ':' + b, 'Shmonah Kevatzim') : null; }],
+    // Rivash
+    [new RegExp(P + '(?:שו["״]ת\\s+)?ריב["״]ש\\s*,?\\s*' + SIM + HP, 'g'),
+      function (m) { var n = num(m[1]); return n ? linked('Teshuvot HaRivash ' + n, 'Rivash') : null; }],
+    // Keset HaSofer
+    [new RegExp(P + 'קסת\\s+הסופר\\s+' + HPAIR, 'g'),
+      function (m) { var a = num(m[1]), b = num(m[2]); return a && b ? linked('Keset HaSofer ' + a + ':' + b, 'Keset HaSofer') : null; }],
+    // responsa cited by siman
+    [new RegExp(P + 'שו["״]ת\\s+(מהרי["״]ל|מהרש["״]ל)\\s*,?\\s*' + SIM + HP, 'g'),
+      function (m) { var n = num(m[2]), w = /רי/.test(m[1]) ? 'Teshuvot Maharil' : 'Teshuvot Maharshal'; return n ? linked(w + ' ' + n, w) : null; }],
+    [new RegExp(P + '(?:שו["״]ת\\s+)?מהרש["״]ם\\s+(?:' + HPAIR + '|ח["״]([א-ט])\\s*,?\\s*' + SIM + HP + ')', 'g'),
+      function (m) {
+        var a = num(m[1] || m[3]), b = num(m[2] || m[4]); if (!a || !b) return null;
+        return a <= 3 ? linked('Teshuvot Maharsham Volume ' + ['I', 'II', 'III'][a - 1] + ' ' + b, 'Maharsham')
+          : named('Sefaria holds the first three volumes of the Maharsham’s responsa, not this one.');
+      }],
+    [new RegExp(P + '(?:שו["״]ת\\s+)?מלמד\\s+להועיל\\s+(?:' + HPAIR + '|ח["״]([אבג])\\s*,?\\s*' + SIM + HP + ')', 'g'),
+      function (m) {
+        var a = num(m[1] || m[3]), b = num(m[2] || m[4]);
+        return a && b && a <= 3 ? linked("Melamed Leho'il Part " + ['I', 'II', 'III'][a - 1] + ' ' + b, "Melamed Leho'il") : null;
+      }],
+    [new RegExp(P + '(?:שו["״]ת\\s+)?בנין\\s+ציון\\s+(?:ח["״]א\\s*,?\\s*)?' + SIM + HP + '(?!\\s*,\\s*' + HN_SRC + ')', 'g'),
+      function (m) { var n = num(m[1]); return n && !/ח["״]ב/.test(m[0]) ? linked('Binyan Tziyon ' + n, 'Binyan Tziyon') : null; }],
+    // codes and commentaries cited by siman (and section)
+    [new RegExp(P + '(?:ספר\\s+)?סמ["״]ק\\s*,?\\s*(?:מצו?וה\\s+)?' + SIM + HP, 'g'),
+      function (m) { var n = num(m[1]); return n ? linked('Sefer Mitzvot Katan ' + n, 'Semak') : null; }],
+    [new RegExp(P + '(?:ספר\\s+)?סמ["״]ג\\s*,?\\s*(עשין|עשה|לאוין|ל["״]ת|לא\\s+תעשה)\\s+' + HP, 'g'),
+      function (m) { var n = num(m[2]), pos = /עש/.test(m[1]); return n ? linked('Sefer Mitzvot Gadol, ' + (pos ? 'Positive' : 'Negative') + ' Commandments ' + n, 'Semag') : null; }],
+    [new RegExp(P + '(?:ספר\\s+)?יראים\\s*,?\\s*' + SIM + HP, 'g'),
+      function (m) { var n = num(m[1]); return n && /ספר|סי|["״]/.test(m[0]) ? linked('Sefer Yereim ' + n, 'Yereim') : null; }],
+    [new RegExp(P + 'אור\\s+זרוע\\s+(?:' + HPAIR + '|ח["״]([א-ד])\\s*,?\\s*(?:הל[\'׳]\\s+[א-ת]+\\s+)?' + SIM + HP + ')', 'g'),
+      function (m) {
+        var a = num(m[1] || m[3]), b = num(m[2] || m[4]); if (!a || !b) return null;
+        return a <= 2 ? linked('Or Zarua, Volume ' + (a === 1 ? 'I' : 'II') + ' ' + b, 'Or Zarua')
+          : named('Sefaria holds the first two volumes of the Or Zarua, not this one.');
+      }],
+    [new RegExp(P + 'כל\\s?בו\\s*,?\\s*' + SIM + HP, 'g'),
+      function (m) { var n = num(m[1]); return n && /כלבו|סי|["״]/.test(m[0]) ? linked('Kol Bo ' + n, 'Kol Bo') : null; }],
+    [new RegExp(P + 'מסילת\\s+ישרים\\s*,?\\s*(?:פרק\\s+|פ["״])?' + HP, 'g'),
+      function (m) { var n = num(m[1]); return n && n <= 26 ? linked('Mesillat Yesharim ' + n, 'Mesillat Yesharim') : null; }],
+    [new RegExp(P + 'ספר\\s+חסידים\\s*,?\\s*' + SIM + HP, 'g'),
+      function (m) { var n = num(m[1]); return n ? linked('Sefer Chasidim ' + n, 'Sefer Chasidim') : null; }],
+    [new RegExp(P + '(?:אבות\\s+ד(?:רבי|ר[\'׳])\\s+נתן|אדר["״]נ)\\s+' + HPAIR, 'g'),
+      function (m) { var a = num(m[1]), b = num(m[2]); return a && b ? linked('Avot DeRabbi Natan ' + a + ':' + b, 'Avot DeRabbi Natan') : null; }],
+    [new RegExp(P + '(?:קצות\\s+החושן|קצוה["״]ח|קצות)\\s+(?:חו["״]מ\\s+)?' + HPAIR, 'g'),
+      function (m) { var p = pair(m[1], m[2]); return p ? linked('Ketzot HaChoshen on Shulchan Arukh, Choshen Mishpat ' + p, 'Ketzot HaChoshen') : null; }],
+    [new RegExp(P + 'מחצית\\s+השקל\\s+(?:או["״]ח\\s+)?' + HPAIR, 'g'),
+      function (m) { var p = pair(m[1], m[2]); return p ? linked('Machatzit HaShekel on Orach Chayim ' + p, 'Machatzit HaShekel') : null; }],
+    [new RegExp(P + 'מטה\\s+אפרים\\s+' + HPAIR, 'g'),
+      function (m) { var p = pair(m[1], m[2]); return p ? linked('Mateh Efrayim ' + p, 'Mateh Efrayim') : null; }],
+    // ...and those divided by section, which takes the citation's own section or else the chapter's
+    [new RegExp(P + '(?:באר\\s+היטב|באה["״]ט)\\s+' + HSEC + HPAIR, 'g'),
+      function (m, ctx) { var p = pair(m[2], m[3]); return p ? onSec("Ba'er Hetev on Shulchan Arukh, {sec}", "Ba'er Hetev", m[1], ctx, null, p) : null; }],
+    [new RegExp(P + '(?:פתחי\\s+תשובה|פת["״]ש)\\s+' + HSEC + HPAIR, 'g'),
+      function (m, ctx) { var p = pair(m[2], m[3]); return p ? onSec('Pitchei Teshuva on Shulchan Arukh, {sec}', 'Pitchei Teshuva', m[1], ctx, ['YD', 'EH', 'HM'], p) : null; }],
+    [new RegExp(P + 'דרכי\\s+משה\\s+' + HSEC + HP + '(?:\\s*,\\s*' + HP + ')?', 'g'),
+      function (m, ctx) { var p = pair(m[2], m[3]); return p ? onSec('Darkhei Moshe, {sec}', 'Darkhei Moshe', m[1], ctx, null, p) : null; }],
+    [new RegExp(P + 'פרישה\\s+' + HSEC + HPAIR, 'g'),
+      function (m, ctx) { var p = pair(m[2], m[3]); return p ? onSec('Prisha, {sec}', 'Prisha', m[1], ctx, null, p) : null; }],
+    // Peri Megadim: Eshel Avraham is on Orach Chayim only; Mishbetzot Zahav on OC and YD; Siftei Da'at on YD
+    [new RegExp(P + '(?:פמ["״]ג|פרי\\s+מגדים)\\s*,?\\s*' + HSEC + '(א["״]א|אשל\\s+אברהם|מ["״]ז|משבצות\\s+זהב|ש["״]ד|שפתי\\s+דעת)\\s+' + HSEC + HPAIR, 'g'),
+      function (m, ctx) {
+        var p = pair(m[4], m[5]); if (!p) return null;
+        var part = /^א|^אשל/.test(m[2]) ? 'Eshel Avraham' : /^ש/.test(m[2]) ? "Siftei Da'at" : 'Mishbezot Zahav';
+        var allowed = part === 'Eshel Avraham' ? ['OC'] : part === "Siftei Da'at" ? ['YD'] : ['OC', 'YD'];
+        var s = heSec(m[1] || m[3], ctx, allowed);
+        if (!s && allowed.length === 1) s = {sec: allowed[0], by: 'work'};
+        if (!s) return named('The Peri Megadim’s Mishbetzot Zahav is on Orach Chayim and Yoreh De’ah, and neither this citation nor this chapter says which.');
+        var r = linked('Peri Megadim on ' + SEC_EN[s.sec] + ', ' + part + ' ' + p, 'Peri Megadim'); r.sec = s.sec; r.secBy = s.by; return r;
+      }]
+  ];
+
+  // Pearls' own chapters in Hebrew: "לעיל ג, ד" (this volume) and "פנה"ל כשרות יב, א" (another one)
+  var PH_HE_RULES = [
+    [new RegExp('(?:^|[^א-ת"״\'׳])[ו]?(?:כמבואר\\s+|ראו\\s+|ועי[\'׳]\\s+|עי[\'׳]\\s+)?(?:ל?עיל|ל?הלן)\\s+(?:פרק\\s+)?' + HPAIR, 'g'),
+      function (m, ctx, page) {
+        var c = num(m[1]), s = num(m[2]);
+        if (!page || !c || !s || c > 40) return null;
+        return {resolved: true, internal: true, ref: 'Peninei Halakhah, ' + page.vol + ' ' + c + ':' + s, work: 'Peninei Halakha'};
+      }],
+    [new RegExp('(?:^|[^א-ת"״\'׳])[ובל]?(?:(?:פנה["״]ל|פניני\\s+הלכה)\\s*,?\\s*(' + PH_VOL_HE_ALT + ')|(' + PH_VOL_HE_OWN + '))\\s+' + HP + '(?:\\s*,\\s*' + HP + ')?', 'g'),
+      function (m) {
+        var v = PH_VOL_HE[m[1] || m[2]], c = num(m[3]), s = m[4] ? num(m[4]) : 1;
+        if (!v || !c || !s || c > 40) return null;
+        return {resolved: true, internal: true, ref: 'Peninei Halakhah, ' + v + ' ' + c + ':' + s, work: 'Peninei Halakha'};
+      }]
+  ];
+
   // returns [{start, end, ...hit}] for the works above; the caller masks them before the grammar runs
-  function midrash(text, he) {
+  function midrash(text, he, opts) {
+    var ctx = ctxFor(opts), page = pageOf(opts && opts.ref);
     var out = [];
-    (he ? HE_RULES : EN_RULES).forEach(function (rule) {
+    (he ? HE_RULES.concat(PH_HE_RULES, HE_WORKS) : EN_RULES).forEach(function (rule) {
       var re = rule[0], m;
       re.lastIndex = 0;
       while ((m = re.exec(text))) {
@@ -370,9 +668,9 @@
         var raw = text.slice(s, e).replace(/[\s,(]+$/, '');
         e = s + raw.length;
         if (out.some(function (h) { return s < h.end && e > h.start; })) continue;
-        var r = rule[1](m);
+        var r = rule[1](m, ctx, page);
         if (!r) continue;
-        r.start = s; r.end = e; r.text = raw; r.sec = ''; r.secBy = ''; r.ref = r.ref || '';
+        r.start = s; r.end = e; r.text = raw; r.sec = r.sec || ''; r.secBy = r.secBy || ''; r.ref = r.ref || '';
         out.push(r);
         if (re.lastIndex === m.index) re.lastIndex++;
       }
@@ -382,9 +680,22 @@
 
   function find(text, opts) {
     opts = opts || {};
-    text = String(text || '');
+    var orig = String(text || ''), he = isHebrew(orig);
+    if (!he) return findIn(orig, opts, false);
+    // Hebrew: read a rewritten copy (heNormalize) and map every link back onto the original text
+    var n = heNormalize(orig);
+    if (n.t === orig) return findIn(orig, opts, true);
+    return findIn(n.t, opts, true).map(function (h) {
+      h.start = n.at(h.start); h.end = n.at(h.end, true); h.text = orig.slice(h.start, h.end); return h;
+    }).filter(function (h) { return h.end > h.start; });
+  }
+
+  // Works whose bare number after a siman is a se'if katan of THAT siman: "SA 135:1; MA 2; Taz 2; MB 3".
+  var SK_WORKS = {'Mishnah Berurah': 1, 'Turei Zahav': 1, 'Siftei Kohen': 1, 'Magen Avraham': 1, 'Kaf HaChaim': 1,
+    'Eliya Rabba': 1, 'Pitḥei Teshuva': 1, 'Ḥelkat Meḥokek': 1, 'Beit Shmuel': 1, 'Shaar HaTziyun': 1};
+
+  function findIn(text, opts, he) {
     var cite = C(), out = [];
-    var he = isHebrew(text);
 
     // Pearls' own chapters first, so the grammar never reads them as a tractate.
     var masked = text.replace(PH_SELF, function (m, vol, ch, se, at) {
@@ -392,7 +703,7 @@
         ref: 'Peninei Halakhah, ' + vol.trim() + ' ' + ch + ':' + se, work: 'Peninei Halakha'});
       return new Array(m.length + 1).join('\u0000');
     });
-    midrash(masked, he).forEach(function (h) {
+    midrash(masked, he, opts).forEach(function (h) {
       out.push(h);
       masked = masked.slice(0, h.start) + new Array(h.end - h.start + 1).join('\u0000') + masked.slice(h.end);
     });
@@ -401,15 +712,37 @@
       var r = {cites: []};
       try { r = (he ? cite.scanHe : cite.scan)(masked) || r; } catch (e) { r = {cites: []}; }
       var cites = (r.cites || []).slice().sort(function (a, b) { return a.at - b.at; });
-      var ctx = ctxFor(opts), prev = null;
+      var ctx = ctxFor(opts), prev = null, lastSim = null;
       cites.forEach(function (c, i) {
         var next = i + 1 < cites.length ? cites[i + 1].at : text.length;
         var res = {};
-        if (c.id >= 0) { try { res = cite.resolve(c, ctx, prev) || {}; } catch (e) { res = {}; } }
         var w = c.id >= 0 ? cite.WORKS[c.id] : null;
+        var bareSK = !!(w && SK_WORKS[w.t] && /^\d{1,3}$/.test(String(c.loc || '')));
+        if (bareSK) {
+          // a bare number after one of these works is a se'if katan, never a siman
+          if (lastSim) {
+            var c2 = Object.assign({}, c, {loc: lastSim.siman + ':' + c.loc, form: 'num2', sec: c.sec || lastSim.sec || null});
+            try { res = cite.resolve(c2, ctx, prev) || {}; } catch (e) { res = {}; }
+          } else res = {resolved: false, why: 'After the ' + w.t + ' a bare number is a se’if katan, and this citation does not say which siman it belongs to, so it is not linked.'};
+        } else if (c.id >= 0) { try { res = cite.resolve(c, ctx, prev) || {}; } catch (e) { res = {}; } }
         var sm = String(c.loc || '').match(/^(\d{1,4})(?::|$)/);
-        if (sm && w && (w.loc === 'simanSeif' || w.loc === 'secNum'))
+        if (sm && w && !bareSK && (w.loc === 'simanSeif' || w.loc === 'secNum')) {
           prev = {siman: sm[1], sec: c.sec || w.sec || ctx.sec};
+        }
+        // Beit Yosef is on Sefaria by section and siman. Its section is the citation's own, else the one the
+        // previous citation named, else the chapter's. "Hagahot Beit Yosef" is another work (Knesset HaGedola).
+        var hagahot = /(?:Hagahot|הגהות)\s*$/.test(text.slice(Math.max(0, c.at - 12), c.at));
+        if (w && w.t === 'Beit Yosef' && hagahot)
+          res = {resolved: false, why: 'Hagahot Beit Yosef is a different work from the Beit Yosef, so this is not linked to it.'};
+        else if (w && w.t === 'Beit Yosef' && !res.resolved && sm) {
+          var bsec = c.sec || (lastSim && lastSim.sec) || (ctx.secBy ? ctx.sec : null);
+          var bby = c.sec ? 'cite' : (lastSim && lastSim.sec) ? 'cite' : ctx.secBy;
+          if (bsec && SEC_EN[bsec]) res = {resolved: true, ref: 'Beit Yosef, ' + SEC_EN[bsec] + ' ' + sm[1], sec: bsec, secBy: bby};
+          else res = {resolved: false, why: 'Beit Yosef is divided by section of the Tur, and neither this citation nor this chapter says which.'};
+        }
+        // the section a run of citations has named so far carries to the next one that names none
+        if (sm && w && !bareSK && (w.loc === 'simanSeif' || w.loc === 'secNum'))
+          lastSim = {siman: sm[1], sec: c.sec || (lastSim && lastSim.sec) || null};
         var end = endOf(text, c, next, he);
         if (res.drop) return;
         // A bare name ("Rashi", "the Ran") is how the footnotes credit an opinion, not a reference to a place;
@@ -644,7 +977,22 @@
       ['תוספתא יומא ד, א', '', ['Tosefta Yoma 4:1']],                                 // not Yoma 4a
       ['ירושלמי שביעית ו, א; ב"ר טז, ד', '', ['Jerusalem Talmud Sheviit 6:1', 'Bereshit Rabbah 16:4']],
       ['תנחומא כי תצא ג', '', ['Midrash Tanchuma, Ki Teitzei 3']],
-      ['איכה רבה פתיחתא כד', '', []]                                                  // a petichta, not chapter 418
+      ['איכה רבה פתיחתא כד', '', []],                                                 // a petichta, not chapter 418
+      // the Hebrew volumes: forms the grammar did not read, or read as something else
+      ['כמו שנאמר (שמות כ, ח)', '', ['Exodus 20:8']],
+      ['בע"ז כ, א', '', ['Avodah Zarah 20a']],                                         // a prefixed abbreviated tractate
+      ['רמב"ם איסו"ב יא, ה', '', ['Mishneh Torah, Forbidden Intercourse 11:5']],
+      ['שבלי הלקט מד', '', ['Shibbolei HaLeket 44']],
+      ['תרומת הדשן פסקים קכ', '', ['Terumat HaDeshen, Part II 120']],
+      ['תשב"ץ ח"ד א', '', ['']],                                                       // part IV: Sefaria has no siman form
+      ['שו"ע או"ח קלה, א; ב"י יג', 'Peninei Halakhah, Kashrut 3',
+        ['Shulchan Arukh, Orach Chayim 135:1', 'Beit Yosef, Orach Chayim 13']],         // the section named just before wins
+      ['כמבואר לעיל ג, ב', 'Peninei Halakhah, Kashrut 3', ['Peninei Halakhah, Kashrut 3:2']],
+      // a bare number after the MB, Taz or MA is a se'if katan on the siman just cited, never a siman of its own
+      ['SA 135:1; Magen Avraham 2; Taz 2; MB 3', 'Peninei Halakhah, Shabbat 21',
+        ['Shulchan Arukh, Orach Chayim 135:1', 'Magen Avraham 135:2', 'Turei Zahav on Shulchan Arukh, Orach Chayim 135:2', 'Mishnah Berurah 135:3']],
+      ['MB 9', '', ['']],
+      ['Hagahot Beit Yosef 135:1', '', ['']]                                            // a different work
     ];
     var pass = 0, fail = 0, failures = [];
     cases.forEach(function (k) {
