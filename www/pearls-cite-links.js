@@ -3,7 +3,8 @@
  * Pearls ships Meldar's citation grammar (meldar-cite.js) UNMODIFIED, the same way it ships
  * meldar-record.js, and this file is the thin layer that puts the grammar's answers on the page.
  * Nothing here parses a citation by itself except one thing the grammar does not do: English
- * Tanakh book names ("Exodus 20:8"). The grammar knows Bereshit/Shemot/... only.
+ * Tanakh book names ("Exodus 20:8"), and the Spanish, Portuguese and French names the AI translations
+ * use ("Éxodo 20:8", "Deuteronômio 6:5", "Psaumes 23:1"). The grammar knows Bereshit/Shemot/... only.
  *
  * Three rules carried over from Meldar, because each one cost Meldar a bug:
  *  1. The scanner is chosen from the TEXT, never from the caller's guess. Running the English
@@ -39,7 +40,26 @@
     'Exod.': 'Exodus', 'Lev.': 'Leviticus', 'Num.': 'Numbers', 'Ps.': 'Psalms', 'Psalm': 'Psalms',
     'Prov.': 'Proverbs', 'Isa.': 'Isaiah', 'Jer.': 'Jeremiah', 'Ezek.': 'Ezekiel', 'Eccl.': 'Ecclesiastes',
     '1 Samuel': 'I Samuel', '2 Samuel': 'II Samuel', '1 Kings': 'I Kings', '2 Kings': 'II Kings',
-    '1 Chronicles': 'I Chronicles', '2 Chronicles': 'II Chronicles'};
+    '1 Chronicles': 'I Chronicles', '2 Chronicles': 'II Chronicles',
+    // the AI translations (www/xl) cite Tanakh books by their Spanish, Portuguese and French names
+    'Génesis': 'Genesis', 'Éxodo': 'Exodus', 'Levítico': 'Leviticus', 'Números': 'Numbers', 'Deuteronomio': 'Deuteronomy',
+    'Josué': 'Joshua', 'Jueces': 'Judges', 'I Reyes': 'I Kings', 'II Reyes': 'II Kings', '1 Reyes': 'I Kings',
+    '2 Reyes': 'II Kings', 'Isaías': 'Isaiah', 'Jeremías': 'Jeremiah', 'Ezequiel': 'Ezekiel', 'Oseas': 'Hosea',
+    'Amós': 'Amos', 'Abdías': 'Obadiah', 'Jonás': 'Jonah', 'Miqueas': 'Micah', 'Nahúm': 'Nahum',
+    'Habacuc': 'Habakkuk', 'Sofonías': 'Zephaniah', 'Hageo': 'Haggai', 'Zacarías': 'Zechariah', 'Malaquías': 'Malachi',
+    'Salmos': 'Psalms', 'Salmo': 'Psalms', 'Proverbios': 'Proverbs', 'Cantar de los Cantares': 'Song of Songs', 'Rut': 'Ruth',
+    'Lamentaciones': 'Lamentations', 'Eclesiastés': 'Ecclesiastes', 'Ester': 'Esther', 'Esdras': 'Ezra', 'Nehemías': 'Nehemiah',
+    'I Crónicas': 'I Chronicles', 'II Crónicas': 'II Chronicles', 'Gênesis': 'Genesis', 'Êxodo': 'Exodus', 'Deuteronômio': 'Deuteronomy',
+    'Juízes': 'Judges', 'I Reis': 'I Kings', 'II Reis': 'II Kings', '1 Reis': 'I Kings', '2 Reis': 'II Kings',
+    'Jeremias': 'Jeremiah', 'Oseias': 'Hosea', 'Obadias': 'Obadiah', 'Jonas': 'Jonah', 'Miqueias': 'Micah',
+    'Naum': 'Nahum', 'Sofonias': 'Zephaniah', 'Ageu': 'Haggai', 'Zacarias': 'Zechariah', 'Malaquias': 'Malachi',
+    'Provérbios': 'Proverbs', 'Jó': 'Job', 'Cântico dos Cânticos': 'Song of Songs', 'Cânticos': 'Song of Songs', 'Rute': 'Ruth',
+    'Lamentações': 'Lamentations', 'Eclesiastes': 'Ecclesiastes', 'Neemias': 'Nehemiah', 'I Crônicas': 'I Chronicles', 'II Crônicas': 'II Chronicles',
+    'Genèse': 'Genesis', 'Exode': 'Exodus', 'Lévitique': 'Leviticus', 'Nombres': 'Numbers', 'Deutéronome': 'Deuteronomy',
+    'Juges': 'Judges', 'I Rois': 'I Kings', 'II Rois': 'II Kings', 'Isaïe': 'Isaiah', 'Jérémie': 'Jeremiah',
+    'Ézéchiel': 'Ezekiel', 'Osée': 'Hosea', 'Michée': 'Micah', 'Sophonie': 'Zephaniah', 'Aggée': 'Haggai',
+    'Zacharie': 'Zechariah', 'Malachie': 'Malachi', 'Psaumes': 'Psalms', 'Proverbes': 'Proverbs', 'Cantique des Cantiques': 'Song of Songs',
+    'Ecclésiaste': 'Ecclesiastes', 'Néhémie': 'Nehemiah', 'I Chroniques': 'I Chronicles', 'II Chroniques': 'II Chronicles'};
   var TANAKH_RE = (function () {
     var names = TANAKH_EN.concat(Object.keys(TANAKH_ALIAS))
       .sort(function (a, b) { return b.length - a.length; })
@@ -307,6 +327,7 @@
       ['SA 345:2', '', ['']],                                                  // no chapter, no section: not guessed
       ['Rambam, Sabbath 14:1; Shabbat 6a', '', ['Mishneh Torah, Sabbath 14:1', 'Shabbat 6a']],
       ['Tosafot Beitza 22a', '', ['Tosafot on Beitzah 22a']],
+      ['(Éxodo 20:8; Deuteronômio 6:5; Psaumes 23:1)', '', ['Exodus 20:8', 'Deuteronomy 6:5', 'Psalms 23:1']],  // the AI translations' book names
       ['as it says in Exodus 20:8-11', '', ['Exodus 20:8-11']],
       ['Devarim 6:7', '', ['Deuteronomy 6:7']],
       ['see Peninei Halakha: Shabbat 21:8 below', '', ['Peninei Halakhah, Shabbat 21:8']],

@@ -414,6 +414,14 @@ const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AU
    because the English column is the one read along and the AI voice can only read English).
    English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
 const langPref = () => state.prefs.read || "en";
+/* Other reading languages: AI translations from the Hebrew into Spanish (and later Portuguese, French), built by
+   make_xl_books.py into xl/<lang>/BB-CC.js (loaded when a chapter opens) and xl/index.js (PH_XL: which chapters have
+   which language, with their translated titles). Reading only: listening stays as it is (English recording, the English
+   AI voice, else Hebrew), so for listenLang() an other language counts as English. Interface chrome stays English. */
+const XL = window.PH_XL || { langs: {}, ch: {} };
+const isXl = v => !!(v && XL.langs[v]);
+const xlLang = () => isXl(langPref()) ? langPref() : null;                       // the other language chosen, if any
+const xlOf = t => { const l = xlLang(); return l && t && XL.ch[t.id] && XL.ch[t.id][l] ? l : null; };   // ...and this chapter has it
 const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
 const aiVoiceOn = () => state.prefs.aiVoice !== false && (canSpeak() || (typeof neuralReady === "function" && neuralReady()));
 function listenLang(t) {
@@ -1841,7 +1849,7 @@ function vChapter(id) {
   const prevT = BYID[`${t.vol.book}-${String(t.n - 1).padStart(2, "0")}`], nextT = BYID[`${t.vol.book}-${String(t.n + 1).padStart(2, "0")}`];
   view.innerHTML = `<div class="view">
     <div class="chhead" style="display:flex;flex-direction:column;gap:10px">
-      <div class="eyebrow">${esc(R(t.vol.title))} · Chapter ${t.n}</div><h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
+      <div class="eyebrow">${esc(R(t.vol.title))} · Chapter ${t.n}</div><h1>${esc(R(t.title))}</h1>${xlOf(t) && XL.ch[t.id][xlOf(t)].t ? `<div class="xltitle" lang="${xlOf(t)}">${esc(XL.ch[t.id][xlOf(t)].t)}</div>` : ""}${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
       <div class="chips">${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
@@ -1852,12 +1860,13 @@ function vChapter(id) {
       ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
         <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
         ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
-      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
+      ${xlOf(t) ? `<div class="aiflag"><b>AI translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is an AI translation (Claude) of Rabbi Melamed's Hebrew, marked AI throughout.</div>`
+        : t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
       ${langBar(t)}
       <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
     </div>
     <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
-    ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</div></div>` : ""}
+    ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${(xlOf(t) ? XL.ch[t.id][xlOf(t)].s : t.sectionTitles).map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span>${xlOf(t) ? `<span lang="${xlOf(t)}">${esc(s)}</span>` : `<span>${esc(R(s))}</span>`}</button>`).join("")}</div></div>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
       ${prevT ? `<button class="btn line" data-act="chapter" data-id="${prevT.id}">← Ch. ${prevT.n}</button>` : "<span></span>"}
@@ -1865,11 +1874,13 @@ function vChapter(id) {
     <section><div class="sec-h"><h2>Listen next</h2></div><div class="list">${sim.map(r => trackRow(r.t, { why: r.why })).join("")}</div></section>
   </div>`;
   view.querySelectorAll(".toc button").forEach(b => b.onclick = () => { const s = $(`#sec-${b.dataset.sec}`); if (s) s.scrollIntoView({ behavior: "smooth" }); });
-  fetchSections(t).then(posts => {
+  const xl = xlOf(t);
+  (xl ? loadXl(t, xl) : fetchSections(t)).then(posts => {
     const r = $("#reader"); if (!r || !document.body.contains(r)) return;
+    if (xl) return renderXlChapter(t, posts, r);
     if (t.vol.he) return renderHebrewChapter(t, posts, r);
     if (!posts.length) { r.innerHTML = `<p class="note">The English text for this chapter isn't published online yet. <a href="https://ph.yhb.org.il/en/" target="_blank" rel="noopener">Open the site</a></p>`; return; }
-    r.innerHTML = posts.map((p, i) => `<section id="sec-${i + 1}"><div class="en-body"><h3>${R(p.title.rendered)}</h3>${cleanHTML(p.content.rendered, t)}</div><div class="hebslot" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i, { hebrew: true })}</section>`).join("") +
+    r.innerHTML = xlMissing(t) + posts.map((p, i) => `<section id="sec-${i + 1}"><div class="en-body"><h3>${R(p.title.rendered)}</h3>${cleanHTML(p.content.rendered, t)}</div><div class="hebslot" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i, { hebrew: true })}</section>`).join("") +
       `<p class="foot">Source: <a href="${esc(posts[0].link)}" target="_blank" rel="noopener">${esc(posts[0].link)}</a></p>`;
     citeClicks(r); jumpPending(t);
     applyReadLang(t, r);
@@ -1889,7 +1900,7 @@ const notesHTML = (notes, cls) => notes && notes.length ? `<ol class="fn ${cls |
 function renderHebrewChapter(t, d, r) {
   const secs = d.sections || [];
   if (!secs.length) { r.innerHTML = `<p class="note">This chapter has no text.</p>`; return; }
-  r.innerHTML = (d.translated ? aiBanner() : `<div class="aiflag"><b>Hebrew for now</b> The AI translation of this chapter isn't in this version of the app yet.</div>`) +
+  r.innerHTML = xlMissing(t) + (d.translated ? aiBanner() : `<div class="aiflag"><b>Hebrew for now</b> The AI translation of this chapter isn't in this version of the app yet.</div>`) +
     secs.map((s, i) => {
       const heb = `<div class="heb-orig" lang="he" dir="rtl" data-sec="${i + 1}" ${d.translated ? "hidden" : ""}>${s.body_he != null ? `<h3>${s.title_he}</h3>${s.body_he}${notesHTML((s.notes_he || []).map(n => ({ n: n.n, he: n.he })), "he")}` : ""}</div>`;
       if (!d.translated || !s.body_en) return `<section id="sec-${i + 1}">${heb}<p class="foot"><a href="${esc(s.link)}" target="_blank" rel="noopener">Source: ph.yhb.org.il</a></p></section>`;
@@ -1902,6 +1913,10 @@ function renderHebrewChapter(t, d, r) {
   citeClicks(r); jumpPending(t);
   if (d.translated) applyReadLang(t, r);
   nowSecShown = null; paintNowSec();
+  hebToggles(t, r);
+}
+/* "Show Hebrew" under an AI-translated section: the Hebrew is fetched on demand in the lite build */
+function hebToggles(t, r) {
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
     const resync = () => { if ((state.prefs.read || "en") === "side") sideAlign(r); }; resync();
@@ -1910,6 +1925,30 @@ function renderHebrewChapter(t, d, r) {
       hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); resync(); })
         .catch(() => { he.innerHTML = `<p class="note">Couldn't load the Hebrew. It needs a connection.</p>`; });
     } };
+}
+/* ---------- other reading languages (Spanish…): AI translations from the Hebrew, bundled in xl/<lang>/ ---------- */
+const xlCache = {};
+function loadXl(t, l) { const k = `${l}:${t.id}`; return xlCache[k] ? Promise.resolve(xlCache[k]) : loadBook(t.id, `xl/${l}`).then(d => (xlCache[k] = d)); }
+function xlMissing(t) {   // the other language is chosen but this chapter isn't translated into it yet
+  const l = xlLang(); if (!l || xlOf(t)) return "";
+  const x = XL.langs[l], shown = t.vol.he && !t.translated ? "Hebrew" : "English";
+  return `<div class="aiflag xlmissing" role="note"><b lang="${l}">${esc(x.name)}</b> ${esc(x.english)} isn't available for this chapter yet, so it's shown in ${shown}.</div>`;
+}
+function renderXlChapter(t, d, r) {
+  const l = d.lang, x = XL.langs[l] || { english: l }, secs = d.sections || [];
+  if (!secs.length) { r.innerHTML = `<p class="note">This chapter has no text.</p>`; return; }
+  r.innerHTML = `<div class="aibanner" role="note"><span class="aitag">AI translation</span>
+    <span>Translated into ${esc(x.english)} by AI (Claude, Anthropic) from Rabbi Melamed's Hebrew. Not an official translation and not reviewed by Yeshivat Har Bracha or a rabbi. It can be wrong: check the Hebrew before relying on it in practice. Each section links to its Hebrew source.</span></div>` +
+    secs.map((s, i) => {   // citation links run on the translation too; no respelling or Hebrew tints, which are for English and Hebrew
+      const box = document.createElement("div"); box.innerHTML = s.body + notesHTML((s.notes || []).map(n => ({ n: n.n, en: n.t }))); linkCites(box, t);
+      return `<section id="sec-${i + 1}"><div class="ai-sec" lang="${l}"><h3>${esc(s.title)} <span class="aitag sm" lang="en">AI</span></h3>${box.innerHTML}
+        <div class="secfoot" lang="en"><button class="linkbtn" data-heb>Show Hebrew</button><a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener">Hebrew source ↗</a></div></div><div class="heb-orig" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i)}</section>`;
+    }).join("") +
+    `<p class="foot">From <i>Peninei Halakha</i> by Rabbi Eliezer Melamed — פניני הלכה, הרב אליעזר מלמד, מכון הר ברכה — licensed CC BY 4.0. Translated into ${esc(x.english)} by AI (Claude) from the Hebrew (changes: translation; footnote markers kept).</p>`;
+  citeClicks(r); jumpPending(t);
+  applyReadLang(t, r);
+  nowSecShown = null; paintNowSec();
+  hebToggles(t, r);
 }
 
 /* ---------- citation links: SA 345:2, Shabbat 6a, Rambam, Tanakh… open the cited text ----------
@@ -1989,6 +2028,12 @@ async function fillNPText(t, part) {
   const key = `${t.id}:${part}:${langPref()}`; box.dataset.k = key;
   const put = html => { if (box.dataset.k === key) { box.innerHTML = html; paintSpokenPara(audio.speaking ? box.dataset.p : null); } };
   try {
+    const xl = xlOf(t);
+    if (xl) {   // the other reading language: its text, while the audio stays English (or Hebrew)
+      const s = (await loadXl(t, xl)).sections[part];
+      if (s && s.body) { const box = document.createElement("div"); box.innerHTML = s.body; linkCites(box, t);
+        return put(`<div class="en-body" lang="${xl}"><h3>${esc(s.title)} <span class="aitag sm" lang="en">AI</span></h3>${box.innerHTML}</div>`); }
+    }
     if (langPref() === "he" || kindOf(t) === "he") {
       const h = await hebrewFor(t, part + 1).catch(() => null);
       if (h) return put(`<div class="heb" lang="he" dir="rtl"><h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}</div>`);
@@ -2002,7 +2047,13 @@ async function fillNPText(t, part) {
 }
 /* One language for reading and listening, set from the chapter, the player or Settings */
 function setLang(v) {
+  const m0 = location.hash.match(/^#ch-(\d\d-\d\d)$/), t0 = m0 && BYID[m0[1]], was = t0 && xlOf(t0), prev = langPref();
   state.prefs.read = v; state.prefs.readSet = true; save.prefs();
+  if (t0 && v !== prev && $("#reader") && (was || xlOf(t0) || isXl(v) !== isXl(prev))) {   // the text itself changes language: redraw it where you were
+    const secs = [...document.querySelectorAll("#reader section[id^='sec-']")], at = secs.find(x => x.getBoundingClientRect().bottom > 80);
+    if (at && scrollY > 200) pendingSec = { id: t0.id, sec: +at.id.slice(4) };
+    vChapter(t0.id);
+  }
   document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === v; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
   const m = location.hash.match(/^#ch-(\d\d-\d\d)/), rt = m && BYID[m[1]], r = $("#reader");
   if (r && rt) applyReadLang(rt, r);
@@ -2213,18 +2264,19 @@ function paintSpokenPara(p) {
 /* language picker: one segmented control on the chapter page and in the player */
 function langBar(t) {
   const r = state.prefs.read || "en";
-  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"], ["side", "Side by side"]];
-  return `<div class="langbar"><div class="segrow"><span class="seglabel">Language</span><div class="seg" role="radiogroup" aria-label="Reading language">
-    ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div></div>
+  const xls = Object.keys(XL.langs).filter(l => !(t.vol.he && !t.translated) || (XL.ch[t.id] && XL.ch[t.id][l])).map(l => [l, XL.langs[l].name]);
+  const opts = ((t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"], ["side", "Side by side"]]).concat(xls);
+  return `<div class="langbar"><div class="segrow${opts.length > 4 ? " stack" : ""}"><span class="seglabel">Language</span><div class="seg" role="radiogroup" aria-label="Reading language">
+    ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" || isXl(v) ? `lang="${v}"` : ""}>${l}</button>`).join("")}</div></div>
     <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
-const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" };
+const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" }; for (const l in XL.langs) READ_LABEL[l] = XL.langs[l].name;
 /* Show the chapter in the reader's language: English, Hebrew, both (Hebrew under each English section) or side by side
    (English and Hebrew in two columns, paragraph beside paragraph; on a phone each Hebrew paragraph sits under its English). */
 function applyReadLang(t, r) {
   const mode = state.prefs.read || "en";
   r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both"); r.classList.toggle("read-side", mode === "side");
-  if (mode === "en") { r.querySelectorAll(".hebslot").forEach(s => { if (!s.dataset.user) s.hidden = true; }); r.querySelectorAll(".heb-orig").forEach(h => { if (!h.dataset.user) h.hidden = true; }); return; }
+  if (mode === "en" || isXl(mode)) { r.querySelectorAll(".hebslot").forEach(s => { if (!s.dataset.user) s.hidden = true; }); r.querySelectorAll(".heb-orig").forEach(h => { if (!h.dataset.user) h.hidden = true; }); return; }
   const slots = [...r.querySelectorAll(".hebslot, .heb-orig")];
   slots.forEach(s => { s.hidden = false; });
   const empty = slots.filter(s => !s.innerHTML.trim());
@@ -2636,8 +2688,8 @@ function settingsDialog() {
       <a class="note" href="#spelling" data-credits style="color:var(--gold-2)">All spelling schemes, compared</a></div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
-    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"], ["side", "Side by side"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
-      <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English. ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
+    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"], ["side", "Side by side"]].concat(Object.keys(XL.langs).map(l => [l, XL.langs[l].name])).map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}" ${isXl(v) ? `lang="${v}"` : ""}>${l}</button>`).join("")}</div>
+      <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English.${Object.keys(XL.langs).map(l => ` ${XL.langs[l].name} reads an AI translation (Claude) from the Hebrew where a chapter has one, and English where it doesn't yet; listening stays as for English.`).join("")} ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
     ${voiceField()}
     <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
@@ -2770,7 +2822,7 @@ function renderMini() {
   const both = hasHe(t) && (hasEn(t) || (enText(t) && aiVoiceOn()));
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
       <span class="mwide">${mTools(t)}</span>
-      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening">${P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
+      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening" ${xlLang() ? `lang="${xlLang()}"` : ""}>${xlLang() ? XL.langs[xlLang()].short : P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
     <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
@@ -3039,7 +3091,9 @@ document.addEventListener("click", e => {
       <p class="foot" style="margin:0">${NATIVE ? `Smart downloads follow this order, so what plays next is already on the ${DEVICE}.` : ""}</p>`, (s2, close) => {
         s2.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { setPlayMode(b.dataset.m); renderMini(); close(); toast(PLAY_MODES.find(x => x[0] === b.dataset.m)[1]); }); }); break;
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
-    case "audiolang": { const t = cur() || BYID[id]; setLang(t && listenLang(t) === "he" ? "en" : "he"); toast(langPref() === "he" ? "Hebrew: reading and listening" : t && listenLang(t) === "tts" ? "English: the AI voice reads it" : "English: reading and listening"); break; }
+    case "audiolang": { const t = cur() || BYID[id], xls = Object.keys(XL.langs), p = langPref();   // English → Hebrew → Español… → English
+      setLang(isXl(p) ? (xls[xls.indexOf(p) + 1] || "en") : t && listenLang(t) === "he" ? (xls[0] || "en") : "he");
+      toast(isXl(langPref()) ? `${XL.langs[langPref()].name}: reading the AI translation where there is one; listening stays ${t ? LANG_NAME[listenLang(t)] : "English"}` : langPref() === "he" ? "Hebrew: reading and listening" : t && listenLang(t) === "tts" ? "English: the AI voice reads it" : "English: reading and listening"); break; }
     case "dl": { const t = BYID[id], st = dlState(t);
       if (st.s === "none") { if (!DL.ok) { toast("Storage isn't available for downloads"); break; }
         downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're back online" : `Downloading in ${dlLang(t) === "en" ? "English" : "Hebrew"} · about ${fmtMB(dlBytes(t, dlLang(t)))}`); }

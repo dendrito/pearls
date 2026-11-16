@@ -288,6 +288,8 @@ body.hc .mini .mctl .iconbtn.big{background:#fff;color:#000}
 .ai-sec ol.fn li{font-size:14px;color:var(--mist)}
 .linkbtn{color:var(--gold-2);font-size:13px;font-weight:600;margin:2px 0 8px}
 .hebtitle{font-family:var(--f-heb);font-size:20px;color:var(--gold-2)}
+.xltitle{font-size:18px;line-height:1.35;color:var(--gold-2)}
+.aiflag.xlmissing{margin-bottom:14px}
 
 .secfoot{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 10px}
 .secfoot a.linkbtn{text-decoration:none}
@@ -390,6 +392,8 @@ body.hc .reader{color:#fff}
 /* language pickers (segmented controls) */
 .langbar{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:16px;background:var(--ink-2);border:1px solid var(--line)}
 .segrow{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px}
+.segrow.stack{grid-template-columns:1fr;gap:8px}
+.segrow.stack .seg button{padding:0 6px}
 .seglabel{font-family:var(--f-label);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
 .seg{display:flex;padding:3px;border-radius:var(--r-pill);background:var(--ink);border:1px solid var(--line)}
 .seg button{flex:1;min-height:38px;border-radius:var(--r-pill);color:var(--mist);font-size:14px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;background:transparent;border:0}
