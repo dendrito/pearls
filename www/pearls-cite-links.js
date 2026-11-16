@@ -565,6 +565,25 @@
       }],
     [new RegExp(P + 'תשב["״]ץ\\s+' + SIM + HP, 'g'),
       function (m) { return num(m[1]) ? named('The Tashbetz has four parts, and this citation does not say which.') : null; }],
+    // Pri Chadash: Sefaria has only his notes on the Rambam's Sefer HaMadda (four books), not his work on the
+    // Shulchan Arukh, which is what most citations mean
+    [new RegExp(P + '(?:פר["״]ח|פרי\\s+חדש)\\s+(?:(?:הל[\'׳]|הלכות)\\s+)?(יסודי התורה|יסוה["״]ת|יסה["״]ת|דעות|תלמוד תורה|ת["״]ת|עבודה זרה|ע["״]ז)\\s+' + HPAIR, 'g'),
+      function (m) {
+        var b = {'יסודי התורה': 'Foundations of the Torah', 'דעות': 'Human Dispositions', 'תלמוד תורה': 'Torah Study',
+          'עבודה זרה': 'Foreign Worship and Customs of the Nations'}[m[1]] ||
+          ({'יסוה"ת': 'Foundations of the Torah', 'יסה"ת': 'Foundations of the Torah', 'ת"ת': 'Torah Study',
+            'ע"ז': 'Foreign Worship and Customs of the Nations'})[m[1].replace(/״/g, '"')];
+        var c = num(m[2]), h = num(m[3]);
+        return b && c && h ? linked('Peri Chadash on Mishneh Torah, ' + b + ' ' + c + ':' + h, 'Peri Chadash') : null;
+      }],
+    [new RegExp(P + '(?:פר["״]ח|פרי\\s+חדש)\\s+(?:(?:או["״]ח|יו["״]ד|אה["״]ע|חו["״]מ)\\s+)?' + SIM + HP + '(?:\\s*,\\s*' + HP + ')?', 'g'),
+      function (m) { return num(m[1]) ? Object.assign(named('Sefaria has the Pri Chadash only on the Rambam’s Sefer HaMadda, not on the Shulchan Arukh, which is what this cites.'), {work: 'Pri Chadash'}) : null; }],
+    // works Sefaria does not have (checked against its full title list, 16 Nov 2026): marked, not missed
+    [new RegExp(P + '(שבט\\s+הלוי|ברכ["״]י|ברכי\\s+יוסף|מנחת\\s+שלמה|מנח["״]י|מנחת\\s+יצחק)\\s+(?:ח["״][א-ת]\\s*,?\\s*|(?:או["״]ח|יו["״]ד|אה["״]ע|חו["״]מ)\\s+)?' + SIM + HP + '(?:\\s*,\\s*' + HP + ')?', 'g'),
+      function (m) {
+        var w = /^שבט/.test(m[1]) ? 'Shevet HaLevi' : /^ברכ/.test(m[1]) ? 'Birkei Yosef' : /שלמה/.test(m[1]) ? 'Minchat Shlomo' : 'Minchat Yitzchak';
+        return num(m[2]) ? Object.assign(named(w + ' is not on Sefaria (checked against its full title list, 16 Nov 2026), so this is named rather than linked.'), {work: w}) : null;
+      }],
     // Shmonah Kevatzim
     [new RegExp(P + 'שמונה\\s+קבצים\\s+' + HPAIR, 'g'),
       function (m) { var a = num(m[1]), b = num(m[2]); return a && b && a <= 8 ? linked('Shmonah Kevatzim ' + a + ':' + b, 'Shmonah Kevatzim') : null; }],
@@ -992,7 +1011,10 @@
       ['SA 135:1; Magen Avraham 2; Taz 2; MB 3', 'Peninei Halakhah, Shabbat 21',
         ['Shulchan Arukh, Orach Chayim 135:1', 'Magen Avraham 135:2', 'Turei Zahav on Shulchan Arukh, Orach Chayim 135:2', 'Mishnah Berurah 135:3']],
       ['MB 9', '', ['']],
-      ['Hagahot Beit Yosef 135:1', '', ['']]                                            // a different work
+      ['Hagahot Beit Yosef 135:1', '', ['']],                                           // a different work
+      ['(פר"ח יסה"ת ט, ג)', '', ['Peri Chadash on Mishneh Torah, Foundations of the Torah 9:3']],
+      ['(פר"ח קטו, ו)', '', ['']],                                                     // on the SA: not on Sefaria
+      ['שבט הלוי ד, רכה; ברכ"י רמב, כא; מנח"י א, ס', '', ['', '', '']]                  // not on Sefaria: named
     ];
     var pass = 0, fail = 0, failures = [];
     cases.forEach(function (k) {

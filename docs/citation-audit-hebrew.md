@@ -52,11 +52,16 @@ a bare se'if katan with no siman before it (MB 38, Taz 20, MA 20, Shakh 18) · B
 Rema (shown at its siman in the Shulchan Arukh) 25 · Rav Pe'alim with no volume 23 · Mekhilta by parasha 23 ·
 Pitchei Teshuva with no section 18 · Sifrei by verse 15 · Tashbetz part IV · Or Zarua III–IV.
 
+**Checked again on Sefaria's full title list (67,472 titles, Hebrew and English names, 16 Nov), now marked
+and named:** Shevet HaLevi 68 · Birkei Yosef 62 · Minchat Yitzchak 62 · Minchat Shlomo 54 are not on Sefaria
+under any spelling. The Pri Chadash is on Sefaria only for his notes on the Rambam's Sefer HaMadda
+(Peri Chadash on Mishneh Torah, four books); those citations now link (`פר"ח יסה"ת ט, ג`). His work on the
+Shulchan Arukh, which 49 citations cite, is not there.
+
 **Works we do not read yet** (name + location, nothing marked):
-Shevet HaLevi 46 · Birkei Yosef 35 · Minchat Shlomo 35 · Minchat Yitzchak 53 · Yaskil Avdi 32 ·
-Eliya Rabba as `רא"ר` 31 · Pri Chadash 31 · Or LeTziyon 30 · Mishpetei Uziel 28 · Mishneh Halakhot 23 ·
-Levush 23 · Darkhei Tahara 22. Several of these are not on Sefaria at all (Shevet HaLevi, Yaskil Avdi,
-Or LeTziyon, Mishneh Halakhot, Darkhei Tahara); the rest are worth a check.
+Yaskil Avdi 32 · Eliya Rabba as `רא"ר` 31 · Or LeTziyon 30 · Mishpetei Uziel 28 · Mishneh Halakhot 23 ·
+Levush 23 · Darkhei Tahara 22. Several of these are not on Sefaria at all (Yaskil Avdi, Or LeTziyon,
+Mishneh Halakhot, Darkhei Tahara); the rest are worth a check.
 
 **Shapes we do not read yet**:
 - A section abbreviation after the work's name, split by a bracket or a word (`שו"ע (יו"ד שעב, א`,
@@ -67,4 +72,4 @@ Or LeTziyon, Mishneh Halakhot, Darkhei Tahara); the rest are worth a check.
 ## How to run it
 
     node tools/cite_audit.js --json /tmp/audit.json --top 80
-    node test_cite_links.js        # must end "cite links: 35/35"
+    node test_cite_links.js        # must end "cite links: 38/38"
