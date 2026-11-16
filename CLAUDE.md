@@ -232,3 +232,6 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
   - A new skin font goes in `fetch_webfonts.py`, then run `patch_webfonts.py` and `test_fonts.py`. Never add a
     `font-family` without bundling it.
   - Avoid characters fonts rarely have (e.g. U+2011 non-breaking hyphen); use the plain one.
+  - A word quoted in another script (Allah الله, Bog Бог) goes in `<span lang="ar|ru">`; `:lang()` rules in app.css
+    draw it with `--f-ar` / `--f-cyr` (bundled Noto, only that script's subset; sans by default, serif in skins that
+    read in serif). `test_fonts.py` fails on an unmarked Cyrillic or Arabic letter, or one those faces lack.
