@@ -234,18 +234,18 @@ body[data-skin="ner"] .art,body[data-skin="ner"] .trk .art{border-radius:24px 24
 body[data-skin="ner"] .chip.on{color:#F3ECDD}
 body[data-skin="ner"] .mini{--pearl:#F3ECDD;--mist:#C9BFA6;--dim:#C9BFA6;--gold:#E6B45A;--on-gold:#2A2620;--ink-3:#3D4A2C;color:#F3ECDD}
 /* the volume artwork (covers, track art, playlist tiles) takes each skin's palette instead of the volume colours */
-body[data-skin="nacre"] :is(.cover,.art){--c1:#24211D!important;--c2:#34302A!important;--c3:#1B1916!important}
+body[data-skin="nacre"] :is(.cover,.art,.tint,.plart>i){--c1:#24211D!important;--c2:#34302A!important;--c3:#1B1916!important}
 body[data-skin="nacre"] .art{color:rgba(239,231,216,.9)}
 body[data-skin="nacre"] .plart>i{background:#24211D!important}
 body[data-skin="nacre"] .cover{filter:none}
-body[data-skin="folio"] :is(.cover,.art){--c1:#111111!important;--c2:#2A2A2A!important;--c3:#111111!important}
+body[data-skin="folio"] :is(.cover,.art,.tint,.plart>i){--c1:#111111!important;--c2:#2A2A2A!important;--c3:#111111!important}
 body[data-skin="folio"] .art{color:#F7F4EE;border-radius:0}
 body[data-skin="folio"] .cover{border-radius:0;filter:none}
 body[data-skin="folio"] .cover .ring{display:none}
 body[data-skin="folio"] .cover .glyph{color:rgba(247,244,238,.9);font-family:"Frank Ruhl Libre",var(--f-heb);font-weight:900}
 body[data-skin="folio"] .plart>i{background:#111111!important}
 body[data-skin="folio"] .plart>i:nth-child(2){background:#C2311A!important}
-body[data-skin="sunlit"] :is(.cover,.art){--c1:#C8461F!important;--c2:#E8794F!important;--c3:#A93A16!important}
+body[data-skin="sunlit"] :is(.cover,.art,.tint,.plart>i){--c1:#C8461F!important;--c2:#E8794F!important;--c3:#A93A16!important}
 body[data-skin="sunlit"] .cover{filter:none;border-radius:26px}
 body[data-skin="sunlit"] .cover .ring{display:none}
 body[data-skin="sunlit"] .cover .glyph{color:rgba(255,255,255,.32);font-family:"Rubik",var(--f-heb);font-weight:800}
@@ -254,7 +254,7 @@ body[data-skin="sunlit"] .plart>i:nth-child(2){background:#9FD3F2!important}
 body[data-skin="sunlit"] .plart>i:nth-child(3){background:#FFC93C!important}
 body[data-skin="sunlit"] .plart>i:nth-child(4){background:#BFE6C9!important}
 body[data-skin="sunlit"] .mini{--gold-2:#FFB596}
-body[data-skin="ner"] :is(.cover,.art){--c1:#3D4A2C!important;--c2:#566744!important;--c3:#2E3822!important}
+body[data-skin="ner"] :is(.cover,.art,.tint,.plart>i){--c1:#3D4A2C!important;--c2:#566744!important;--c3:#2E3822!important}
 body[data-skin="ner"] .art{color:#E8DDC8}
 body[data-skin="ner"] .cover{filter:none}
 body[data-skin="ner"] .cover .ring{display:none}
@@ -278,7 +278,7 @@ body[data-skin="azulejo"],body[data-skin="cutpaper"],body[data-skin="riso"],body
   --ai-bg:var(--ink-2);--ai-line:var(--line);--ai-tag:var(--gold);--f-label:var(--f-body);--f-read:var(--f-body)}
 body[data-skin="azulejo"] .aura,body[data-skin="azulejo"] .hero .orb,body[data-skin="cutpaper"] .aura,body[data-skin="cutpaper"] .hero .orb,body[data-skin="riso"] .aura,body[data-skin="riso"] .hero .orb,body[data-skin="boneink"] .aura,body[data-skin="boneink"] .hero .orb,body[data-skin="mizrah"] .aura,body[data-skin="mizrah"] .hero .orb,body[data-skin="thread"] .aura,body[data-skin="thread"] .hero .orb{display:none}
 body[data-skin="azulejo"] .hero,body[data-skin="cutpaper"] .hero,body[data-skin="riso"] .hero,body[data-skin="boneink"] .hero,body[data-skin="mizrah"] .hero,body[data-skin="thread"] .hero{background:var(--hero-bg) var(--hero-art) top center/100% 120px no-repeat;padding-top:140px}
-body[data-skin="azulejo"] :is(.cover,.art),body[data-skin="cutpaper"] :is(.cover,.art),body[data-skin="riso"] :is(.cover,.art),body[data-skin="boneink"] :is(.cover,.art),body[data-skin="mizrah"] :is(.cover,.art),body[data-skin="thread"] :is(.cover,.art){--c1:var(--fc1)!important;--c2:var(--fc2)!important;--c3:var(--fc3)!important}
+body[data-skin="azulejo"] :is(.cover,.art,.tint,.plart>i),body[data-skin="cutpaper"] :is(.cover,.art,.tint,.plart>i),body[data-skin="riso"] :is(.cover,.art,.tint,.plart>i),body[data-skin="boneink"] :is(.cover,.art,.tint,.plart>i),body[data-skin="mizrah"] :is(.cover,.art,.tint,.plart>i),body[data-skin="thread"] :is(.cover,.art,.tint,.plart>i){--c1:var(--fc1)!important;--c2:var(--fc2)!important;--c3:var(--fc3)!important}
 body[data-skin="azulejo"] .cover .ring,body[data-skin="cutpaper"] .cover .ring,body[data-skin="riso"] .cover .ring,body[data-skin="boneink"] .cover .ring,body[data-skin="mizrah"] .cover .ring,body[data-skin="thread"] .cover .ring{display:none}
 body[data-skin="azulejo"] .plart>i:nth-child(odd),body[data-skin="cutpaper"] .plart>i:nth-child(odd),body[data-skin="riso"] .plart>i:nth-child(odd),body[data-skin="boneink"] .plart>i:nth-child(odd),body[data-skin="mizrah"] .plart>i:nth-child(odd),body[data-skin="thread"] .plart>i:nth-child(odd){background:var(--fc1)!important}
 body[data-skin="azulejo"] .plart>i:nth-child(even),body[data-skin="cutpaper"] .plart>i:nth-child(even),body[data-skin="riso"] .plart>i:nth-child(even),body[data-skin="boneink"] .plart>i:nth-child(even),body[data-skin="mizrah"] .plart>i:nth-child(even),body[data-skin="thread"] .plart>i:nth-child(even){background:var(--fc2)!important}
