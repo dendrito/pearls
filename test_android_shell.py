@@ -1,7 +1,8 @@
 """Tests the page side of the Android 2.0 shell, with Chromium standing in for the WebView:
 - the app served from https://appassets.androidplatform.net (as AppServer does), text from ph.yhb.org.il through /proxy;
 - the one-time carry-over of saved data from file:// (migrate.html -> saveMigration -> takeMigration);
-- bundled fonts: nothing requested from Google Fonts, and the faces actually load."""
+- bundled fonts: nothing requested from Google Fonts, and the faces actually load;
+- the phone's own voices, listed and rendered by the app at /native/device-voice/ (DeviceVoice.java)."""
 import json, mimetypes, os, sys
 from urllib.parse import urlparse, parse_qs
 from playwright.sync_api import sync_playwright
@@ -21,9 +22,18 @@ def server(route):                       # what AppServer.java does
         slugs = t.split("slug=")[1].split(",")[:4]
         body = [{"slug": s, "link": "https://ph.yhb.org.il/" + s, "title": {"rendered": "כותרת " + s}, "content": {"rendered": "<p>מן השרת " + s + "</p>"}} for s in slugs]
         return route.fulfill(status=200, content_type="application/json", body=json.dumps(body, ensure_ascii=False))
+    if u.path == "/native/device-voice/list":
+        return route.fulfill(status=200, content_type="application/json", body=json.dumps(VOICES))
+    if u.path == "/native/device-voice/say":
+        q = parse_qs(u.query); said.append({"id": q.get("id", [""])[0], "text": q.get("text", [""])[0]})
+        n = 24000; import struct
+        wav = b"RIFF" + struct.pack("<I", 36 + n * 2) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, 24000, 48000, 2, 16) + b"data" + struct.pack("<I", n * 2) + bytes(n * 2)
+        return route.fulfill(status=200, body=wav, headers={"content-type": "audio/wav", "X-Gen-Seconds": "0.1"})
     route.fulfill(status=404, body="")
-proxied = []
-BRIDGE = """window.PearlsNative = { saveMigration(j) { console.log("MIG:" + j); }, info: () => JSON.stringify({ ok: true, dir: "%s/dl/", free: 1e9 }),
+proxied = []; said = []
+VOICES = [{"id": "en-gb-x-rjs-local", "name": "UK English RJS", "lang": "en-GB", "quality": "high", "gender": "male"},
+          {"id": "en-us-x-tpf-local", "name": "US English TPF", "lang": "en-US", "quality": "high", "gender": "female"}]
+BRIDGE = """window.PearlsNative = { saveMigration(j) { console.log("MIG:" + j); }, info: () => JSON.stringify({ ok: true, dir: "%s/dl/", free: 1e9, deviceVoices: true }),
   status: () => '{"active":[],"finished":[],"failed":[]}', list: () => "[]", readText: () => null, writeText: () => true, textList: () => "[]",
   setBars() {}, mediaState() {} };""" % HOST
 
@@ -61,6 +71,16 @@ with sync_playwright() as p:
     check("bundled fonts load", all(loaded.values()), loaded)
     check("nothing requested from Google Fonts", not external, external[:2])
     pg2.screenshot(path=os.path.join(here, "shots", "shell-https.png"))
+    # 5. the phone's own voices come from the app (the WebView's speechSynthesis says nothing)
+    pg2.evaluate("PEARLS.state.prefs.read='en'; PEARLS.state.prefs.voiceEngine='device'; delete PEARLS.state.prefs.voice")
+    tid = pg2.evaluate("PEARLS.TRACKS.find(t => PEARLS.listenLang(t) === 'tts').id")
+    pg2.goto(HOST + "/www/index.html#ch-" + tid); pg2.wait_for_timeout(800)
+    pg2.evaluate("(() => { const b = document.createElement('button'); b.dataset.act = 'voice'; document.querySelector('.view').appendChild(b); b.click(); })()"); pg2.wait_for_timeout(500)
+    vt = pg2.evaluate("(document.querySelector('[data-voices]') || {}).textContent || ''")
+    check("Settings lists the phone's voices from the app, the male one chosen", "RJS" in vt and "High quality" in vt and pg2.evaluate("!!document.querySelector('[data-voice=\"en-gb-x-rjs-local\"].on')"), vt[:120])
+    pg2.evaluate("PEARLS.audio.src = 'speech:%s:0'; PEARLS.audio.play()" % tid); pg2.wait_for_timeout(1500)
+    check("reading goes through the app's voice", said and said[0]["id"] == "en-gb-x-rjs-local" and pg2.evaluate("PEARLS.audio.neural"), said[:1])
+    pg2.evaluate("PEARLS.audio.pause()")
     b.close()
 print("errors:", errors or "none"); print(f"{sum(checks)}/{len(checks)} checks passed")
 sys.exit(0 if all(checks) and not errors else 1)
