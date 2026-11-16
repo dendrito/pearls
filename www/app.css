@@ -137,6 +137,14 @@ h1,h2,h3{margin:0;font-weight:var(--dw)}
 .art,.trk .art{width:48px;height:48px;border-radius:12px;position:relative;flex:none;overflow:hidden;background:var(--c1);display:grid;place-items:center;font-family:var(--f-heb);font-size:22px;color:rgba(255,255,255,.85)}
 .art::before{content:"";position:absolute;top:-40%;right:-40%;width:90%;aspect-ratio:1;border-radius:50%;background:var(--c2)}
 .art span{position:relative}
+/* 2.8 drawn covers (covers.js): a flat scene per book, coloured by the cover's own variables */
+.cv{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:-1}
+.cv .m1{fill:var(--c1)}.cv .m2{fill:var(--c2)}.cv .m3{fill:var(--c3)}.cv .mk{fill:var(--cv-ink,#f4eee2)}.cv .mf{fill:var(--cv-flame,#e2b65c)}
+.cover.drawn::before,.cover.drawn::after,.art.drawn::before{display:none}
+.cover.drawn .glyph{right:9px;top:7px;bottom:auto;font-size:22px;color:var(--cv-ink,#f4eee2);opacity:.92}
+.cover.drawn .cap{left:0;right:0;bottom:0;padding:7px 12px 9px;background:var(--c1)}
+.art.drawn{isolation:isolate}
+.plart>i.drawn{isolation:isolate}.plart>i.drawn::after{display:none}
 .trk .txt{min-width:0}
 .trk .t{font-weight:600;font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .trk .m{font-size:12.5px;color:var(--mist);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -580,3 +588,60 @@ body[data-hefont="shofar"] .heb-orig,body[data-hefont="shofar"] .hebslot,body[da
 .dprow .m{font-size:12.5px;color:var(--mist)}
 .dprow .tx [dir="auto"]:dir(rtl){font-family:var(--f-heb);text-align:right}
 .daily a.btn,.dpget a.btn{text-decoration:none}
+/* 2.8 layout: a poster at the top of Home, "Jump back in" tiles, book-coloured surfaces (.tint takes a book's --c1..3) */
+.poster{position:relative;border-radius:var(--r-hero);overflow:hidden;background:var(--ink-2);border:var(--bw) var(--bstyle) var(--line)}
+.poster-art{position:relative;height:clamp(150px,34vw,240px);isolation:isolate;background:var(--c1)}
+.poster-body{position:relative;padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px}
+.poster .hello{font-size:34px;margin:0}
+.poster .why{font-size:13px;color:var(--mist)}
+.poster .row{display:flex;gap:10px;flex-wrap:wrap}
+.jbgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.jb{display:flex;align-items:center;gap:10px;background:var(--ink-3);border:0;border-radius:10px;overflow:hidden;padding:0 8px 0 0;height:58px;text-align:left;color:var(--pearl);font:inherit;cursor:pointer;min-width:0}
+.jb .art,.jb .art.drawn{width:58px;height:58px;border-radius:0}
+.jb>span{min-width:0;display:flex;flex-direction:column;gap:1px}
+.jb b{font-size:13px;font-weight:600;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.jb small{font-size:11px;color:var(--mist);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tint{--on-tint-c:var(--on-tint,#fff)}
+.daily.tint{position:relative;background:var(--c1);border-color:var(--c1);color:var(--on-tint-c);
+  --pearl:var(--on-tint-c);--mist:color-mix(in srgb,var(--on-tint-c) 74%,transparent);--dim:color-mix(in srgb,var(--on-tint-c) 64%,transparent);--hair:color-mix(in srgb,var(--on-tint-c) 20%,transparent);--gold-2:var(--on-tint-c)}
+.daily.tint .sec-h,.daily.tint .dphead{padding-right:86px}
+.daily-art{position:absolute;right:16px;top:16px;width:74px;height:74px;border-radius:12px;overflow:hidden;isolation:isolate}
+@media (min-width:768px){.jbgrid{grid-template-columns:repeat(3,1fr)}.poster{display:grid;grid-template-columns:minmax(220px,38%) 1fr}.poster-art{height:auto;min-height:240px}.poster-body{justify-content:flex-end;padding:24px}.poster .hello{font-size:42px}}
+/* 2.8 the mini player: one row in the book's colour; "More controls" opens the full 2.7 bar */
+.mini .mbar{display:none}
+.mini .mplay,.mini .mexp{width:38px;height:38px;background:none;color:var(--pearl)}
+.mini .mplay svg{width:22px;height:22px}.mini .mexp svg{width:18px;height:18px}
+.mini:not(.compact) .mplay{display:none}
+.mini.compact{padding:7px 8px 7px 7px;gap:0;overflow:hidden;max-width:600px}
+.mini.compact :is(.mwide,.mtools,.mseek,.mctl,.langpill,.aipill,.mclose){display:none!important}
+.mini.compact .mbar{display:block;position:absolute;left:0;right:0;bottom:0;height:3px;background:color-mix(in srgb,var(--pearl) 22%,transparent)}
+.mini.compact .mbar i{display:block;height:3px;width:0;background:var(--pearl)}
+.mini.compact .mrow{grid-template-columns:44px minmax(0,1fr) auto auto}
+.mini.compact.tint{background:var(--c1);border-color:var(--c1);color:var(--on-tint-c);--pearl:var(--on-tint-c);--mist:color-mix(in srgb,var(--on-tint-c) 74%,transparent)}
+.mini.compact .mplay{width:40px;height:40px;border-radius:50%;background:var(--pearl);color:var(--c1)}
+body.has-mini:not(.mini-full) main{padding-bottom:calc(var(--tab-h) + 90px + env(safe-area-inset-bottom,0px))}
+
+/* 2.8 chapter page: the book's art band with the chapter number, the text on the first screen */
+.chband{position:relative;isolation:isolate;overflow:hidden;height:clamp(118px,30vw,170px);border-radius:var(--r,14px);background:var(--c1);color:var(--on-tint-c);display:flex;align-items:flex-end;justify-content:space-between;padding:12px 14px;margin-bottom:14px}
+.chband-art{position:absolute;inset:0;z-index:-1}
+.chband-art .cv{position:absolute;inset:0;width:100%;height:100%}
+.chband .chcrumb{font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:6px 10px;border-radius:999px;background:var(--c1);color:var(--on-tint-c);max-width:65%;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chband .chnum{font-family:var(--f-display);font-size:clamp(72px,20vw,120px);line-height:.8;font-variant-numeric:lining-nums;color:var(--cv-ink,#f4eee2)}
+.chhead{display:flex;flex-direction:column;gap:10px}
+.chacts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+details.chmore{border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+details.chmore>summary{list-style:none;cursor:pointer;display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:10px 0;font-size:13.5px;color:var(--mist)}
+details.chmore>summary::-webkit-details-marker{display:none}
+details.chmore>summary .more{margin-left:auto;color:var(--gold-2);font-weight:600}
+details.chmore[open]>summary .more{opacity:.6}
+.chmore-in{display:flex;flex-direction:column;gap:10px;padding-bottom:12px}
+.toc.secchips{flex-direction:row;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 0 6px;margin:4px 0 10px}
+.toc.secchips::-webkit-scrollbar{display:none}
+.toc.secchips button{flex:none;display:flex;gap:6px;grid-template-columns:none;padding:7px 12px;border:1px solid var(--hair);border-radius:999px;font-size:13px;max-width:240px}
+.toc.secchips button span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc.secchips button.nowsec{border-color:var(--gold-2)}
+.chend{display:flex;justify-content:center;margin:18px 0 8px}
+
+/* 2.8 Now Playing: the book's art on a stage of its own colour */
+.np .npstage{background:var(--c1);border-radius:calc(var(--r,14px) + 6px);padding:clamp(16px,6vw,32px);display:flex;justify-content:center}
+.np .npstage .bigart{margin:0;width:min(72vw,340px);border-radius:var(--r,14px)}

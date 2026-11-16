@@ -1404,8 +1404,12 @@ const I = {
 
 /* ---------- small render helpers ---------- */
 const coverStyle = v => `--c1:${v.c1};--c2:${v.c2};--c3:${v.c3}`;
-const cover = (v, cls = "") => `<div class="cover ${cls}" style="${coverStyle(v)}"><div class="ring"></div><div class="glyph">${v.glyph}</div><div class="cap">${esc(R(v.short))}</div></div>`;
-const art = t => `<div class="art" style="${coverStyle(t.vol)}"><span>${t.vol.glyph}</span></div>`;
+/* covers.js draws a flat scene for each book; a book without one keeps the old circles */
+const coverArt = v => (window.PEARLS_COVERS && PEARLS_COVERS.svg(v.slug)) || "";
+const cover = (v, cls = "") => { const a = coverArt(v);
+  return `<div class="cover ${a ? "drawn" : ""} ${cls}" style="${coverStyle(v)}">${a || '<div class="ring"></div>'}<div class="glyph">${v.glyph}</div><div class="cap">${esc(R(v.short))}</div></div>`; };
+const artVol = v => { const a = coverArt(v); return `<div class="art ${a ? "drawn" : ""}" style="${coverStyle(v)}">${a || `<span>${v.glyph}</span>`}</div>`; };
+const art = t => artVol(t.vol);
 /* ---------- what is translated: official English · AI translation · Hebrew only ---------- */
 const KINDS = [
   { id: "official", label: "Official English", tag: "Official", h: "Official English translation",
@@ -1438,7 +1442,7 @@ function trackRow(t, o = {}) {
 function plArt(pl) {
   const vols = [...new Set(pl.tracks.map(id => BYID[id] && BYID[id].vol).filter(Boolean))];
   const four = [0, 1, 2, 3].map(i => vols[i % Math.max(1, vols.length)] || VOLS[i]);
-  return `<div class="plart">${four.map((v, i) => `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
+  return `<div class="plart">${four.map((v, i) => { const a = coverArt(v); return a ? `<i class="drawn" style="${coverStyle(v)}">${a}</i>` : `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`; }).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
 }
 const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.id}">${plArt(pl)}<span>${pl.tracks.length} chapters · ${mins(plDur(pl.tracks)) || "–"}</span></button>`;
 const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
@@ -1457,29 +1461,18 @@ function setTab(name) { document.querySelectorAll(".tabs button").forEach(b => b
 function vHome() {
   setTop(null); setTab("home");
   if (!state.interests) return vOnboard();
-  const along = alongCard();
   const recs = recommend(10), hero = recs[0];
-  const lq = state.lastQueue && BYID[state.lastQueue.ids[state.lastQueue.idx]];
-  const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 3).map(([id]) => BYID[id]);
+  const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 6).map(([id]) => BYID[id]);
   const readHere = state.where && BYID[state.where.id] && !state.read[state.where.id] && state.where.sec > 1 ? BYID[state.where.id] : null;
   const hr = new Date().getHours(), greet = hr < 12 ? "Boker tov" : hr < 18 ? "Good afternoon" : "Erev tov";
   view.innerHTML = `
   <div class="view">
-    <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}</div>
-      <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
+    ${posterCard(greet, hero)}
     ${offlineCard()}
-    ${along}
+    ${jumpBack(readHere, resumeList, recs)}
     ${dailyCard()}
     ${todayCard()}
-    ${hero ? `<section class="hero"><div class="orb"></div>
-      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Recommended for you</div>
-      <h3>${esc(R(hero.t.title))}</h3>
-      <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
-      <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
-        <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}${hero.t.vol.he && !hero.t.translated ? "Read the Hebrew" : "Read in English"}</button></div>
-      <p class="note herohint">Every recording is a chapter you can read. Tap its name anywhere in Pearls, or <b>Read along</b> in the player to open the section you're hearing.</p></section>` : ""}
     ${calShelf()}
-    ${resumeList.length || readHere ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div>${readHere ? `<button class="panel progresslink" data-act="resumeread" data-id="${readHere.id}" data-sec="${state.where.sec}"><span><span class="eyebrow">Continue reading</span><br><b>${esc(R(readHere.title))}</b><br><span class="note">${esc(R(readHere.vol.short))} ${readHere.n} · section ${state.where.sec}${readHere.sectionTitles[state.where.sec - 1] ? `: ${esc(R(readHere.sectionTitles[state.where.sec - 1]))}` : ""}</span></span><span class="dur">›</span></button>` : ""}<div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
     <section><div class="sec-h"><h2>Made for you</h2><button class="more" data-go="library">All playlists</button></div>
       <div class="shelf">${madeForYou().map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>Recommended chapters</h2><button class="more" data-act="playrecs">${"Play all"}</button></div>
@@ -1490,6 +1483,40 @@ function vHome() {
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
   </div>`;
+}
+/* 2.8 the poster at the top of Home: what's coming on the calendar, else the chapter Pearls recommends, drawn with its book's art */
+function posterCard(greet, hero) {
+  const when = `${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}`;
+  const c = CAL_NOW.find(o => o.ids.some(id => BYID[id]));
+  if (c) {
+    const ids = c.ids.filter(id => BYID[id]), v = BYID[ids[0]].vol, d = plDur(ids);
+    return `<section class="poster tint" style="${coverStyle(v)}"><div class="poster-art">${coverArt(v)}</div>
+      <div class="poster-body"><div class="eyebrow">${when}</div>
+        <h1 class="hello">Get ready for ${esc(R(c.name))}</h1>
+        <div class="row"><button class="btn gold" data-act="playpl" data-id="cal-${c.id}">${I.play}Play ${ids.length} chapter${ids.length > 1 ? "s" : ""}${mins(d) ? ` · ${mins(d)}` : ""}</button>
+          <button class="btn ghost" data-act="playlist" data-id="cal-${c.id}">${I.read}Read</button></div></div></section>`;
+  }
+  if (!hero) return `<section class="poster"><div class="poster-body"><div class="eyebrow">${when}</div><h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div></section>`;
+  const t = hero.t;
+  return `<section class="poster tint" style="${coverStyle(t.vol)}"><div class="poster-art">${coverArt(t.vol)}</div>
+    <div class="poster-body"><div class="eyebrow">${when}</div>
+      <h1 class="hello">${esc(R(t.title))}</h1>
+      <div class="why">${esc(hero.why || `${R(t.vol.title)} · chapter ${t.n}`)}${dur(t) ? ` · ${mins(dur(t))}` : ""}</div>
+      <div class="row">${hasHe(t) || hasEn(t) ? `<button class="btn gold" data-act="play" data-id="${t.id}">${I.play}Listen</button>` : ""}
+        <button class="btn ghost" data-act="chapter" data-id="${t.id}">${I.read}${t.vol.he && !t.translated ? "Read the Hebrew" : "Read"}</button></div></div></section>`;
+}
+/* "Jump back in": what's in the player, where you stopped reading, what you were partway through, then recommendations */
+function jumpBack(readHere, resumeList, recs) {
+  const seen = new Set(), tiles = [];
+  const add = (t, act, sec, sub) => { if (!t || seen.has(t.id) || tiles.length >= 6) return; seen.add(t.id);
+    tiles.push(`<button class="jb" data-act="${act}" data-id="${t.id}"${sec ? ` data-sec="${sec}"` : ""}>${art(t)}<span><b>${esc(R(t.title))}</b><small>${esc(sub)}</small></span></button>`); };
+  const c = cur(); if (c) add(c, "readalong", 0, audio.paused ? "In the player" : "Listening now");
+  if (readHere) add(readHere, "resumeread", state.where.sec, `Reading · section ${state.where.sec}`);
+  resumeList.forEach(t => add(t, "chapter", 0, `${R(t.vol.short)} ${t.n} · partway`));
+  if (tiles.length < 4) recs.slice(1).forEach(r => add(r.t, "chapter", 0, `${R(r.t.vol.short)} ${r.t.n}`));
+  if (tiles.length < 2) return "";
+  if (tiles.length % 2) tiles.pop();
+  return `<section><div class="sec-h"><h2>Jump back in</h2></div><div class="jbgrid">${tiles.join("")}</div></section>`;
 }
 /* ---------- the Daily Pearl: Peninei Halakha's own two halakhot a day (daily-pearl.js) ---------- */
 const DAILY = window.PH_DAILY;
@@ -1523,7 +1550,8 @@ function dailyCard() {
     <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.${window.PEARLS_PROXY ? " Pearls looks for it on Peninei Halakha's site once a day and adds it when it's out." : ""}</p>
     <div><a class="btn line" href="${DAILY.page}" target="_blank" rel="noopener">${I.ext}The Daily Pearl on Peninei Halakha</a></div></section>`;
   const items = dpItems(d.parts), first = items.find(x => x.t), kinds = [...new Set(items.filter(x => x.t).map(x => kindOf(x.t)))];
-  return `<section class="panel daily"><div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
+  const dv = first && first.t.vol, da = dv ? coverArt(dv) : "";
+  return `<section class="panel daily${da ? " tint" : ""}"${da ? ` style="${coverStyle(dv)}"` : ""}>${da ? `<div class="daily-art" aria-hidden="true">${da}</div>` : ""}<div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
     <div class="dphead"><b>${esc(dpRef(d.parts))}</b><span class="kinds">${kinds.map(kindTag).join("")}</span></div>
     <div class="list">${items.map(dpRow).join("")}</div>
     ${first ? `<div class="row"><button class="btn gold" data-act="resumeread" data-id="${first.t.id}" data-sec="${first.sec}">${I.read}${kindOf(first.t) === "he" ? "Read the Hebrew" : "Read today's halakhot"}</button></div>` : ""}
@@ -1865,30 +1893,35 @@ function vChapter(id) {
   const d = dur(t), liked = state.likes.has(t.id), sim = similar(t, 5);
   const prevT = BYID[`${t.vol.book}-${String(t.n - 1).padStart(2, "0")}`], nextT = BYID[`${t.vol.book}-${String(t.n + 1).padStart(2, "0")}`];
   view.innerHTML = `<div class="view">
-    <div class="chhead" style="display:flex;flex-direction:column;gap:10px">
-      <div class="eyebrow">${esc(R(t.vol.title))} · Chapter ${t.n}</div><h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
-      <div class="chips">${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
+    <div class="chband tint" style="${coverStyle(t.vol)}"><div class="chband-art" aria-hidden="true">${coverArt(t.vol)}</div>
+      <button class="chcrumb" data-act="vol" data-id="${t.vol.book}">${esc(R(t.vol.title))}</button><span class="chnum" aria-hidden="true">${t.n}</span></div>
+    <div class="chhead">
+      <div class="eyebrow">Chapter ${t.n} of ${volTracks(t.vol).length}${d ? ` · ${mins(d)}` : ""} ${kindTag(kindOf(t))}</div>
+      <h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
+      <div class="chacts">
+        ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
-        <button class="btn ${isDone(t.id) ? "ghost" : "line"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button>
         ${dlButton(t)}</div>
-      ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
-        <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
-        ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
+      ${state.where && state.where.id === t.id && state.where.sec > 1 ? `<div><button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button></div>` : ""}
       ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
-      ${langBar(t)}
-      <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
+      <details class="chmore"${state.prefs.chMore ? " open" : ""}><summary><span>Language · ${esc(READ_LABEL[state.prefs.read || "en"] || "English")}</span><span>Spelling · ${esc(SCHEMES[scheme].name)}</span><span class="more">More</span></summary>
+        <div class="chmore-in">${langBar(t)}
+        <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
+        ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
+          <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
+          ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}</div></details>
     </div>
     <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
-    ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</div></div>` : ""}
+    ${t.sectionTitles.length > 1 ? `<nav class="toc secchips" aria-label="Sections in this chapter">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</nav>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
+    <div class="chend"><button class="btn ${isDone(t.id) ? "ghost" : "gold"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button></div>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
       ${prevT ? `<button class="btn line" data-act="chapter" data-id="${prevT.id}">← Ch. ${prevT.n}</button>` : "<span></span>"}
       ${nextT ? `<button class="btn line" data-act="chapter" data-id="${nextT.id}">Ch. ${nextT.n} →</button>` : ""}</div>
     <section><div class="sec-h"><h2>Listen next</h2></div><div class="list">${sim.map(r => trackRow(r.t, { why: r.why })).join("")}</div></section>
   </div>`;
+  const cm = view.querySelector("details.chmore"); if (cm) cm.ontoggle = () => { state.prefs.chMore = cm.open; save.prefs(); };
   view.querySelectorAll(".toc button").forEach(b => b.onclick = () => { const s = $(`#sec-${b.dataset.sec}`); if (s) s.scrollIntoView({ behavior: "smooth" }); });
   fetchSections(t).then(posts => {
     const r = $("#reader"); if (!r || !document.body.contains(r)) return;
@@ -2794,12 +2827,17 @@ function mTools(t, labelled) {   // the mini player's Read along / Favorite / Pl
 }
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
-  document.body.classList.add("has-mini");
+  const full = !!state.prefs.miniFull;   // 2.8: one row by default, the whole control bar when opened
+  document.body.classList.add("has-mini"); document.body.classList.toggle("mini-full", full);
+  mini.classList.toggle("compact", !full); mini.classList.add("tint"); mini.setAttribute("style", coverStyle(t.vol));
   const both = hasHe(t) && (hasEn(t) || (enText(t) && aiVoiceOn()));
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
       <span class="mwide">${mTools(t)}</span>
       <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening">${P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
+      <button class="iconbtn mplay" data-act="toggle" aria-label="${audio.paused ? "Play" : "Pause"}">${audio.paused ? I.play : I.pause}</button>
+      <button class="iconbtn mexp" data-act="miniexp" aria-label="${full ? "Fewer controls" : "More controls"}" aria-expanded="${full}">${full ? I.down : I.up}</button>
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
+    <div class="mbar" aria-hidden="true"><i id="mBar"></i></div>
     <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
     <div class="mctl">
@@ -2818,6 +2856,7 @@ function renderMini() {
 function updateProgress() {
   const pct = audio.duration ? audio.currentTime / audio.duration * 100 : 0;
   const ms = $("#miniSeek"); if (ms && !ms._drag) { ms.max = audio.duration || 0; ms.value = audio.currentTime; ms.style.setProperty("--p", pct + "%"); }
+  const mb = $("#mBar"); if (mb) mb.style.width = pct + "%";
   const mc = $("#mCur"), ml = $("#mLeft"); if (mc && !(ms && ms._drag)) mc.textContent = fmt(audio.currentTime); if (ml) ml.textContent = audio.duration ? "-" + fmt(Math.max(0, audio.duration - audio.currentTime)) : "–";
   const sk = $("#seek"); if (sk && !sk._drag) { sk.max = audio.duration || dur(cur() || {}) || 0; sk.value = audio.currentTime; }
   const a = $("#tCur"), b = $("#tLeft"); if (a) a.textContent = fmt(audio.currentTime); if (b) b.textContent = "-" + fmt(Math.max(0, (audio.duration || 0) - audio.currentTime));
@@ -2849,7 +2888,7 @@ function syncNP(full) {
     const upnext = upcoming(3).filter(i => i !== t.id).map(i => BYID[i]).filter(Boolean), pm = PLAY_MODES.find(x => x[0] === playMode());
     npEl.innerHTML = `<div class="sheet-h"><button class="iconbtn" data-act="npclose" aria-label="Close">${I.down}</button>
         <div class="eyebrow">${P.ctx ? esc(P.ctx) : "Now playing"}</div><button class="iconbtn" data-act="trackmenu" data-id="${t.id}" aria-label="More">${I.more}</button></div>
-      <div class="np">${cover(t.vol, "bigart")}
+      <div class="np"><div class="npstage tint" style="${coverStyle(t.vol)}">${cover(t.vol, "bigart")}</div>
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div style="min-width:0"><div class="tt">${esc(R(t.title))}</div>
           <div class="vv">${esc(R(t.vol.title))} · chapter ${t.n} · <span lang="he" dir="rtl">${esc(t.vol.heb)}</span></div>
           <div class="vv" style="color:var(--gold-2)">Section ${P.part + 1} of ${nSections(t)}${t.sectionTitles[P.part] ? ` · ${esc(R(t.sectionTitles[P.part]))}` : ""}</div></div>
@@ -3105,6 +3144,7 @@ document.addEventListener("click", e => {
     case "np": openNP(); break;
     case "npclose": history.back(); break;
     case "readalong": readAlong(); break;
+    case "miniexp": state.prefs.miniFull = !state.prefs.miniFull; save.prefs(); renderMini(); break;
     case "mshuffle": modeToggle(playMode() === "shuffle" ? "next" : "shuffle"); break;
     case "mrepeat": { const order = ["repeatAll", "repeat1", "repeatSec"], i = order.indexOf(playMode()); modeToggle(i === order.length - 1 ? "next" : order[i + 1]); break; }
     case "mbook": modeToggle(playMode() === "book" ? "next" : "book"); break;
