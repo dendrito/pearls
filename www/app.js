@@ -183,7 +183,10 @@ const SKINS = [
   { id: "mizrah", name: "Mizraḥ Arches", note: "olive and saffron arch windows", bg: "#F4EEDC", acc: "#4F5B2E", light: true, alt: "#171A12" },
   { id: "thread", name: "Thread", note: "tzitzit strings and tallit stripes in blue", bg: "#F3F6F9", acc: "#2B5D8C", light: true, alt: "#0B1826" }
 ];
-const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match " + (window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : "phone")]];
+/* the word for the device the app runs on: the Apple and Windows apps say what they are (PEARLS_SHELL, set by apple/ and windows/);
+   Android and the web say "phone" */
+const SHELL_WORD = { ipad: "iPad", mac: "Mac", ios: "iPhone", windows: "PC" }[window.PEARLS_SHELL] || "phone";
+const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match " + SHELL_WORD]];
 /* 2.3: the three Pearl Minimal entries became one skin with modes */
 if (state.prefs.skin === "pearl-dark") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "dark"; save.prefs(); }
 if (state.prefs.skin === "pearl-auto") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "auto"; save.prefs(); }
@@ -677,14 +680,22 @@ if (NK.on()) NK.status().then(x => {
 /* In the Apple app the device's voices come from the app (apple/Pearls/AppleVoice.swift): there the page's own
    speechSynthesis lists only the compact voices, never the Premium and Enhanced ones the reader installed. Each piece
    comes back as a WAV and plays through Neural's two players, like the natural voices, so pause, the lock screen, the
-   paragraph highlight and the reading speed work the same. The web and Android keep speechSynthesis (Speaker). */
+   paragraph highlight and the reading speed work the same. The Android app does the same through TextToSpeech
+   (android/…/DeviceVoice.java, served at /native/device-voice/): its WebView has no speechSynthesis that speaks.
+   The web keeps speechSynthesis (Speaker). */
 const AV = (() => {
-  const base = "pearls://app/native/apple-voice/", KEEP = "pearls.appleVoices";
-  let on = null, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
-  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).appleVoices); } catch { on = false; } } return on; };
+  const KEEP = "pearls.appleVoices";
+  let on = null, base = "", android = false, loaded = false, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
+  const isOn = () => {
+    if (on === null) {
+      try { const i = window.PearlsNative ? JSON.parse(PearlsNative.info()) : {}; android = !i.appleVoices && !!i.deviceVoices;
+        base = i.appleVoices ? "pearls://app/native/apple-voice/" : android ? "/native/device-voice/" : ""; on = !!base; } catch { on = false; }
+    }
+    return on;
+  };
   async function refresh() {
     if (!isOn()) return [];
-    try { list = await (await fetch(base + "list")).json(); localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
+    try { list = await (await fetch(base + "list")).json(); loaded = true; localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
     return list;
   }
   async function say(text, id, speed) {
@@ -697,9 +708,9 @@ const AV = (() => {
     const blob = await r.blob(), rate = new DataView(await blob.slice(0, 44).arrayBuffer()).getUint32(24, true) || 22050;
     return { blob, dur: Math.max(0, blob.size - 44) / 2 / rate, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
   }
-  return { on: isOn, refresh, say, get list() { return list; } };
+  return { on: isOn, refresh, say, get list() { return list; }, get android() { isOn(); return android; }, get loaded() { return loaded; } };
 })();
-const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+const QUALITY = { premium: "Premium", enhanced: "Enhanced", veryhigh: "Very high quality", high: "High quality" };
 const avName = v => v.name.replace(/\s*\((Premium|Enhanced)\)$/, "");   // the quality is shown apart
 /* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
    itself once it is installed, unless the reader chose another */
@@ -1177,8 +1188,9 @@ function mediaSession(t) {
    Files are fetched by Android's DownloadManager (PearlsNative, see android/java) into the app's files folder as
    BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
    language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
-/* The word for the device in "saved on this phone": the Apple app says what it runs on (PEARLS_SHELL, set by apple/). */
-const DEVICE = window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : window.PEARLS_SHELL === "ios" ? "iPhone" : "phone";
+/* The word for the device in "saved on this phone" (SHELL_WORD, above: iPad, Mac, iPhone, PC, else phone). */
+const DEVICE = SHELL_WORD;
+const DESKTOP = window.PEARLS_SHELL === "windows";   // a computer: no mobile data, so no "Wi-Fi only"
 const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
 const DL = {
   ok: false, dir: "", free: 0, files: new Map(), active: new Map(), timer: null,
@@ -1235,7 +1247,7 @@ function downloadTrack(t, opts = {}) {
   jobs.forEach(j => delete DL.failed[j.name]);
   DL.idx[t.id] = { lang, auto: !!opts.auto && (!prev || prev.auto), at: Date.now() };
   saveDl();
-  if (jobs.length) { try { NATIVE.enqueue(JSON.stringify(jobs), !!DL.prefs.wifiOnly); } catch {} }
+  if (jobs.length) { try { NATIVE.enqueue(JSON.stringify(jobs), !DESKTOP && !!DL.prefs.wifiOnly); } catch {} }
   hebrewPosts(t).catch(() => {});             // keep the Hebrew text too, for reading offline
   dlPoll(); return true;
 }
@@ -1306,7 +1318,7 @@ const DLI = {
 function dlLabel(t) {
   const st = dlState(t), L = st.lang === "en" ? "English" : "Hebrew";
   if (st.s === "done") return { cls: "on", icon: DLI.done, text: `Downloaded · ${L}` };
-  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: DL.prefs.wifiOnly && !online() ? "Waiting for a connection" : DL.prefs.wifiOnly ? "Waiting for Wi-Fi" : "Queued" };
+  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: !online() ? "Waiting for a connection" : DL.prefs.wifiOnly && !DESKTOP ? "Waiting for Wi-Fi" : "Queued" };
   if (st.s === "loading") return { cls: "busy", icon: DLI.wait, text: `Downloading ${st.pct || 0}%` };
   return { cls: "", icon: DLI.get, text: "Download" };
 }
@@ -1346,7 +1358,7 @@ function dlMany(ids) {
   const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
   dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
     <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this ${DEVICE}` : ""}. Each chapter downloads in the language it plays in (${langPref() === "he" ? "Hebrew" : "English where recorded, otherwise Hebrew"}).
-    ${DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
+    ${DESKTOP ? "" : DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
     $("[data-ok]", s).onclick = () => { close(); ts.forEach(t => downloadTrack(t)); toast(`Downloading ${ts.length} chapter${ts.length > 1 ? "s" : ""}`); };
@@ -2033,7 +2045,7 @@ function audioNote(t) {   // under the language control: what you'll hear
   return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
 }
 function voiceField() {
-  if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  if (!canSpeak() && !AV.on() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
   const on = state.prefs.aiVoice !== false;
   return `<div data-voicefield><div class="field"><label>AI voice</label>
     <button class="opt" data-aivoice aria-pressed="${on}"><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span><span class="switch ${on ? "on" : ""}" aria-hidden="true"></span></button></div>
@@ -2087,9 +2099,9 @@ function engineList() {
     out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is a whole model of its own (about 63 MB). Only voices whose recordings are public domain.${sp("piper")}`,
       `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
-  if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
-    `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`}`);
-  if (V) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
+  if (canSpeak() || AV.on()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
+    `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings. On Windows, Settings → Time &amp; language → Speech → Manage voices.</span>`}`);
+  if (V && !DESKTOP) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
   return out;
 }
 function refreshEngines() { document.querySelectorAll("[data-engines]").forEach(n => { n.innerHTML = engineList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
@@ -2152,9 +2164,12 @@ function tryNeural(k) {
 }
 function appleVoiceList() {
   const L = AV.list, on = appleChoice();
-  if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  if (!L.length && !(AV.android && AV.loaded)) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
   const good = L.some(v => QUALITY[v.quality]);
-  const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  const card = good ? "" : AV.android
+    ? `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Text-to-speech output (or System → Languages → Text-to-speech) → the engine's settings (the gear) → Install voice data → English, and download a voice. Pearls lists only voices kept on the ${DEVICE}, never ones that send the text online, and picks the best one by itself unless you have chosen another.</div>`
+    : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  if (!L.length && AV.android) return `<span class="note">No English voice is kept on this ${DEVICE} yet.</span>` + card;
   return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(avName(v))}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(avName(v))}">${I.play}</button></div>`).join("");
 }
 function voiceList() {
@@ -2404,12 +2419,12 @@ function vDownloads() {
     ${!DL.ok ? `<div class="panel note">This ${DEVICE}'s storage isn't available right now, so audio can't be downloaded.</div>` : ""}
     ${busy.length ? `<section><div class="sec-h"><h2>Downloading</h2><button class="more" data-act="dlcancel">Cancel all</button></div>
       <div class="list">${busy.map(t => trackRow(t, { why: dlLabel(t).text, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Cancel">${I.x}</button>` })).join("")}</div>
-      ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
+      ${p.wifiOnly && !DESKTOP && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
     <section class="panel dlset"><div class="eyebrow">Smart downloads</div>
       ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the ${DEVICE}, plus chapters you're partway through, so they play without a connection.`)}
       <div class="field"><label>Chapters ahead</label><div class="chips">${[1, 3, 5, 10].map(n => `<button class="chip ${p.ahead === n ? "on" : ""}" data-ahead="${n}">${n}</button>`).join("")}</div></div>
       ${tog("autoDelete", "Delete after listening", "Removes chapters that smart downloads fetched once you've heard them. Chapters you download yourself stay until you remove them.")}
-      ${tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
+      ${DESKTOP ? "" : tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
       <div class="field"><label>Storage limit for smart downloads</label><div class="chips">${[[500, "500 MB"], [1024, "1 GB"], [2048, "2 GB"], [5120, "5 GB"], [0, "No limit"]].map(([v, l]) => `<button class="chip ${p.limitMB === v ? "on" : ""}" data-limit="${v}">${l}</button>`).join("")}</div>
         <span class="note">When it's full, the oldest smart downloads make room, heard ones first. About ${fmtMB(8000 * 3600)} per hour of Hebrew audio, ${fmtMB(16000 * 3600)} of English.</span></div>
     </section>
@@ -2600,7 +2615,7 @@ function syncWire(s) {
     const code = q("#syncCode").value.trim(); if (!code) return;
     try {
       const r = await fetch(SYNC.base + "/api/claim", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "omit",
-        body: JSON.stringify({ code, device: location.protocol === "pearls:" ? (window.PEARLS_SHELL === "ipad" ? "iPad app" : window.PEARLS_SHELL === "mac" ? "Mac app" : "iPhone app") : window.PearlsNative ? "Android app" : "Pearls app" }) });
+        body: JSON.stringify({ code, device: location.protocol === "pearls:" ? (window.PEARLS_SHELL === "ipad" ? "iPad app" : window.PEARLS_SHELL === "mac" ? "Mac app" : "iPhone app") : window.PEARLS_SHELL === "windows" ? "Windows app" : window.PearlsNative ? "Android app" : "Pearls app" }) });
       const j = await r.json();
       if (!r.ok) { toast(j.error || "That code didn't work"); return; }
       store.set("syncToken", j.token); syncNote({ who: j.who || "", err: "" });
@@ -2616,7 +2631,7 @@ function syncWire(s) {
     try {
       const r = await fetch("/api/link", { method: "POST", headers: { "Content-Type": "application/json" } }), j = await r.json();
       if (!r.ok) { toast(j.error || "Couldn't make a code"); return; }
-      dialog(`<h3>Link the app</h3><p class="note">In the Pearls app on your phone or iPad, open Settings → Sync across devices and type this code. It works once, for ${j.minutes} minutes.</p>
+      dialog(`<h3>Link the app</h3><p class="note">In the Pearls app on your phone, iPad or PC, open Settings → Sync across devices and type this code. It works once, for ${j.minutes} minutes.</p>
         <p style="font:600 30px/1.2 ui-monospace,monospace;letter-spacing:.08em;text-align:center;margin:8px 0">${esc(j.code)}</p>
         <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-ok>Done</button></div>`, (d, close) => { d.querySelector("[data-ok]").onclick = () => { close(); syncDevices(s); }; });
     } catch { toast("Couldn't reach the server"); }
