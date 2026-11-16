@@ -25,7 +25,8 @@ def ranges(rng):
 
 def needed():
     chars = set()
-    files = [f for f in glob.glob(os.path.join(WWW, "*.js"))] + glob.glob(os.path.join(WWW, "en", "**", "*"), recursive=True) \
+    # Estante's voice engine (voice*.js, *-worker.js) and pearls-phonemes.js hold sound tables that are never shown
+    files = [f for f in glob.glob(os.path.join(WWW, "*.js")) if not re.match(r"(voice.*|.*-worker|pearls-phonemes)\.js$", os.path.basename(f))] + glob.glob(os.path.join(WWW, "en", "**", "*"), recursive=True) \
         + glob.glob(os.path.join(WWW, "books", "**", "*"), recursive=True)
     for f in files:
         if not os.path.isfile(f) or not f.endswith((".js", ".json", ".html", ".txt")): continue

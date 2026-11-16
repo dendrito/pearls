@@ -1,0 +1,7 @@
+# Respellings for the Piper voice (fast, robotic, phone). term<TAB>how to spell it so Piper says it right.
+# Chosen by ear on a Galaxy A07, voice en_US-lessac-medium, 2026-10-31.
+# Piper's English voice has no guttural ḥ: no spelling produces it, so ḥ words get the nearest plain sound and the
+# reader says so where the voice is chosen. Kokoro keeps its own list (voice-lexicon.tsv) and its sound-by-sound ḥ.
+Moshe	Mo-sheh
+Moshé	Mo-sheh
+kohen	Ko-hen
