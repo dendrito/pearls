@@ -88,6 +88,7 @@ def speakable(html, lex, keep_refs=False):
     t = re.sub(r"<sup[^>]*>.*?</sup>", "", html, flags=re.S)          # footnote markers
     t = re.sub(r"</p>\s*<p[^>]*>", "\n\n", t); t = re.sub(r"<br\s*/?>", "\n", t)
     t = re.sub(r"<[^>]+>", "", t)
+    t = re.sub(r"\bPeninei\s+Hala(?:kh|ch|k)(?:a|ah)\b", "Peninei Halakha", t, flags=re.I)   # one spelling of the series, always
     t = t.replace("&nbsp;", " ").replace("&amp;", "&").replace("&quot;", '"').replace("&#8217;", "’")
     if not keep_refs:   # source citations in brackets are for the eye: "(SA OḤ 167:1)", "(Devarim 8:10)", "(above 4:4)"
         for _ in range(2):

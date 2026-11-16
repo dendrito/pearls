@@ -55,6 +55,9 @@
   // PH citing itself: "Peninei Halakha: Shabbat 21:8" / "Peninei Halakhah, Shabbat 21:8"
   var PH_SELF = /Peninei Halakha?h?[:,]?\s*([A-Z][A-Za-z’' ]{2,30}?)\s+(\d{1,2}):(\d{1,3})/g;
 
+  // What the reader sees says "Peninei Halakha"; the ref itself keeps Sefaria's "Peninei Halakhah" for lookups.
+  function shown(s) { return String(s || '').replace(/\bPeninei\s+Hala(?:kh|ch|k)(?:a|ah)\b/gi, 'Peninei Halakha'); }
+
   var HEB = /[֐-׿]/g;
   function isHebrew(t) {
     var m = String(t).match(HEB), letters = String(t).replace(/[\s\d\W_]/g, '').length || 1;
@@ -206,7 +209,7 @@
         a.textContent = text.slice(h.start, h.end);
         if (h.resolved) { a.href = h.internal && opts.onInternal ? '#' : sefariaUrl(h.ref); a.setAttribute('data-ref', h.ref); }
         else { a.setAttribute('role', 'button'); a.setAttribute('tabindex', '0'); }
-        a.setAttribute('title', h.resolved ? h.ref : h.why);
+        a.setAttribute('title', shown(h.resolved ? h.ref : h.why));
         if (h.secBy) a.setAttribute('data-secby', h.secBy);
         if (h.sec) a.setAttribute('data-sec', h.sec);
         a.addEventListener('click', function (ev) {
@@ -272,7 +275,7 @@
     close.onclick = function () { wrap.remove(); };
     wrap.onclick = function (e) { if (e.target === wrap) wrap.remove(); };
     card.appendChild(close);
-    card.appendChild(el(doc, 'div', 'pc-head', h.resolved ? h.ref : h.text));
+    card.appendChild(el(doc, 'div', 'pc-head', shown(h.resolved ? h.ref : h.text)));
     if (h.secBy === 'vol' || h.secBy === 'chapter')
       card.appendChild(el(doc, 'div', 'pc-note', 'The siman is the author’s. The section (' + h.sec + ') is our reading of this chapter, because the citation does not name one.'));
     if (!h.resolved) {
