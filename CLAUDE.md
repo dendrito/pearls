@@ -44,9 +44,12 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_flat.py`: the flat rule (see Rules). It must end "flat: no soft gradients or blurs".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
+  - `python3 test_daily.py`: the Daily Pearl schedule against the catalogue, the Home card and `#daily`, and finding
+    next year's bookmark by itself (a stand-in PDF from `make_test_bookmark.py`, served through a fake proxy). It must
+    end "daily pearl: 26/26".
   - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 13/13".
-  - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
-    "6/6 checks passed".
+  - `python3 test_android_shell.py`: the https app address, the data handover, the bundled fonts and the phone's own
+    voices through the app. It must end "8/8 checks passed".
   - `WRANGLER=… node test_sync.mjs`: sync's merge rules and API (`wrangler pages dev`). It must end "sync: 30/30".
   - `WRANGLER=… node test_sync_app.mjs`: sync end to end, a signed-in browser plus a stand-in for the app. It must end
     "sync app: 15/15". Needs Playwright (`NODE_PATH=$(npm root -g)`).
@@ -84,6 +87,11 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   (also shown on the lock screen), tied to the MediaSession, and holds a partial wake lock while playing.
 - **Back:** handled through OnBackInvokedCallback. At the app's root, back sends the app to the background instead of
   closing it.
+- **AI voices:** Kokoro (Natural) and Piper (Light) run in the WebView exactly as on the web (`www/voice.js` and its
+  workers, models from Hugging Face into IndexedDB, each voice its own download). The phone's own voices come from
+  `DeviceVoice.java` (TextToSpeech renders each piece to a WAV, served at `/native/device-voice/list|say`), because the
+  WebView's speechSynthesis doesn't speak; only voices kept on the phone are listed, male first. The manifest's
+  `<queries>` for `TTS_SERVICE` is what lets Android 11+ see the speech engine.
 - **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
 
 ## What is translated
@@ -186,6 +194,7 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
 | `www/meldar-cite.js`, `www/pearls-cite-links.js`, `.css` | Citation links. Footnote and body citations (SA 345:2, MB, Shabbat 6a, Rambam, Tosafot, Tanakh, Arukh HaShulchan…) become links; a tap opens a sheet with the passage from Sefaria (Hebrew, English, each version's licence) and "Open on Sefaria / in Meldar". `meldar-cite.js` is Meldar's citation grammar, **shipped unmodified** like `meldar-record.js`: upgrade it by copying Meldar's file, never by editing it here. `linkCites()` in app.js runs before respelling and Hebrew tints (both rewrite text nodes); clicks are delegated (`citeClicks`) because chapter HTML is rebuilt as strings. A bare Shulchan Arukh siman takes its section from the chapter (`sefRef` → the grammar's section table) and the sheet says that part is our reading; with no chapter context it is not linked. Bare names ("Rashi") are not marked. "Peninei Halakha: Shabbat 21:8" opens that Pearls chapter. |
 | `functions/api/`, `webauth/sync.js`, `www/pearls-sync-merge.js` | Sync across devices: where you stopped reading (`state.where`, chapter + section) and listening, finished chapters, lists, playlists, saved passages and settings. Browsers on pearls.pages.dev use the sign-in pass; the apps link with a one-time code from a signed-in browser (Settings → Sync across devices) and keep a device token. Stored in KV (`SYNC`, else `INVITES`). The merge rules are one file shared by the app and the server; anything in `store.set` that is in `WHOLE` or a per-chapter map syncs automatically. Device-only: text size, downloads, the Meldar study record. Setup and limits: `docs/cloudflare-pages.md`. |
 | `www/calendar.js` | The Jewish calendar and its readings: 22 festivals and fasts plus Rosh Ḥodesh, with postponements, study windows (30 days before a festival) and chapters. Drives Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and the calendar boost in `recommend()`. Method: `docs/calendar-readings.md`. Test: `python3 test_calendar.py` (must end "calendar: 14/14"). |
+| `www/daily-pearl.js` | The Daily Pearl (הפנינה היומית), Peninei Halakha's own two halakhot a day. No feed exists (it goes out by WhatsApp, email, Telegram), so the year's schedule is copied from PH's printed study bookmark (PDF linked in the file), one token per day; `PH_DAILY.forDate()`. Drives Home's Daily Pearl card and `#daily`. **Next year's schedule is found by the app:** from two months before the schedule ends, once a day, `dailyLook()` (app.js) reads PH's Daily Pearl page through the proxy, finds a bookmark link for a newer year ("סימניית הלימוד - תשפ"ח"), reads the PDF with `www/pdf-text.js` (a small PDF text reader, loaded only then), turns the grid into the same token string (`parseBookmark`), and keeps it in `localStorage` `pearls.dailyYears` only if every printed date matches the Hebrew calendar, the day count matches the year, every book name in the margin is known, and every reference is in the catalogue. Otherwise nothing changes and the card links to PH. Reading the real 5787 bookmark this way reproduces the bundled string exactly. Bundling the year in `YEARS` is still the better release path; a bundled year always wins over a found one. The proxies allow `cdn1.yhb.org.il` too, where some bookmarks live. The bookmark is the Hebrew program; the English WhatsApp group may differ. |
 | `www/fonts/` | Shofar and Keter YG (Culmus, GPL+FE). Every Hebrew font must have GPOS `mark` and `mkmk`. |
 | `make_catalog.py`, `make_translit.py`, `make_he_books.py` | Build www data: the English catalogue, KTS transliteration, and the Hebrew-only books with AI translations. |
 | `work/he`, `work/en`, `work/TRANSLATE.md`, `work/check.py` | Hebrew sources, AI translations, the translation brief (fidelity rules plus licence evidence), and the validator. |

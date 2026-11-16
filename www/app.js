@@ -174,8 +174,9 @@ const SKINS = [
   { id: "mizrah", name: "Mizraḥ Arches", note: "olive and saffron arch windows", bg: "#F4EEDC", acc: "#4F5B2E", light: true, alt: "#171A12" },
   { id: "thread", name: "Thread", note: "tzitzit strings and tallit stripes in blue", bg: "#F3F6F9", acc: "#2B5D8C", light: true, alt: "#0B1826" }
 ];
-/* the word for the device the app runs on: the Apple and Windows apps say what they are (PEARLS_SHELL, set by apple/ and windows/) */
-const SHELL_WORD = { ipad: "iPad", mac: "Mac", windows: "PC" }[window.PEARLS_SHELL] || "phone";
+/* the word for the device the app runs on: the Apple and Windows apps say what they are (PEARLS_SHELL, set by apple/ and windows/);
+   Android and the web say "phone" */
+const SHELL_WORD = { ipad: "iPad", mac: "Mac", ios: "iPhone", windows: "PC" }[window.PEARLS_SHELL] || "phone";
 const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match " + SHELL_WORD]];
 /* 2.3: the three Pearl Minimal entries became one skin with modes */
 if (state.prefs.skin === "pearl-dark") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "dark"; save.prefs(); }
@@ -412,7 +413,8 @@ const partUrl = (t, i, lang) => {
 };
 const AUD = window.PH_AUDIO || {};
 const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AUD[t.id][1]);
-/* One language for reading and listening (state.prefs.read: en, he or both; "both" listens in English).
+/* One language for reading and listening (state.prefs.read: en, he, both or side; "both" and "side" listen in English,
+   because the English column is the one read along and the AI voice can only read English).
    English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
 const langPref = () => state.prefs.read || "en";
 const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
@@ -433,9 +435,11 @@ const LANG_NAME = { en: "English", he: "Hebrew", tts: "English · AI voice" };
    Labelled "AI voice" everywhere, like the AI translations. Nothing leaves the device. */
 const canSpeak = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function";
 const enText = t => !!t && (!t.vol.he || !!t.translated);   // the chapter has English to read
-function voices() { return canSpeak() ? speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang)) : []; }
+/* Apple's novelty and Eloquence character voices (Albert, Zarvox, Eddy, Grandpa…) sound robotic and are never offered */
+const NOVELTY_VOICE = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy|Princess|Deranged|Hysterical|Pipe Organ|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/i;
+function voices() { return canSpeak() ? speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang) && !NOVELTY_VOICE.test(v.name) && !/eloquence|speech\.synthesis/i.test(v.voiceURI || "")) : []; }
 /* the speech engines don't say which voices are male, so by name: Apple's, Microsoft's and Google's English male voices */
-const MALE_VOICE = /\b(male|Daniel|Alex|Fred|Arthur|Aaron|Gordon|Oliver|Rishi|Tom|Evan|Nathan|Reed|Rocko|Eddy|Grandpa|Ralph|Albert|Junior|Jamie|Lee|Malcolm|David|Mark|George|Guy|Ryan|Christopher|Eric|Roger|Steffan|Brian|Andrew|William|Thomas|Liam|Connor|Mitchell|Prabhat|Ravi)\b/i;
+const MALE_VOICE = /\b(male|Daniel|Alex|Arthur|Aaron|Gordon|Oliver|Rishi|Tom|Evan|Nathan|Jamie|Lee|Malcolm|David|Mark|George|Guy|Ryan|Christopher|Eric|Roger|Steffan|Brian|Andrew|William|Thomas|Liam|Connor|Mitchell|Prabhat|Ravi)\b/i;
 function pickVoice() {
   const vs = voices(); if (!vs.length) return null;
   const want = state.prefs.voice;
@@ -667,14 +671,22 @@ if (NK.on()) NK.status().then(x => {
 /* In the Apple app the device's voices come from the app (apple/Pearls/AppleVoice.swift): there the page's own
    speechSynthesis lists only the compact voices, never the Premium and Enhanced ones the reader installed. Each piece
    comes back as a WAV and plays through Neural's two players, like the natural voices, so pause, the lock screen, the
-   paragraph highlight and the reading speed work the same. The web and Android keep speechSynthesis (Speaker). */
+   paragraph highlight and the reading speed work the same. The Android app does the same through TextToSpeech
+   (android/…/DeviceVoice.java, served at /native/device-voice/): its WebView has no speechSynthesis that speaks.
+   The web keeps speechSynthesis (Speaker). */
 const AV = (() => {
-  const base = "pearls://app/native/apple-voice/", KEEP = "pearls.appleVoices";
-  let on = null, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
-  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).appleVoices); } catch { on = false; } } return on; };
+  const KEEP = "pearls.appleVoices";
+  let on = null, base = "", android = false, loaded = false, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
+  const isOn = () => {
+    if (on === null) {
+      try { const i = window.PearlsNative ? JSON.parse(PearlsNative.info()) : {}; android = !i.appleVoices && !!i.deviceVoices;
+        base = i.appleVoices ? "pearls://app/native/apple-voice/" : android ? "/native/device-voice/" : ""; on = !!base; } catch { on = false; }
+    }
+    return on;
+  };
   async function refresh() {
     if (!isOn()) return [];
-    try { list = await (await fetch(base + "list")).json(); localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
+    try { list = await (await fetch(base + "list")).json(); loaded = true; localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
     return list;
   }
   async function say(text, id, speed) {
@@ -687,9 +699,9 @@ const AV = (() => {
     const blob = await r.blob(), rate = new DataView(await blob.slice(0, 44).arrayBuffer()).getUint32(24, true) || 22050;
     return { blob, dur: Math.max(0, blob.size - 44) / 2 / rate, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
   }
-  return { on: isOn, refresh, say, get list() { return list; } };
+  return { on: isOn, refresh, say, get list() { return list; }, get android() { isOn(); return android; }, get loaded() { return loaded; } };
 })();
-const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+const QUALITY = { premium: "Premium", enhanced: "Enhanced", veryhigh: "Very high quality", high: "High quality" };
 const avName = v => v.name.replace(/\s*\((Premium|Enhanced)\)$/, "");   // the quality is shown apart
 /* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
    itself once it is installed, unless the reader chose another */
@@ -1167,7 +1179,7 @@ function mediaSession(t) {
    Files are fetched by Android's DownloadManager (PearlsNative, see android/java) into the app's files folder as
    BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
    language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
-/* The word for the device in "saved on this phone" (SHELL_WORD, above). */
+/* The word for the device in "saved on this phone" (SHELL_WORD, above: iPad, Mac, iPhone, PC, else phone). */
 const DEVICE = SHELL_WORD;
 const DESKTOP = window.PEARLS_SHELL === "windows";   // a computer: no mobile data, so no "Wi-Fi only"
 const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
@@ -1448,9 +1460,10 @@ function vHome() {
       <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
     ${offlineCard()}
     ${along}
+    ${dailyCard()}
     ${todayCard()}
     ${hero ? `<section class="hero"><div class="orb"></div>
-      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Today's pearl</div>
+      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Recommended for you</div>
       <h3>${esc(R(hero.t.title))}</h3>
       <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
       <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
@@ -1468,6 +1481,77 @@ function vHome() {
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
   </div>`;
+}
+/* ---------- the Daily Pearl: Peninei Halakha's own two halakhot a day (daily-pearl.js) ---------- */
+const DAILY = window.PH_DAILY;
+const dpHalakha = (t, n) => { const st = t && t.sectionTitles[n - 1]; return st ? R(st) : `Halakha ${n}`; };
+function dpItems(parts) {   // [{t, sec}] for every halakha that day, in order
+  const out = [];
+  for (const p of parts) {
+    const t = BYID[`${p.book}-${String(p.ch).padStart(2, "0")}`];
+    const to = p.to == null ? (t && nSections(t) || p.from) : p.to;
+    for (let n = p.from; n <= to; n++) out.push({ t, book: p.book, ch: p.ch, sec: n });
+  }
+  return out;
+}
+function dpRef(parts) {   // "Kashrut 11:12–13", "Days of Awe 10:18 · Kashrut 1:1"
+  const vol = b => { const v = VOLS.find(x => x.book === b); return v ? R(v.short) : `Book ${b}`; };
+  const out = []; let i = 0;
+  while (i < parts.length) {
+    const a = parts[i], b = parts[i + 1];
+    if (b && b.book === a.book && a.to == null) { out.push(`${vol(a.book)} ${a.ch}:${a.from}–${b.ch}:${b.to}`); i += 2; }
+    else { out.push(`${vol(a.book)} ${a.ch}:${a.from}${a.to != null && a.to !== a.from ? `–${a.to}` : ""}`); i++; }
+  }
+  return out.join(" · ");
+}
+const dpRow = it => it.t
+  ? `<button class="dprow" data-act="resumeread" data-id="${it.t.id}" data-sec="${it.sec}"><span class="n">${it.ch}:${it.sec}</span><span class="tx"><b dir="auto">${esc(dpHalakha(it.t, it.sec))}</b><span class="m" dir="auto">${esc(R(it.t.title))}</span></span><span class="dur">›</span></button>`
+  : `<div class="dprow"><span class="n">${it.ch}:${it.sec}</span><span class="tx"><b>Halakha ${it.sec}</b><span class="m">Not in Pearls yet</span></span></div>`;
+function dailyCard() {
+  if (!DAILY) return "";
+  const d = DAILY.forDate(new Date());
+  if (!d) return `<section class="panel daily"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div>
+    <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.${window.PEARLS_PROXY ? " Pearls looks for it on Peninei Halakha's site once a day and adds it when it's out." : ""}</p>
+    <div><a class="btn line" href="${DAILY.page}" target="_blank" rel="noopener">${I.ext}The Daily Pearl on Peninei Halakha</a></div></section>`;
+  const items = dpItems(d.parts), first = items.find(x => x.t), kinds = [...new Set(items.filter(x => x.t).map(x => kindOf(x.t)))];
+  return `<section class="panel daily"><div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
+    <div class="dphead"><b>${esc(dpRef(d.parts))}</b><span class="kinds">${kinds.map(kindTag).join("")}</span></div>
+    <div class="list">${items.map(dpRow).join("")}</div>
+    ${first ? `<div class="row"><button class="btn gold" data-act="resumeread" data-id="${first.t.id}" data-sec="${first.sec}">${I.read}${kindOf(first.t) === "he" ? "Read the Hebrew" : "Read today's halakhot"}</button></div>` : ""}
+    <p class="note" style="margin:0">Two halakhot a day, the order Peninei Halakha's own study follows.</p></section>`;
+}
+function vDaily() {
+  setTop("The Daily Pearl"); setTab("");
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const days = [];
+  for (let k = -2; k <= 7; k++) { const dt = new Date(today.getTime() + k * 864e5), d = DAILY && DAILY.forDate(dt); if (d) days.push({ dt, k, d }); }
+  const ys = DAILY ? DAILY.years() : [], dt0 = DAILY && DAILY.forDate(today);
+  const dpYear = (dt0 && ys.find(y => y.year === dt0.year)) || ys[ys.length - 1];
+  view.innerHTML = `<div class="view">
+    <div><div class="eyebrow"><span lang="he" dir="rtl">הפנינה היומית</span> · Peninei Halakha</div>
+      <h1 class="hello">Two halakhot <em>a day</em>.</h1>
+      <p class="sub">The Daily Pearl is Peninei Halakha's own daily study: two halakhot every day, about two minutes, sent each morning by Yeshivat Har Bracha on WhatsApp, email and Telegram. It goes through the books in order and turns to the laws of each festival in the weeks before it. Pearls follows the schedule Peninei Halakha prints on its study bookmark for ${DAILY ? DAILY.years().map(y => y.year).join(", ") : ""} (the Hebrew program), and opens each halakha in the English or AI translation where Pearls has one.${window.PEARLS_PROXY ? " When a year's schedule nears its end, Pearls looks for the next bookmark on Peninei Halakha's site and reads it, and uses it only if every day and every halakha in it checks out." : ""}</p></div>
+    ${days.map(({ dt, k, d }) => `<section><div class="sec-h"><h2>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : k === -1 ? "Yesterday" : esc(dt.toLocaleDateString("en-GB", { weekday: "long" }))}</h2><span class="note">${esc(dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${esc(dpRef(d.parts))}</span></div>
+      <div class="list">${dpItems(d.parts).map(dpRow).join("")}</div></section>`).join("") || `<p class="note">Pearls doesn't have this year's schedule yet.</p>`}
+    <section class="panel dpget"><div class="eyebrow">Get it from Peninei Halakha</div>
+      <p class="note" style="margin:0">Sign up for the messages, in English or Hebrew, on Peninei Halakha's site. The English group may follow its own order; the days above are the Hebrew program's.</p>
+      <div class="row"><a class="btn gold" href="${DAILY ? DAILY.page : "https://ph.yhb.org.il/pninayomit-en/"}" target="_blank" rel="noopener">${I.ext}The Daily Pearl in English</a>
+        <a class="btn line" href="${DAILY ? DAILY.pageHe : "https://ph.yhb.org.il/pninayomit/"}" target="_blank" rel="noopener">${I.ext}In Hebrew</a>
+        ${dpYear ? `<a class="btn line" href="${dpYear.source}" target="_blank" rel="noopener">${I.ext}The ${dpYear.year} schedule (PDF)</a>` : ""}</div>
+      ${dpYear && dpYear.found ? `<p class="note" style="margin:0">Pearls read the ${dpYear.year} schedule from Peninei Halakha's bookmark by itself on ${esc(new Date(dpYear.found + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}. If a day looks wrong, the PDF is the authority.</p>` : ""}</section>
+  </div>`;
+}
+/* Next year's schedule: from two months before this one ends, look for Peninei Halakha's new bookmark once a day
+   (daily-pearl.js does the reading and checking; pdf-text.js, loaded only then, reads the PDF). Needs the proxy. */
+function dailyLook() {
+  if (!DAILY || !window.PEARLS_PROXY || !DAILY.due()) return;
+  const get = (u, as) => fetch(net(u)).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return as === "bytes" ? r.arrayBuffer() : r.text(); });
+  const lib = window.PDF_TEXT ? Promise.resolve() : new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "pdf-text.js"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+  lib.then(() => DAILY.update(get)).then(y => {
+    if (!y) return;
+    toast(`The Daily Pearl: Peninei Halakha's ${y.year} schedule is in`);
+    const h = location.hash.slice(1); if (!h || h === "daily") render();
+  }).catch(() => { /* offline or no PDF reader: try again tomorrow */ });
 }
 /* ---------- read along: the text of what's playing is one tap away ---------- */
 function alongCard() {
@@ -1832,9 +1916,10 @@ function renderHebrewChapter(t, d, r) {
   nowSecShown = null; paintNowSec();
   r.onclick = e => { const b = e.target.closest("[data-heb]"); if (!b) return;
     const he = b.closest("section").querySelector(".heb-orig"); he.dataset.user = 1; he.hidden = !he.hidden; b.textContent = he.hidden ? "Show Hebrew" : "Hide Hebrew";
+    const resync = () => { if ((state.prefs.read || "en") === "side") sideAlign(r); }; resync();
     if (!he.hidden && !he.innerHTML.trim()) {   // lite build: the Hebrew is fetched on demand
       he.innerHTML = `<p class="note">Loading the Hebrew…</p>`;
-      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); })
+      hebrewFor(t, +he.dataset.sec).then(h => { he.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}`; hebDone(he, t); resync(); })
         .catch(() => { he.innerHTML = `<p class="note">Couldn't load the Hebrew. It needs a connection.</p>`; });
     } };
 }
@@ -1947,7 +2032,7 @@ function audioNote(t) {   // under the language control: what you'll hear
   return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
 }
 function voiceField() {
-  if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  if (!canSpeak() && !AV.on() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
   const on = state.prefs.aiVoice !== false;
   return `<div data-voicefield><div class="field"><label>AI voice</label>
     <button class="opt" data-aivoice aria-pressed="${on}"><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span><span class="switch ${on ? "on" : ""}" aria-hidden="true"></span></button></div>
@@ -2001,7 +2086,7 @@ function engineList() {
     out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is a whole model of its own (about 63 MB). Only voices whose recordings are public domain.${sp("piper")}`,
       `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
-  if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
+  if (canSpeak() || AV.on()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
     `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings. On Windows, Settings → Time &amp; language → Speech → Manage voices.</span>`}`);
   if (V && !DESKTOP) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
   return out;
@@ -2066,9 +2151,12 @@ function tryNeural(k) {
 }
 function appleVoiceList() {
   const L = AV.list, on = appleChoice();
-  if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  if (!L.length && !(AV.android && AV.loaded)) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
   const good = L.some(v => QUALITY[v.quality]);
-  const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  const card = good ? "" : AV.android
+    ? `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Text-to-speech output (or System → Languages → Text-to-speech) → the engine's settings (the gear) → Install voice data → English, and download a voice. Pearls lists only voices kept on the ${DEVICE}, never ones that send the text online, and picks the best one by itself unless you have chosen another.</div>`
+    : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  if (!L.length && AV.android) return `<span class="note">No English voice is kept on this ${DEVICE} yet.</span>` + card;
   return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(avName(v))}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(avName(v))}">${I.play}</button></div>`).join("");
 }
 function voiceList() {
@@ -2140,26 +2228,47 @@ function paintSpokenPara(p) {
 /* language picker: one segmented control on the chapter page and in the player */
 function langBar(t) {
   const r = state.prefs.read || "en";
-  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"]];
+  const opts = (t.vol.he && !t.translated) ? [["he", "עברית"]] : [["en", t.vol.he ? "English (AI)" : "English"], ["he", "עברית"], ["both", "Both"], ["side", "Side by side"]];
   return `<div class="langbar"><div class="segrow"><span class="seglabel">Language</span><div class="seg" role="radiogroup" aria-label="Reading language">
     ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div></div>
     <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
-const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew" };
-/* Show the chapter in the reader's language: English, Hebrew, or both (Hebrew under each English section). */
+const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" };
+/* Show the chapter in the reader's language: English, Hebrew, both (Hebrew under each English section) or side by side
+   (English and Hebrew in two columns, paragraph beside paragraph; on a phone each Hebrew paragraph sits under its English). */
 function applyReadLang(t, r) {
   const mode = state.prefs.read || "en";
-  r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both");
+  r.classList.toggle("read-he", mode === "he"); r.classList.toggle("read-both", mode === "both"); r.classList.toggle("read-side", mode === "side");
   if (mode === "en") { r.querySelectorAll(".hebslot").forEach(s => { if (!s.dataset.user) s.hidden = true; }); r.querySelectorAll(".heb-orig").forEach(h => { if (!h.dataset.user) h.hidden = true; }); return; }
   const slots = [...r.querySelectorAll(".hebslot, .heb-orig")];
   slots.forEach(s => { s.hidden = false; });
   const empty = slots.filter(s => !s.innerHTML.trim());
+  if (mode === "side") sideAlign(r);
   if (!empty.length) return;
   empty.forEach(s => { s.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`; });
   hebrewChapter(t).then(() => empty.forEach(s => {
     const h = hebCache[`${t.id}-${String(s.dataset.sec).padStart(2, "0")}`];
     s.innerHTML = h ? `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}` : `<p class="note" dir="ltr">No Hebrew found for this section.</p>`; hebDone(s, t);
-  })).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
+  })).then(() => { if ((state.prefs.read || "en") === "side" && document.body.contains(r)) sideAlign(r); }).catch(() => empty.forEach(s => { s.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew. It needs a connection.</p>`; }));
+}
+/* Side by side: pair each English block with its Hebrew one so they share a row. The translations keep the Hebrew's
+   paragraphs, so the pairing is by position, and only where both columns have the same number of blocks; where they
+   don't (an official translation that merged or split paragraphs), the section shows as two whole columns instead,
+   rather than setting a paragraph beside one it doesn't translate. Nothing moves in the DOM: the blocks get their row
+   from CSS variables (--sr wide, --so narrow), so read-along, citations and saved places work unchanged. */
+function sideAlign(r) {
+  r.querySelectorAll("section").forEach(sec => {
+    const en = sec.querySelector(":scope > .en-body, :scope > .ai-sec"), he = sec.querySelector(":scope > .hebslot, :scope > .heb-orig");
+    sec.classList.remove("sbs-pair", "sbs-cols");
+    if (!en || !he || he.hidden || !he.innerHTML.trim() || he.querySelector(":scope > .loading")) return;
+    const ea = [...en.children].filter(e => !e.matches(".secfoot")), ha = [...he.children].filter(e => !e.matches(".foot, .note"));
+    if (ea.length > 1 && ea.length === ha.length) {
+      ea.forEach((e, i) => { e.style.setProperty("--sr", i + 1); e.style.setProperty("--so", 2 * i); });
+      ha.forEach((e, i) => { e.style.setProperty("--sr", i + 1); e.style.setProperty("--so", 2 * i + 1); });
+      [...en.children, ...he.children].filter(e => !ea.includes(e) && !ha.includes(e)).forEach(e => { e.style.setProperty("--sr", ea.length + 1); e.style.setProperty("--so", 2 * ea.length); });
+      sec.classList.add("sbs-pair");
+    } else sec.classList.add("sbs-cols");
+  });
 }
 function toggleSave(t, sec) {
   const slug = `${t.id}-${String(sec).padStart(2, "0")}`, k = state.saved.findIndex(s => s.id === slug);
@@ -2542,7 +2651,7 @@ function settingsDialog() {
       <a class="note" href="#spelling" data-credits style="color:var(--gold-2)">All spelling schemes, compared</a></div>
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
-    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
+    <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"], ["side", "Side by side"]].map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}">${l}</button>`).join("")}</div>
       <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English. ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
     ${voiceField()}
     <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
@@ -2916,9 +3025,9 @@ document.addEventListener("click", e => {
     case "setread": setLang(b.dataset.v); break;
     case "voice": voiceDialog(); break;
     case "playsec": { const t = BYID[id]; const ids = TRACKS.filter(x => x.vol === t.vol).map(x => x.id); playQueue(ids, ids.indexOf(id), t.vol.title, +b.dataset.sec - 1); break; }
-    case "readlang": { const order = ["en", "he", "both"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % 3]; save.prefs();
+    case "readlang": { const order = ["en", "he", "both", "side"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % order.length]; save.prefs();
       b.textContent = "Read · " + READ_LABEL[state.prefs.read]; const r = $("#reader"); if (r && BYID[id || (location.hash.match(/ch-(\d\d-\d\d)/) || [])[1]]) applyReadLang(BYID[id || location.hash.match(/ch-(\d\d-\d\d)/)[1]], r);
-      toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : "Reading in English"); break; }
+      toast(state.prefs.read === "he" ? "Reading in Hebrew" : state.prefs.read === "both" ? "English with the Hebrew under each section" : state.prefs.read === "side" ? "English and Hebrew side by side" : "Reading in English"); break; }
     case "savesec": { const on = toggleSave(BYID[id], +b.dataset.sec); b.classList.toggle("on", on); b.innerHTML = `${on ? I.bookOn : I.book}<span>${on ? "Saved" : "Save"}</span>`; break; }
     case "sharesec": shareSection(BYID[id], +b.dataset.sec); break;
     case "plan": planDialog(); break;
@@ -2935,9 +3044,9 @@ document.addEventListener("click", e => {
         $("[data-ok]", d).onclick = () => { s.note = $("#noteTxt", d).value.trim(); save.saved(); close(); render(); };
         $("[data-del]", d).onclick = () => { state.saved.splice(+b.dataset.i, 1); save.saved(); close(); render(); }; }); break; }
     case "hebsec": { const sec = b.closest("section"), slot = sec.querySelector(".hebslot");
-      slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; break; }
+      slot.dataset.user = 1; if (!slot.hidden) { slot.hidden = true; if ((state.prefs.read || "en") === "side") sideAlign(sec.parentNode); break; }
       slot.hidden = false; slot.innerHTML = `<div class="loading"><div class="spin"></div>טוען…</div>`;
-      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); })
+      hebrewFor(BYID[id], +b.dataset.sec).then(h => { slot.innerHTML = `<h3>${h.title.rendered}</h3>${cleanHeb(h.content.rendered)}<p class="foot"><a href="${esc(h.link)}" target="_blank" rel="noopener">ph.yhb.org.il ↗</a></p>`; hebDone(slot, BYID[id]); if ((state.prefs.read || "en") === "side") sideAlign(sec.parentNode); })
         .catch(() => { slot.innerHTML = `<p class="note" dir="ltr">Couldn't load the Hebrew for this section. You need a connection.</p>`; }); break; }
     case "markdone": { if (state.read[id]) { delete state.read[id]; syncGoneRead(id); } else { state.read[id] = Date.now(); logDay(0, id); studied(id); } save.read(); render(); toast(state.read[id] ? "Marked as done" : "Unmarked"); break; }
     case "togglelist": toggleList(b.dataset.list, id); break;
@@ -3017,6 +3126,7 @@ function render() {
   else if (h === "credits") vCredits();
   else if (h === "spelling") vSpelling();
   else if (h === "calendar") vCalendar();
+  else if (h === "daily") vDaily();
   else if (h === "downloads") vDownloads();
   else vHome();
   window.scrollTo(0, 0); refreshPlaying();
@@ -3045,5 +3155,6 @@ applyPrefs();
 renderMini();
 render();
 syncStart();
+setTimeout(dailyLook, 5000);
 window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang, NE, NK, Neural };   // handy for debugging
 })();
