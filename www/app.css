@@ -20,6 +20,8 @@
   --f-display:"Instrument Serif","Iowan Old Style","Palatino Linotype",Georgia,serif;
   --f-body:"Figtree","Segoe UI",Roboto,system-ui,sans-serif;
   --f-heb:"Frank Ruhl Libre","Noto Serif Hebrew","David",serif;
+  /* a word quoted in another script (<span lang="ru|ar">, e.g. Бог, الله): sans by default, serif where the skin reads in serif */
+  --f-cyr:"Noto Sans",sans-serif; --f-ar:"Noto Sans Arabic",sans-serif;
   --r:18px;
   --tab-h:64px;
   color-scheme:var(--scheme);
@@ -181,6 +183,8 @@ h1,h2,h3{margin:0;font-weight:var(--dw)}
 .toc button{display:grid;grid-template-columns:28px 1fr;gap:10px;text-align:left;padding:8px 0;color:var(--mist);font-size:14.5px}
 .toc button span:first-child{font-variant-numeric:tabular-nums;color:var(--dim)}
 .reader{font-family:var(--f-read);font-size:17.5px;line-height:1.72;color:var(--text)}
+:lang(ru),:lang(uk),:lang(bg){font-family:var(--f-cyr)}
+:lang(ar),:lang(fa){font-family:var(--f-ar)}
 .reader section{scroll-margin-top:80px;padding-top:6px}
 .reader h3{font-family:var(--f-display);font-size:25px;line-height:1.15;color:var(--pearl);margin:18px 0 8px}
 .reader p{margin:0 0 14px;max-width:66ch}
