@@ -94,6 +94,19 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   `<queries>` for `TTS_SERVICE` is what lets Android 11+ see the speech engine.
 - **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
 
+## Layout 2.8 (cover art and posters)
+
+- `www/covers.js` (`PEARLS_COVERS.svg(slug)`) draws one flat scene per volume on a 100x100 grid. Shapes carry classes
+  (`m1 m2 m3 mk mf`) coloured from the cover's `--c1/--c2/--c3`, `--cv-ink`, `--cv-flame`, so a skin that re-colours
+  covers re-colours the art. `cover()`, `art()` and `plArt` use it and fall back to the old shapes for an unknown slug.
+- `.tint` is a block in the book's own colour (`style=coverStyle(v)`): the Home poster, the Daily Pearl card, the
+  compact mini player, the chapter band and the Now Playing stage. Skins re-colour it with the same
+  `:is(.cover,.art,.tint,.plart>i)` rules; text on it is `--on-tint` (dark where `c1` is light, e.g. nacre's alt).
+- Home: a poster (the calendar's next festival, else the top recommendation), "Jump back in" tiles, then the shelves.
+- The mini player is one compact row; the expand button (`prefs.miniFull`) shows the full 2.7 control bar.
+- Chapter page: art band with the chapter number, then title, Listen and the text; language, spelling, tags and
+  Meldar links sit in a "More" fold (`prefs.chMore`); sections are chips; Mark as done is at the end.
+
 ## What is translated
 
 Every chapter is one of three kinds, from `kindOf(t)` in `www/app.js`: **Official English** (Har Bracha's translation,
