@@ -4,7 +4,7 @@ import json, os, re, sys, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HEB = re.compile(r"[֐-׿]")
-ALLOWED = {"p", "sup", "b", "i", "br", "blockquote"}
+ALLOWED = {"p", "sup", "b", "i", "br", "blockquote", "span"}   # span: only <span lang=…> around a word in another script (Arabic, Russian), see test_fonts.py
 
 def words(h): return len(re.sub(r"<[^>]+>", " ", h or "").split())
 
