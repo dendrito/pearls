@@ -15,6 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); WWW = os.path.join(HERE, "www
 SYSTEM = {"system-ui", "sans-serif", "serif", "monospace", "ui-monospace", "Georgia", "Segoe UI", "Roboto",
           "Iowan Old Style", "Palatino Linotype", "Noto Serif Hebrew", "David", "inherit"}
 HEBREW_ONLY = {"Shofar", "Keter YG"}   # bundled in www/fonts/, Hebrew block only; Latin falls through to the next font
+OTHER_SCRIPTS = ("CYRILLIC", "ARABIC", "GREEK")   # quoted words in other scripts, see needed()
 PUNCT_OK = set("’‘“”–—…§·×°½¾º‑")   # punctuation in running text that must match the face too
 
 def ranges(rng):
@@ -33,6 +34,9 @@ def needed():
         for ch in open(f, encoding="utf8").read():
             o = ord(ch)
             if o < 128 or 0x0590 <= o <= 0x05FF or 0xFB1D <= o <= 0xFB4F: continue
+            # A whole word in another script (Allah الله, Bog Бог) is drawn by that script's own system font, never
+            # one odd letter in a Latin word, so only Latin letters are the Latin faces' job.
+            if unicodedata.name(ch, "").startswith(OTHER_SCRIPTS): continue
             cat = unicodedata.category(ch)
             if cat.startswith("L") or cat == "Lm" or ch in PUNCT_OK: chars.add(ch)
     return chars
