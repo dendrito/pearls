@@ -125,7 +125,7 @@ h1,h2,h3{margin:0;font-weight:var(--dw)}
 .plart{position:relative;aspect-ratio:1;max-width:100%;border-radius:16px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;box-shadow:var(--shadow);filter:var(--cover-filter)}
 .plart>i{display:block;background:var(--c1);position:relative;overflow:hidden}
 .plart>i::after{content:attr(data-g);position:absolute;right:4%;bottom:-14%;font-style:normal;font-family:var(--f-heb);font-size:3.2em;color:rgba(255,255,255,.18)}
-.plart .badge{position:absolute;left:10px;bottom:10px;right:10px;font-family:var(--f-display);font-size:20px;line-height:1.05;color:#fff}
+.plart .badge{opacity:1;display:block;text-align:left;position:absolute;left:10px;bottom:10px;right:10px;font-family:var(--f-display);font-size:20px;line-height:1.05;color:#fff}
 .plart .shade{position:absolute;left:0;right:0;bottom:0;height:46%;background:rgba(5,7,14,.62)}
 .plcard b{font-weight:600;font-size:15px;line-height:1.25}
 .plcard span{font-size:12px;color:var(--mist);line-height:1.35}
@@ -645,3 +645,4 @@ details.chmore[open]>summary .more{opacity:.6}
 /* 2.8 Now Playing: the book's art on a stage of its own colour */
 .np .npstage{background:var(--c1);border-radius:calc(var(--r,14px) + 6px);padding:clamp(16px,6vw,32px);display:flex;justify-content:center}
 .np .npstage .bigart{margin:0;width:min(72vw,340px);border-radius:var(--r,14px)}
+.plart.one{grid-template-columns:1fr;grid-template-rows:1fr}
