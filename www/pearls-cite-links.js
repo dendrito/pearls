@@ -1248,6 +1248,11 @@
       card.appendChild(el(doc, 'div', 'pc-note', 'The siman is the author’s. The section (' + h.sec + ') is our reading of this chapter, because the citation does not name one.'));
     if (!h.resolved) {
       card.appendChild(el(doc, 'p', 'pc-why', h.why));
+      if (/not on Sefaria|not in Sefaria|in Sefaria’s catalogue|without text/i.test(h.why || '')) {
+        var all = el(doc, 'div', 'pc-links'), a0 = el(doc, 'a', '', 'Books not on Sefaria');
+        a0.href = '#missing'; a0.onclick = function () { wrap.remove(); };
+        all.appendChild(a0); card.appendChild(all);
+      }
     } else {
       var body = el(doc, 'div', 'pc-body', 'Loading from Sefaria…');
       card.appendChild(body);
