@@ -42,3 +42,9 @@ The series name is always **Peninei Halakha**, in prose and in citations, never 
 
 ## Numbers and measures
 Arabic numerals; kezait, reviit, kebeitzá keep the Hebrew term, with the author's own conversions.
+
+## Har Bracha's own conventions (Curió, 17 Nov 2026: "do it the way PH does it")
+- God: **D's** (never "Dios"); prose **HaShem**; a translated verse may say **el Eterno**.
+- A Name in transliteration is written hyphenated or with k: **Ad-onai**, **Elokim**, **Elokeinu** (never Adonai, Elohim).
+- Spellings: **Shabat** (tractate citations stay "Shabbat 21a"), **Ben Ish Ḥai**, **Yeḥaveh Da'at**, **hefsek tahará**.
+- "Maran" is always followed by whom it means (Maran HaRav Kook, Maran Rabí Yosef Karo); in Rav Ovadia's school a bare "Maran" means the Shulján Aruj.

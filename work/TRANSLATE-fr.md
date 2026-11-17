@@ -54,3 +54,9 @@ Arabic numerals; kezayit, révi'it, kebeitsa keep the Hebrew term, with the auth
   Hatov Vehamétiv.
 - "a priori" / "a posteriori" for lekhatḥila / bediavad.
 - A person's name follows the French prose rules (Rav Mordekhaï Eliyahou); a book title keeps the house form.
+
+## Har Bracha's own conventions (Curió, 17 Nov 2026: "do it the way PH does it")
+- God: **Dieu** or **l'Éternel** (as Har Bracha's French; not "D.ieu"); prose **Hachem**.
+- A Name in transliteration is hyphenated: **Ado-naï**, **Élo-hénou** (never Adonaï, Elohénou).
+- Spellings: **Chabbat** (tractate citations stay "Shabbat 21a"), **Richonim**, **A'haronim**.
+- "Maran" is always followed by whom it means; in Rav Ovadia's school a bare "Maran" means the Choul'han 'Aroukh.
