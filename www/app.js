@@ -2022,7 +2022,7 @@ function citeClicks(root) {
     e.preventDefault(); e.stopPropagation();
     const ref = a.dataset.ref || "";
     if (a.classList.contains("pc-cite-internal")) return openPHRef(ref);
-    citeSheet({ ref, text: a.textContent, resolved: !!ref, why: ref ? "" : a.title, secBy: a.dataset.secby || "", sec: a.dataset.sec || "" });
+    citeSheet({ ref, base: a.dataset.base || "", text: a.textContent, resolved: !!ref, why: ref ? "" : a.title, secBy: a.dataset.secby || "", sec: a.dataset.sec || "" });
   });
 }
 function openPHRef(ref) {   // "Peninei Halakhah, Shabbat 21:8" -> that chapter in Pearls, scrolled to the section
@@ -2045,13 +2045,17 @@ function citeSheet(h) {
       : `<p class="note">${esc(h.why || "This reference couldn't be turned into a text address.")}</p>`}</div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
     if (!h.resolved) return;
-    PEARLS_CITE.fetchSource(h.ref).then(x => {
-      const body = $(".pc-body", s); if (!body) return;
-      body.innerHTML = x.error ? `<p class="note">${esc(x.error)}</p>`
-        : (x.he ? `<p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}` : "")
+    const body = $(".pc-body", s); if (!body) return;
+    // a comment on a verse or a folio: the passage it comments on first, then the comment
+    const refs = h.base ? [h.base, h.ref] : [h.ref];
+    body.innerHTML = refs.map((r, i) => `${refs.length > 1 ? `<h4 class="pc-sub">${esc(phName(r))}</h4>` : ""}<div class="pc-part" data-i="${i}"><div class="loading"><div class="spin"></div>Loading from Sefaria…</div></div>`).join("");
+    refs.forEach((r, i) => PEARLS_CITE.fetchSource(r).then(x => {
+      const part = $(`.pc-part[data-i="${i}"]`, body); if (!part) return;
+      part.innerHTML = x.error ? `<p class="note">${esc(x.error)}</p>`
+        : (x.he ? `<p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}${x.en ? "" : `<p class="pc-note">Hebrew only on Sefaria: it has no English translation of this text.</p>`}` : "")
         + (x.en ? `<p class="pc-en">${esc(x.en)}</p>${lic(x.enVersion, x.enLicence)}` : "");
-      const he = $(".pc-he", body); if (he) tintHebrew(he);
-    });
+      const he = $(".pc-he", part); if (he) tintHebrew(he);
+    }));
   });
 }
 

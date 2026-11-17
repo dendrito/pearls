@@ -28,3 +28,5 @@
 .pc-sheet .pc-he { font-family: var(--f-heb); font-size: calc(19px * var(--read-scale, 1)); line-height: 1.9; }
 .pc-sheet .pc-en { font-size: calc(16px * var(--read-scale, 1)); line-height: 1.6; }
 .pc-sheet .pc-lic, .pc-sheet .pc-note { font-size: 13px; color: var(--mist); }
+.pc-sheet .pc-sub, #pc-pop .pc-sub { font-size: 13px; font-weight: 600; letter-spacing: .02em; margin: 14px 0 4px; opacity: .8; }
+.pc-sheet .pc-sub:first-child, #pc-pop .pc-sub:first-child { margin-top: 0; }
