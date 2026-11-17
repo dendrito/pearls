@@ -357,6 +357,18 @@ function presetTracks(p) {
   return list.map(t => t.id);
 }
 const PRESETS = window.PH_PRESETS.map(p => ({ ...p, kind: "preset", tracks: presetTracks(p) })).filter(p => p.tracks.length);
+/* 2.8 default playlists: every book, and every topic that runs through several chapters, built from the catalogue
+   so they never go stale. A topic counts a chapter only when the chapter itself carries the tag (not just its book),
+   so "Kiddush" is the kiddush chapters across the books, not the whole of Laws of Shabbat. */
+const bookPls = () => VOLS.map(v => ({ id: `book-${v.book}`, kind: "preset", group: "book", vol: v.book, name: R(v.title),
+  blurb: `Every chapter of ${R(v.title)}, in order${v.he ? ". Chapters without an English recording play in the AI voice or in Hebrew" : ""}.`,
+  tracks: volTracks(v).map(t => t.id) })).filter(p => p.tracks.length);
+const topicPls = () => Object.keys(TOPIC_LABEL).map(g => {
+  const ts = TRACKS.filter(t => t.tags.includes(g) && !t.vol.tags.includes(g)), books = new Set(ts.map(t => t.vol.book)).size;
+  return { id: `topic-${g}`, kind: "preset", group: "topic", tag: g, name: TOPIC_LABEL[g],
+    blurb: books > 1 ? `The chapters on ${TOPIC_LABEL[g].toLowerCase()} from ${books} books, in the order of the books.` : `The chapters on ${TOPIC_LABEL[g].toLowerCase()}, in order.`,
+    tracks: ts.map(t => t.id) };
+}).filter(p => p.tracks.length >= 3).sort((a, b) => b.tracks.length - a.tracks.length);
 function madeForYou() {
   const daily = recommend(8).map(r => r.t.id);
   const seasonIds = TRACKS.filter(t => t.tags.some(g => SEASON.tags.includes(g))).slice(0, 12).map(t => t.id);
@@ -370,13 +382,13 @@ function madeForYou() {
   if (liked.length) out.push({ id: "liked", kind: "auto", name: "Liked Pearls", blurb: "Everything you've hearted.", tracks: liked });
   return out;
 }
-function rankedPresets() {
+function rankedPresets(list = PRESETS) {
   const w = profile();
-  return PRESETS.map(p => ({ p, s: p.tracks.reduce((a, id) => a + cosine(w, BYID[id].tags) + (BYID[id].tags.some(g => SEASON.tags.includes(g)) ? .4 : 0), 0) / p.tracks.length
+  return list.map(p => ({ p, s: p.tracks.reduce((a, id) => a + cosine(w, BYID[id].tags) + (BYID[id].tags.some(g => SEASON.tags.includes(g)) ? .4 : 0), 0) / p.tracks.length
     - p.tracks.filter(id => (state.plays[id] || {}).done).length / p.tracks.length * .6 }))
     .sort((a, b) => b.s - a.s).map(x => x.p);
 }
-function findPlaylist(id) { if (id === "review" || id === "later" || id === "liked") return listPl(id); return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
+function findPlaylist(id) { if (id === "review" || id === "later" || id === "liked") return listPl(id); return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || bookPls().find(p => p.id === id) || topicPls().find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
 /* "On the calendar": what's in its study window, then what's next */
 function calCard(o) {
   const done = o.ids.filter(isDone).length, now = o.inWindow;
@@ -1441,6 +1453,7 @@ function trackRow(t, o = {}) {
 }
 function plArt(pl) {
   const vols = [...new Set(pl.tracks.map(id => BYID[id] && BYID[id].vol).filter(Boolean))];
+  if (vols.length === 1 && coverArt(vols[0])) return `<div class="plart one"><i class="drawn" style="${coverStyle(vols[0])}">${coverArt(vols[0])}</i><div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
   const four = [0, 1, 2, 3].map(i => vols[i % Math.max(1, vols.length)] || VOLS[i]);
   return `<div class="plart">${four.map((v, i) => { const a = coverArt(v); return a ? `<i class="drawn" style="${coverStyle(v)}">${a}</i>` : `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`; }).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
 }
@@ -1479,6 +1492,8 @@ function vHome() {
       <div class="list">${recs.slice(1, 7).map(r => trackRow(r.t, { why: r.why })).join("")}</div></section>
     <section><div class="sec-h"><h2>Curated playlists</h2></div>
       <div class="shelf">${rankedPresets().map(plCard).join("")}</div></section>
+    <section><div class="sec-h"><h2>Playlists by topic</h2><button class="more" data-go="library">All playlists</button></div>
+      <div class="shelf">${rankedPresets(topicPls()).map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>The books</h2><button class="more" data-go="books">See all</button></div>
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
@@ -2769,6 +2784,8 @@ function vLibrary() {
           <button class="btn gold" data-act="newpl">${I.plus}Create a playlist</button></div>`}</section>
     <section><div class="sec-h"><h2>Made for you</h2></div><div class="shelf">${madeForYou().map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>Curated</h2></div><div class="volgrid">${rankedPresets().map(p => plCard(p).replace('class="plcard"', 'class="plcard" style="width:auto"')).join("")}</div></section>
+    <section><div class="sec-h"><h2>By topic</h2></div><div class="volgrid">${topicPls().map(p => plCard(p).replace('class="plcard"', 'class="plcard" style="width:auto"')).join("")}</div></section>
+    <section><div class="sec-h"><h2>By book</h2></div><div class="shelf">${bookPls().map(plCard).join("")}</div></section>
   </div>`;
 }
 function vPlaylist(id) {
@@ -2778,7 +2795,7 @@ function vPlaylist(id) {
   const ts = pl.tracks.map(i => BYID[i]).filter(Boolean);
   view.innerHTML = `<div class="view">
     <div class="vhead">${plArt(pl)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-      <div class="eyebrow">${own ? "Your playlist" : pl.kind === "list" ? "Your list" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
+      <div class="eyebrow">${own ? "Your playlist" : pl.kind === "list" ? "Your list" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : pl.group === "topic" ? "Playlist by topic" : pl.group === "book" ? "The whole book" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
       <div class="stats"><span>${ts.length} chapters</span><span>${mins(plDur(pl.tracks)) || "–"}</span></div></div></div>
     ${pl.blurb ? `<p class="sub" style="margin:0">${esc(pl.blurb)}</p>` : ""}
     <div style="display:flex;gap:10px;flex-wrap:wrap">

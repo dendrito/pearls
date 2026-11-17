@@ -103,6 +103,9 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   compact mini player, the chapter band and the Now Playing stage. Skins re-colour it with the same
   `:is(.cover,.art,.tint,.plart>i)` rules; text on it is `--on-tint` (dark where `c1` is light, e.g. nacre's alt).
 - Home: a poster (the calendar's next festival, else the top recommendation), "Jump back in" tiles, then the shelves.
+- Default playlists (`bookPls()`, `topicPls()` in app.js): one per book ("The whole book") and one per topic in
+  `TOPIC_LABEL` with 3+ chapters that carry the tag themselves (not only through their book), across books. Built from
+  the catalogue on each render, so they never go stale. Home shows "Playlists by topic"; Playlists shows By topic and By book.
 - The mini player is one compact row; the expand button (`prefs.miniFull`) shows the full 2.7 control bar.
 - Chapter page: art band with the chapter number, then title, Listen and the text; language, spelling, tags and
   Meldar links sit in a "More" fold (`prefs.chMore`); sections are chips; Mark as done is at the end.
