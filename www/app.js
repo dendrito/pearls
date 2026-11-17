@@ -1685,7 +1685,7 @@ function vCredits() {
       <p class="reader-p">Har Bracha makes the content of the Peninei Halakha website available under the ${ext("https://creativecommons.org/licenses/by/4.0/", "Creative Commons Attribution 4.0 International licence (CC BY 4.0)")}, with one addition: complete or near-complete copies may not be sold without their written permission. Translation, summaries and other derived works are explicitly allowed, provided the source is credited, linked and any changes are stated. The full terms are on the ${ext("https://ph.yhb.org.il/terms/", "site's terms page")} (in Hebrew).</p>
       <div class="panel"><div class="eyebrow" style="margin-bottom:6px">Changes Pearls makes</div>
         <ul class="credlist">
-          <li>Text is reformatted for phone reading, split by section, with links to Sefaria and Meldar.</li>
+          <li>Text is reformatted for phone reading, split by section, with links to Sefaria and Meldar. <a href="#missing">Books not on Sefaria</a>.</li>
           <li>The optional "Neo-Classic S&amp;P" spelling changes how some Hebrew terms are transliterated; the default, "Original", keeps the published spelling. <a href="#spelling">All spelling schemes</a>.</li>
           <li>Hebrew-only volumes are translated into English by AI, as above.</li>
           <li>Chapters are tagged by topic and grouped into playlists and recommendations.</li>
@@ -1708,6 +1708,26 @@ function vCredits() {
       </ul></section>
   </div>`;
 }
+/* Books not on Sefaria (#missing): the works Peninei Halakha cites that Sefaria does not hold, so their citations
+   are named but not linked. The list is made by tools/make_missing_books.js (www/cite-missing.js). */
+function vMissing() {
+  setTop("Books not on Sefaria"); setTab("");
+  const M = window.PEARLS_MISSING || {books: []}, books = M.books;
+  const total = books.reduce((a, b) => a + b.n, 0);
+  const chip = id => { const t = BYID[id]; return t ? `<a class="chip" href="#ch-${id}">${esc(t.vol.short)} ${t.n}</a>` : ""; };
+  view.innerHTML = `<div class="view credits missing">
+    <div><div class="eyebrow">Citations</div>
+      <h1 class="hello">Books we <em>can't link</em>.</h1>
+      <p class="sub">Most sources Peninei Halakha cites open from the text: tap one to read it from Sefaria. These ${books.length} books aren't on Sefaria, so their ${total.toLocaleString("en")} citations are named but not linked. Some are recent works still under copyright; others Sefaria doesn't carry yet.</p></div>
+    <section><div class="list">${books.map(b => `<details class="panel mbook">
+        <summary><b>${esc(b.name)}</b>${b.he ? ` <span lang="he" dir="rtl" class="he" style="font-family:var(--f-heb)">${esc(b.he)}</span>` : ""}
+          <span class="note" style="margin-left:auto">${b.n} ${b.n === 1 ? "citation" : "citations"} · ${b.ch.length} ${b.ch.length === 1 ? "chapter" : "chapters"}</span></summary>
+        ${b.also.length ? `<p class="foot" style="margin:6px 0 0">Also spelled ${b.also.map(esc).join(", ")}</p>` : ""}
+        <div class="chips" style="margin-top:8px">${b.ch.map(chip).join("")}</div></details>`).join("")}</div>
+      <p class="foot">Checked against Sefaria's full list of titles${M.made ? `; list made ${esc(M.made)}` : ""}. A citation is also left unlinked when it doesn't say enough to find the passage (a Zohar page, a volume not named); those books are on Sefaria and aren't listed here.</p></section>
+  </div>`;
+}
+
 /* All spelling schemes, compared (#spelling). The same table Meldar shows; source: spelling/spelling-schemes.md in the
    Pearls project. Cells marked * are worked out from that scheme's rules, not seen printed. */
 const SCHEME_LIST = [
@@ -3195,6 +3215,7 @@ function render() {
   else if (h === "search") vSearch();
   else if (h === "credits") vCredits();
   else if (h === "spelling") vSpelling();
+  else if (h === "missing") vMissing();
   else if (h === "calendar") vCalendar();
   else if (h === "daily") vDaily();
   else if (h === "downloads") vDownloads();

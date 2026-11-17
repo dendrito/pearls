@@ -646,3 +646,7 @@ details.chmore[open]>summary .more{opacity:.6}
 .np .npstage{background:var(--c1);border-radius:calc(var(--r,14px) + 6px);padding:clamp(16px,6vw,32px);display:flex;justify-content:center}
 .np .npstage .bigart{margin:0;width:min(72vw,340px);border-radius:var(--r,14px)}
 .plart.one{grid-template-columns:1fr;grid-template-rows:1fr}
+/* #missing: books not on Sefaria */
+.mbook summary{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;cursor:pointer;list-style:none}
+.mbook summary::-webkit-details-marker{display:none}
+.mbook .chip{height:30px;font-size:13px;padding:0 10px;text-decoration:none}
