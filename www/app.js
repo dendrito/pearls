@@ -2046,16 +2046,30 @@ function citeSheet(h) {
     $("[data-x]", s).onclick = close;
     if (!h.resolved) return;
     const body = $(".pc-body", s); if (!body) return;
-    // a comment on a verse or a folio: the passage it comments on first, then the comment
-    const refs = h.base ? [h.base, h.ref] : [h.ref];
-    body.innerHTML = refs.map((r, i) => `${refs.length > 1 ? `<h4 class="pc-sub">${esc(phName(r))}</h4>` : ""}<div class="pc-part" data-i="${i}"><div class="loading"><div class="spin"></div>Loading from Sefaria…</div></div>`).join("");
-    refs.forEach((r, i) => PEARLS_CITE.fetchSource(r).then(x => {
-      const part = $(`.pc-part[data-i="${i}"]`, body); if (!part) return;
-      part.innerHTML = x.error ? `<p class="note">${esc(x.error)}</p>`
-        : (x.he ? `<p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}${x.en ? "" : `<p class="pc-note">Hebrew only on Sefaria: it has no English translation of this text.</p>`}` : "")
-        + (x.en ? `<p class="pc-en">${esc(x.en)}</p>${lic(x.enVersion, x.enLicence)}` : "");
-      const he = $(".pc-he", part); if (he) tintHebrew(he);
-    }));
+    // a comment on a verse or a folio: the passage it comments on first, then the comment, each in the chosen mode
+    const refs = h.base ? [h.base, h.ref] : [h.ref], got = [];
+    const modes = [["he", "עברית"], ["both", "Both"], ["side", "Side by side"], ["en", "English"]];
+    body.insertAdjacentHTML("beforebegin", `<div class="seg pc-modes" role="radiogroup" aria-label="Show">${modes.map(([v, l]) =>
+      `<button role="radio" data-m="${v}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div>`);
+    const btns = [...s.querySelectorAll(".pc-modes button")];
+    const paint = () => {
+      const m = state.prefs.citeMode || "both";
+      btns.forEach(b => { const on = b.dataset.m === m; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+      body.innerHTML = refs.map((r, i) => {
+        const x = got[i], head = refs.length > 1 ? `<h4 class="pc-sub">${esc(phName(r))}</h4>` : "";
+        if (!x) return `${head}<div class="loading"><div class="spin"></div>Loading from Sefaria…</div>`;
+        if (x.error) return `${head}<p class="note">${esc(x.error)}</p>`;
+        const he = x.he ? `<div><p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}</div>` : "";
+        const en = x.en ? `<div><p class="pc-en">${esc(x.en)}</p>${lic(x.enVersion, x.enLicence)}</div>` : "";
+        const only = x.en ? "" : `<p class="pc-note">Hebrew only on Sefaria: it has no English translation of this text.</p>`;
+        const show = !x.en || m === "he" ? he + only : !x.he || m === "en" ? en : m === "side" ? `<div class="pc-side">${he}${en}</div>` : he + en;
+        return head + show;
+      }).join("");
+      body.querySelectorAll(".pc-he").forEach(tintHebrew);
+    };
+    btns.forEach(b => b.onclick = () => { state.prefs.citeMode = b.dataset.m; save.prefs(); paint(); });
+    paint();
+    refs.forEach((r, i) => PEARLS_CITE.fetchSource(r).then(x => { got[i] = x; paint(); }));
   });
 }
 
