@@ -1379,6 +1379,7 @@ function dlMany(ids) {
 
 /* ---------- icons ---------- */
 const I = {
+  lang: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h10M8 3v2M5.5 5c.8 3.4 3 6 6.5 7.5M10.5 5c-.9 3.9-3.4 6.9-7 8.5M13 21l4-9 4 9M14.4 18h5.2"/></svg>',
   order: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>',
   repeat1: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5V10a4 4 0 0 1 4-4h11M16 3l3 3-3 3M20 12.5V14a4 4 0 0 1-4 4H5M8 21l-3-3 3-3"/><path d="M11.2 10.4 12.5 9.6v5" stroke-width="1.6"/></svg>',
@@ -1947,6 +1948,7 @@ function vChapter(id) {
           <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
           ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}</div></details>
     </div>
+    <button class="langfab" data-act="langsheet" data-id="${t.id}" aria-label="Language: ${READ_LABEL[state.prefs.read || "en"] || "English"}. Change">${I.lang}<b>${langShort()}</b></button>
     <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
     ${t.sectionTitles.length > 1 ? `<nav class="toc secchips" aria-label="Sections in this chapter">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</nav>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
@@ -1956,6 +1958,7 @@ function vChapter(id) {
       ${nextT ? `<button class="btn line" data-act="chapter" data-id="${nextT.id}">Ch. ${nextT.n} →</button>` : ""}</div>
     <section><div class="sec-h"><h2>Listen next</h2></div><div class="list">${sim.map(r => trackRow(r.t, { why: r.why })).join("")}</div></section>
   </div>`;
+  const fab = view.querySelector(".langfab"); if (fab) document.body.appendChild(fab);   // fixed to the screen, not the animated view
   const cm = view.querySelector("details.chmore"); if (cm) cm.ontoggle = () => { state.prefs.chMore = cm.open; save.prefs(); };
   view.querySelectorAll(".toc button").forEach(b => b.onclick = () => { const s = $(`#sec-${b.dataset.sec}`); if (s) s.scrollIntoView({ behavior: "smooth" }); });
   fetchSections(t).then(posts => {
@@ -2117,6 +2120,7 @@ function setLang(v) {
   document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === v; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
   const m = location.hash.match(/^#ch-(\d\d-\d\d)/), rt = m && BYID[m[1]], r = $("#reader");
   if (r && rt) applyReadLang(rt, r);
+  document.querySelectorAll(".langfab b").forEach(x => { x.textContent = langShort(); });
   document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); });
   document.querySelectorAll('[data-act="playch"] .plang').forEach(pl => { const x = BYID[pl.parentNode.dataset.id]; if (x) pl.textContent = ` · ${LANG_NAME[listenLang(x)]}`; });
   const t = cur();
@@ -2333,6 +2337,12 @@ function langBar(t) {
     <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
 const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" };
+/* 2.8 the language button that floats over the chapter: the reading language from anywhere in the text */
+const langShort = () => ({ en: "EN", he: "עב", both: "EN+עב", side: "EN | עב" })[state.prefs.read || "en"] || "EN";
+function langSheet(t) {
+  dialog(`<h3>Language</h3>${langBar(t)}<div style="display:flex;justify-content:flex-end"><button class="btn line" data-x>Done</button></div>`,
+    (s, close) => { $("[data-x]", s).onclick = close; });
+}
 /* Show the chapter in the reader's language: English, Hebrew, both (Hebrew under each English section) or side by side
    (English and Hebrew in two columns, paragraph beside paragraph; on a phone each Hebrew paragraph sits under its English). */
 function applyReadLang(t, r) {
@@ -2884,6 +2894,7 @@ function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
   const full = !!state.prefs.miniFull;   // 2.8: one row by default, the whole control bar when opened
   document.body.classList.add("has-mini"); document.body.classList.toggle("mini-full", full);
+  requestAnimationFrame(() => document.body.style.setProperty("--mini-h", mini.offsetHeight + "px"));
   mini.classList.toggle("compact", !full); mini.classList.add("tint"); mini.setAttribute("style", coverStyle(t.vol));
   const both = hasHe(t) && (hasEn(t) || (enText(t) && aiVoiceOn()));
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
@@ -3130,6 +3141,7 @@ document.addEventListener("click", e => {
     case "trackmenu": trackMenu(id); break;
     case "spelling": settingsDialog(); break;
     case "setread": setLang(b.dataset.v); break;
+    case "langsheet": { const t = BYID[id]; if (t) langSheet(t); break; }
     case "voice": voiceDialog(); break;
     case "playsec": { const t = BYID[id]; const ids = TRACKS.filter(x => x.vol === t.vol).map(x => x.id); playQueue(ids, ids.indexOf(id), t.vol.title, +b.dataset.sec - 1); break; }
     case "readlang": { const order = ["en", "he", "both", "side"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % order.length]; save.prefs();
@@ -3221,7 +3233,7 @@ backBtn.onclick = () => history.length > 1 ? history.back() : go("");
 /* ---------- routing (hash) ---------- */
 function go(h) { if (("#" + h) === location.hash || (!h && !location.hash)) render(); else location.hash = h; }
 function render() {
-  closeNP(); document.querySelectorAll(".scrim").forEach(s => s.remove());
+  closeNP(); document.querySelectorAll(".scrim, body > .langfab").forEach(s => s.remove());
   const h = location.hash.slice(1);
   if (h.startsWith("vol-")) vVol(h.slice(4));
   else if (h.startsWith("ch-")) vChapter(h.slice(3));

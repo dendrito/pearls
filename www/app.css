@@ -650,3 +650,10 @@ details.chmore[open]>summary .more{opacity:.6}
 .mbook summary{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;cursor:pointer;list-style:none}
 .mbook summary::-webkit-details-marker{display:none}
 .mbook .chip{height:30px;font-size:13px;padding:0 10px;text-decoration:none}
+
+/* 2.8 the floating language button on the chapter page: flat, the skin's own colours, above the mini player */
+.langfab{position:fixed;z-index:34;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(var(--tab-h) + 14px + env(safe-area-inset-bottom,0px));
+  display:flex;align-items:center;gap:6px;height:42px;padding:0 14px 0 12px;border-radius:999px;background:var(--ink-3);color:var(--pearl);border:1px solid var(--line);font-size:13.5px;font-weight:600}
+.langfab svg{width:18px;height:18px}
+.langfab b{font-weight:600;white-space:nowrap}
+body.has-mini .langfab{bottom:calc(var(--tab-h) + 8px + var(--mini-h,64px) + 10px + env(safe-area-inset-bottom,0px))}
