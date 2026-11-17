@@ -1287,11 +1287,49 @@
     var v = vs.filter(function (x) { return x.language === lang; })[0];
     return v ? {v: v, title: v.versionTitle, licence: v.license} : null;
   }
+  /* Every passage opened from a citation is kept on this device (IndexedDB "pearls-cite", one record per ref),
+   * so it opens offline next time. A kept copy is shown at once and refreshed quietly when online; a failed
+   * fetch never replaces it, and only a real passage is kept (never "could not reach" or "no text"). */
+  var idb = null;
+  function store() {
+    if (idb) return idb;
+    idb = new Promise(function (ok) {
+      try {
+        var rq = indexedDB.open('pearls-cite', 1);
+        rq.onupgradeneeded = function () { rq.result.createObjectStore('texts'); };
+        rq.onsuccess = function () { ok(rq.result); };
+        rq.onerror = rq.onblocked = function () { ok(null); };
+      } catch (e) { ok(null); }
+    });
+    return idb;
+  }
+  function kept(ref) {
+    return store().then(function (db) {
+      if (!db) return null;
+      return new Promise(function (ok) {
+        try { var rq = db.transaction('texts').objectStore('texts').get(ref); rq.onsuccess = function () { ok(rq.result || null); }; rq.onerror = function () { ok(null); }; }
+        catch (e) { ok(null); }
+      });
+    });
+  }
+  function keep(ref, out) {
+    if (!out || out.error) return;
+    store().then(function (db) { try { if (db) db.transaction('texts', 'readwrite').objectStore('texts').put(Object.assign({kept: Date.now()}, out), ref); } catch (e) {} });
+  }
   function fetchSource(ref) {
     if (cache[ref]) return cache[ref];
+    cache[ref] = kept(ref).then(function (old) {
+      if (!old) return fromSefaria(ref).then(function (out) { keep(ref, out); if (out.error) delete cache[ref]; return out; });
+      if (typeof navigator === 'undefined' || navigator.onLine !== false)   // refresh quietly; the next opening shows it
+        fromSefaria(ref).then(function (out) { if (!out.error) { keep(ref, out); cache[ref] = Promise.resolve(out); } });
+      return old;
+    });
+    return cache[ref];
+  }
+  function fromSefaria(ref) {
     var base = 'https://www.sefaria.org/api/v3/texts/' + encodeURIComponent(String(ref).replace(/\s+/g, '_'));
     var get = function (q) { return fetch(base + q).then(function (r) { return r.json(); }); };
-    cache[ref] = get('?version=primary&version=translation&return_format=text_only').then(function (j) {
+    return get('?version=primary&version=translation&return_format=text_only').then(function (j) {
       var vs = (j && j.versions) || [];
       // an empty answer is not an absent text: ask once more without the version labels (Meldar B1)
       if (!vs.some(function (v) { return v.text && flat(v.text); }))
@@ -1308,10 +1346,8 @@
       else if (!out.he && !out.en) out.error = 'Sefaria has no text at this reference. The number may be outside its numbering.';
       return out;
     }).catch(function () {
-      delete cache[ref];
-      return {ref: ref, url: sefariaUrl(ref), error: 'Could not reach Sefaria. The text needs a connection.'};
+      return {ref: ref, url: sefariaUrl(ref), error: 'Could not reach Sefaria. This text has not been opened on this device before, so it needs a connection the first time.'};
     });
-    return cache[ref];
   }
 
   /* ── the default popup (Pearls can pass its own sheet as opts.onOpen) ────── */
