@@ -996,7 +996,89 @@
     }
     return h;
   }
-  function find(text, opts) { return findNorm(text, opts).map(mishnahBound); }
+  /* ── a commentator in front of a verse, and "Rashi ad loc." ────────────────────────────────────────
+   * "Ramban, Shemot 20:8" is the Ramban's comment on the verse, not the verse: the link goes to the
+   * commentary and keeps the verse as `base`, so the sheet shows the verse first and the comment under it.
+   * "Rashi ad loc." / רש"י שם is linked only where "there" is unambiguous: the citation just before it
+   * in the same parenthesis, or else the one Talmud folio named earlier in the paragraph. A paragraph
+   * citing two folios, or none, leaves it as plain text. Every title was fetched from Sefaria (17 Nov 2026):
+   * Ramban/Sforno/Or HaChaim on Exodus 20:8, Metzudat David on Psalms 68:20, Rashi on Beitzah 16a. */
+  var TORAH = {Genesis: 1, Exodus: 1, Leviticus: 1, Numbers: 1, Deuteronomy: 1};
+  var NACH = 'Joshua|Judges|I Samuel|II Samuel|I Kings|II Kings|Isaiah|Jeremiah|Ezekiel|Hosea|Joel|Amos|Obadiah|Jonah|Micah|Nahum|Habakkuk|Zephaniah|Haggai|Zechariah|Malachi|Psalms|Proverbs|Job|Song of Songs|Ruth|Lamentations|Ecclesiastes|Esther|Daniel|Ezra|Nehemiah|I Chronicles|II Chronicles';
+  var VERSE = new RegExp('^(Genesis|Exodus|Leviticus|Numbers|Deuteronomy|' + NACH + ') \\d+:\\d+(?:-\\d+)?$');
+  var FOLIO = /^(?!Mishnah |Jerusalem )(?![A-Za-z ]+ on )[A-Z][A-Za-z ]+ \d+[ab]$/;
+  // the passage a citation is about: its base, or the folio under "Tosafot on Ketubot 11a"
+  function baseOf(h) { var r = h.base || h.ref || ''; var m = /^[A-Z][A-Za-z ]+? on ([A-Z][A-Za-z ]+ \d+[ab])$/.exec(r); return m ? m[1] : r; }
+  // [Sefaria title, English pattern, Hebrew pattern, what it comments on: 'all' | 'torah' | 'nach' | 'tal']
+  var COMMS = [
+    ['Rashi', 'Rashi', 'רש[״"]י', 'all'],
+    ['Ramban', 'Ramban|Nachmanides', 'רמב[״"]ן', 'torah'],
+    ['Ibn Ezra', 'Ibn Ezra', 'אבן עזרא|ראב[״"]ע', 'torah'],
+    ['Sforno', 'S(?:e)?forno', 'ספורנו', 'torah'],
+    ['Or HaChaim', 'O(?:h)?r Ha-?(?:[Cc]h|ḥ|Ḥ)ay?(?:y)?im', 'אור החיים', 'torah'],
+    ['Rashbam', 'Rashbam', 'רשב[״"]ם', 'torah'],
+    ['Kli Yakar', 'K(?:e)?li Yakar', 'כלי יקר', 'torah'],
+    ['Baal HaTurim', 'Ba[\'’]?al Ha-?[Tt]urim', 'בעל הטורים', 'torah'],
+    ['Radak', 'Radak', 'רד[״"]ק', 'nach'],
+    ['Metzudat David', 'Metzudat David', 'מצודת דוד', 'nach'],
+    ['Malbim', 'Malbim', 'מלבי[״"]ם', 'all'],
+    ['Tosafot', 'Tosafot|Tosafos|Tos\\.', 'תוס(?:פות|\'|׳)', 'tal']
+  ];
+  function fits(kind, ref) {
+    if (FOLIO.test(ref) && !VERSE.test(ref)) return kind === 'tal' || kind === 'all';
+    if (!VERSE.test(ref)) return false;
+    var book = ref.replace(/ \d.*$/, '');
+    return kind === 'all' || (kind === 'torah' ? !!TORAH[book] : kind === 'nach' ? !TORAH[book] : false);
+  }
+  function commentOn(name, ref, base) {   // "Rashi on Beitzah 16a" (a folio needs no verse range)
+    return {resolved: true, ref: name + ' on ' + ref.replace(/-\d+$/, ''), work: name, base: base, why: '', sec: '', secBy: ''};
+  }
+  function commentaries(hits, text, he) {
+    hits.sort(function (a, b) { return a.start - b.start; });
+    var out = [], i;
+    // 1 · a commentator just before a verse
+    hits.forEach(function (h) {
+      if (h.resolved && !h.internal && VERSE.test(h.ref || '')) {
+        var before = text.slice(Math.max(0, h.start - 40), h.start);
+        for (i = 0; i < COMMS.length; i++) {
+          var c = COMMS[i];
+          var re = he ? new RegExp('(?:^|[\\s(;,])ו?(' + c[2] + ')[\\s,:]*(?:על\\s+)?$') : new RegExp('\\b(' + c[1] + ')(?:\\s*(?:,|on|to|\\()\\s*|\\s+)$');
+          var m = re.exec(before);
+          if (m && c[3] !== 'tal' && fits(c[3], h.ref)) {
+            var s = h.start - before.length + m.index + m[0].indexOf(m[1]);
+            var r = commentOn(c[0], h.ref, h.ref); r.start = s; r.end = h.end; r.text = text.slice(s, h.end);
+            h = r; break;
+          }
+        }
+      }
+      out.push(h);
+    });
+    // 2 · "Rashi ad loc." / "Tosafot ibid." / רש"י שם
+    COMMS.forEach(function (c) {
+      var re = he ? new RegExp('(?:^|[\\s(;,])ו?(' + c[2] + ')\\s+שם(?![א-ת])', 'g')
+                  : new RegExp('\\b(' + c[1] + ')(?:,?\\s+(?:ad loc\\.?|ibid\\.?|there\\b))', 'g'), m;
+      while ((m = re.exec(text))) {
+        var s = m.index + m[0].indexOf(m[1]), e = m.index + m[0].length;
+        if (out.some(function (h) { return s < h.end && e > h.start; })) continue;
+        var prev = out.filter(function (h) { return h.end <= s; }).sort(function (a, b) { return a.end - b.end; }), ante = null;
+        var last = prev[prev.length - 1];
+        // the citation just before it, in the same parenthesis ("Shabbat 6a; Rashi ad loc.")
+        if (last && last.resolved && /^[\s;,]*(?:and\s+|ו)?$/.test(text.slice(last.end, s)) && fits(c[3], baseOf(last))) ante = baseOf(last);
+        // else the one Talmud folio earlier in the paragraph
+        if (!ante && (c[3] === 'tal' || c[3] === 'all')) {
+          var f = {};
+          prev.forEach(function (h) { var r = baseOf(h); if (h.resolved && FOLIO.test(r) && !VERSE.test(r)) f[r] = 1; });
+          var ks = Object.keys(f); if (ks.length === 1) ante = ks[0];
+        }
+        if (!ante) continue;
+        var r = commentOn(c[0], ante, ante); r.start = s; r.end = e; r.text = text.slice(s, e);
+        out.push(r);
+      }
+    });
+    return out.sort(function (a, b) { return a.start - b.start; });
+  }
+
+  function find(text, opts) { return commentaries(findNorm(text, opts).map(mishnahBound), String(text || ''), isHebrew(text)); }
   function findNorm(text, opts) {
     opts = opts || {};
     var orig = String(text || ''), he = isHebrew(orig);
@@ -1179,6 +1261,7 @@
         a.setAttribute('title', shown(h.resolved ? h.ref : h.why));
         if (h.secBy) a.setAttribute('data-secby', h.secBy);
         if (h.sec) a.setAttribute('data-sec', h.sec);
+        if (h.base) a.setAttribute('data-base', h.base);
         (function (h) {
           a.addEventListener('click', function (ev) {
             ev.preventDefault();
@@ -1256,16 +1339,21 @@
     } else {
       var body = el(doc, 'div', 'pc-body', 'Loading from Sefaria…');
       card.appendChild(body);
-      fetchSource(h.ref).then(function (s) {
-        body.textContent = '';
-        if (s.error) { body.appendChild(el(doc, 'p', 'pc-why', s.error)); }
-        else {
-          if (s.he) { var hp = el(doc, 'p', 'pc-he', s.he); hp.dir = 'rtl'; hp.lang = 'he'; body.appendChild(hp);
-            body.appendChild(el(doc, 'div', 'pc-lic', licLine(s.heVersion, s.heLicence)));
-            if (!s.en) body.appendChild(el(doc, 'p', 'pc-note', 'Hebrew only on Sefaria: it has no English translation of this text.')); }
-          if (s.en) { body.appendChild(el(doc, 'p', 'pc-en', s.en));
-            body.appendChild(el(doc, 'div', 'pc-lic', licLine(s.enVersion, s.enLicence))); }
-        }
+      body.textContent = '';
+      // a comment on a verse or a folio: the passage it comments on first, then the comment
+      (h.base ? [h.base, h.ref] : [h.ref]).forEach(function (ref, i, all) {
+        var part = el(doc, 'div', 'pc-part', 'Loading from Sefaria…');
+        if (all.length > 1) body.appendChild(el(doc, 'div', 'pc-sub', ref));
+        body.appendChild(part);
+        fetchSource(ref).then(function (s) {
+          part.textContent = '';
+          if (s.error) { part.appendChild(el(doc, 'p', 'pc-why', s.error)); return; }
+          if (s.he) { var hp = el(doc, 'p', 'pc-he', s.he); hp.dir = 'rtl'; hp.lang = 'he'; part.appendChild(hp);
+            part.appendChild(el(doc, 'div', 'pc-lic', licLine(s.heVersion, s.heLicence)));
+            if (!s.en) part.appendChild(el(doc, 'p', 'pc-note', 'Hebrew only on Sefaria: it has no English translation of this text.')); }
+          if (s.en) { part.appendChild(el(doc, 'p', 'pc-en', s.en));
+            part.appendChild(el(doc, 'div', 'pc-lic', licLine(s.enVersion, s.enLicence))); }
+        });
       });
       var links = el(doc, 'div', 'pc-links');
       var a1 = el(doc, 'a', '', 'Open on Sefaria'); a1.href = sefariaUrl(h.ref); a1.target = '_blank'; a1.rel = 'noopener';
@@ -1282,6 +1370,13 @@
       // [text, page ref, expected refs in order ('' = marked but not linked)]
       ['SA 345:2 and MB 345:5', 'Peninei Halakhah, Shabbat 21', ['Shulchan Arukh, Orach Chayim 345:2', 'Mishnah Berurah 345:5']],
       ['SA 345:2', '', ['']],                                                  // no chapter, no section: not guessed
+      // a commentator before a verse links the commentary; "ad loc." takes the one folio, or the citation just before it
+      ['saving the best for Shabbat (Beitza 16a). Bless God every day (Tehilim 68:20). Thus Hillel (Rashi ad loc.; Ramban, Shemot 20:8)', '', ['Beitzah 16a', 'Psalms 68:20', 'Rashi on Beitzah 16a', 'Ramban on Exodus 20:8']],
+      ['(Shemot 20:8; Rashi ad loc.) and (Shabbat 6a; Tosafot ad loc.)', '', ['Exodus 20:8', 'Rashi on Exodus 20:8', 'Shabbat 6a', 'Tosafot on Shabbat 6a']],
+      ['(Beitza 16a) and (Shabbat 6a), and later (Rashi ad loc.)', '', ['Beitzah 16a', 'Shabbat 6a']],    // two folios: "there" is ambiguous
+      ['(Tosafot Ketubot 11a; Rashi ad loc.)', '', ['Tosafot on Ketubot 11a', 'Rashi on Ketubot 11a']],   // "there" is the folio, not Tosafot
+      ['Ramban, Yehoshua 1:8', '', ['Joshua 1:8']],                           // the Ramban has no commentary on Joshua
+      ['(ביצה טז, א). וכתב (רש"י שם; רמב"ן שמות כ, ח)', '', ['Beitzah 16a', 'Rashi on Beitzah 16a', 'Ramban on Exodus 20:8']],
       ['Rambam, Sabbath 14:1; Shabbat 6a', '', ['Mishneh Torah, Sabbath 14:1', 'Shabbat 6a']],
       ['Tosafot Beitza 22a', '', ['Tosafot on Beitzah 22a']],
       ['as it says in Exodus 20:8-11', '', ['Exodus 20:8-11']],
