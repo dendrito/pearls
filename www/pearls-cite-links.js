@@ -1261,7 +1261,8 @@
         if (s.error) { body.appendChild(el(doc, 'p', 'pc-why', s.error)); }
         else {
           if (s.he) { var hp = el(doc, 'p', 'pc-he', s.he); hp.dir = 'rtl'; hp.lang = 'he'; body.appendChild(hp);
-            body.appendChild(el(doc, 'div', 'pc-lic', licLine(s.heVersion, s.heLicence))); }
+            body.appendChild(el(doc, 'div', 'pc-lic', licLine(s.heVersion, s.heLicence)));
+            if (!s.en) body.appendChild(el(doc, 'p', 'pc-note', 'Hebrew only on Sefaria: it has no English translation of this text.')); }
           if (s.en) { body.appendChild(el(doc, 'p', 'pc-en', s.en));
             body.appendChild(el(doc, 'div', 'pc-lic', licLine(s.enVersion, s.enLicence))); }
         }
