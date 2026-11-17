@@ -107,6 +107,8 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   `TOPIC_LABEL` with 3+ chapters that carry the tag themselves (not only through their book), across books. Built from
   the catalogue on each render, so they never go stale. Home shows "Playlists by topic"; Playlists shows By topic and By book.
 - The mini player is one compact row; the expand button (`prefs.miniFull`) shows the full 2.7 control bar.
+- Chapter page: a floating language button (`.langfab`, moved to `body` so it stays fixed; `langSheet()`) opens the
+  Language bar from anywhere in the text, above the mini player (`--mini-h`).
 - Chapter page: art band with the chapter number, then title, Listen and the text; language, spelling, tags and
   Meldar links sit in a "More" fold (`prefs.chMore`); sections are chips; Mark as done is at the end.
 
