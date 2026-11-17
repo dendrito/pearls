@@ -422,6 +422,7 @@ const XL = window.PH_XL || { langs: {}, ch: {} };
 const isXl = v => !!(v && XL.langs[v]);
 const xlLang = () => isXl(langPref()) ? langPref() : null;                       // the other language chosen, if any
 const xlOf = t => { const l = xlLang(); return l && t && XL.ch[t.id] && XL.ch[t.id][l] ? l : null; };   // ...and this chapter has it
+const xlOfficial = t => { const l = xlOf(t); return !!(l && XL.ch[t.id][l].o); };   // ...in Har Bracha's own translation, not ours
 const wantsEnglish = t => hasEn(t) && (!hasHe(t) || langPref() !== "he");
 const aiVoiceOn = () => state.prefs.aiVoice !== false && (canSpeak() || (typeof neuralReady === "function" && neuralReady()));
 function listenLang(t) {
@@ -1860,7 +1861,8 @@ function vChapter(id) {
       ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
         <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
         ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
-      ${xlOf(t) ? `<div class="aiflag"><b>AI translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is an AI translation (Claude) of Rabbi Melamed's Hebrew, marked AI throughout.</div>`
+      ${xlOfficial(t) ? `<div class="aiflag official"><b>Official translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is Yeshivat Har Bracha's own translation of Rabbi Melamed's Hebrew.</div>`
+        : xlOf(t) ? `<div class="aiflag"><b>AI translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is an AI translation (Claude) of Rabbi Melamed's Hebrew, marked AI throughout.</div>`
         : t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
       ${langBar(t)}
       <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
@@ -1937,6 +1939,7 @@ function xlMissing(t) {   // the other language is chosen but this chapter isn't
 function renderXlChapter(t, d, r) {
   const l = d.lang, x = XL.langs[l] || { english: l }, secs = d.sections || [];
   if (!secs.length) { r.innerHTML = `<p class="note">This chapter has no text.</p>`; return; }
+  if (d.translator === "official") return renderXlOfficial(t, d, r);
   r.innerHTML = `<div class="aibanner" role="note"><span class="aitag">AI translation</span>
     <span>Translated into ${esc(x.english)} by AI (Claude, Anthropic) from Rabbi Melamed's Hebrew. Not an official translation and not reviewed by Yeshivat Har Bracha or a rabbi. It can be wrong: check the Hebrew before relying on it in practice. Each section links to its Hebrew source.</span></div>` +
     secs.map((s, i) => {   // citation links run on the translation too; no respelling or Hebrew tints, which are for English and Hebrew
@@ -1949,6 +1952,29 @@ function renderXlChapter(t, d, r) {
   applyReadLang(t, r);
   nowSecShown = null; paintNowSec();
   hebToggles(t, r);
+}
+
+function renderXlOfficial(t, d, r) {   // Har Bracha's own translation (ph.yhb.org.il/<lang>): no AI marks, its own credit
+  const l = d.lang, x = XL.langs[l] || { english: l };
+  r.innerHTML = `<div class="aibanner official" role="note"><span class="aitag off">Official translation</span>
+    <span>Yeshivat Har Bracha's own ${esc(x.english)} translation of Rabbi Melamed's Hebrew, from ph.yhb.org.il. Each section links to its ${esc(x.english)} page and to the Hebrew.</span></div>` +
+    d.sections.map((s, i) => {
+      const box = document.createElement("div"); box.innerHTML = cleanXlHTML(s.body); linkCites(box, t);
+      return `<section id="sec-${i + 1}"><div class="ai-sec off-sec" lang="${l}"><h3>${esc(s.title)}</h3>${box.innerHTML}
+        <div class="secfoot" lang="en"><button class="linkbtn" data-heb>Show Hebrew</button>${s.src ? `<a class="linkbtn" href="${esc(s.src)}" target="_blank" rel="noopener">${esc(x.english)} source ↗</a>` : ""}<a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener">Hebrew source ↗</a></div></div><div class="heb-orig" lang="he" dir="rtl" data-sec="${i + 1}" hidden></div>${secTools(t, i)}</section>`;
+    }).join("") +
+    `<p class="foot">From <i>Peninei Halakha</i> by Rabbi Eliezer Melamed — פניני הלכה, הרב אליעזר מלמד, מכון הר ברכה — licensed CC BY 4.0. ${esc(x.english)} translation by Yeshivat Har Bracha, as published on ph.yhb.org.il.</p>`;
+  citeClicks(r); jumpPending(t);
+  applyReadLang(t, r);
+  nowSecShown = null; paintNowSec();
+  hebToggles(t, r);
+}
+function cleanXlHTML(html) {   // the site's HTML, as cleanHTML treats the English: no scripts or inline styles, links open outside
+  const d = document.createElement("div"); d.innerHTML = html;
+  d.querySelectorAll("script,style,iframe,form,img[src^='http:']").forEach(e => e.remove());
+  d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
+  d.querySelectorAll("[style]").forEach(e => { if (!/padding-left/.test(e.getAttribute("style"))) e.removeAttribute("style"); });
+  return d.innerHTML;
 }
 
 /* ---------- citation links: SA 345:2, Shabbat 6a, Rambam, Tanakh… open the cited text ----------
@@ -2689,7 +2715,7 @@ function settingsDialog() {
     <div class="field"><label>Text size</label><div class="chips">${[[0.9, "Small"], [1, "Normal"], [1.15, "Large"], [1.3, "Larger"]].map(([v, l]) => `<button class="chip ${state.prefs.size === v ? "on" : ""}" data-size="${v}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>Hebrew typeface</label><div class="hefonts">${HEB_FONTS.map(f => `<button class="hefont ${(state.prefs.hefont || "frank") === f.id ? "on" : ""}" data-hefont="${f.id}" aria-pressed="${(state.prefs.hefont || "frank") === f.id}"><span class="hs" lang="he" dir="rtl" style="font-family:${f.css.replace(/"/g, "&quot;")}">שְׁמַ֖ע יִשְׂרָאֵ֑ל</span><span><b>${f.name}</b><small>${f.note}</small></span></button>`).join("")}</div></div>
     <div class="field"><label>Language: reading and listening</label><div class="chips">${[["en", "English"], ["he", "Hebrew"], ["both", "Both"], ["side", "Side by side"]].concat(Object.keys(XL.langs).map(l => [l, XL.langs[l].name])).map(([v, l]) => `<button class="chip ${langPref() === v ? "on" : ""}" data-read="${v}" ${isXl(v) ? `lang="${v}"` : ""}>${l}</button>`).join("")}</div>
-      <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English.${Object.keys(XL.langs).map(l => ` ${XL.langs[l].name} reads an AI translation (Claude) from the Hebrew where a chapter has one, and English where it doesn't yet; listening stays as for English.`).join("")} ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
+      <span class="note">One choice for both: English reads the translation and plays Har Bracha's English recording where there is one, and the AI voice everywhere else. Hebrew reads Rav Melamed's original and plays the Hebrew recording. Both shows the Hebrew under each English section and listens in English.${Object.keys(XL.langs).map(l => ` ${XL.langs[l].name} reads Yeshivat Har Bracha's own translation where it has one, else an AI translation (Claude) from the Hebrew where a chapter has one, and English where it doesn't yet; listening stays as for English.`).join("")} ${NATIVE ? `A chapter's Hebrew text stays on the ${DEVICE} once it has loaded.` : ""}</span></div>
     ${voiceField()}
     <button class="opt" data-unplug><span class="radio ${state.prefs.unplugPause !== false ? "on" : ""}"></span><span style="flex:1"><b>Pause when headphones disconnect</b><br><span class="note">When your earbuds disconnect or you unplug headphones, playback pauses instead of carrying on through the speaker.${window.PearlsNative ? "" : " Works in the Pearls app."}</span></span></button>
     <button class="opt" data-pref="hc"><span class="radio ${state.prefs.hc ? "on" : ""}"></span><span style="flex:1"><b>High contrast</b><br><span class="note">Pure black and white, no glows</span></span></button>
@@ -3093,7 +3119,7 @@ document.addEventListener("click", e => {
     case "unlist": if (b.dataset.list === "liked") like(id); else { state.lists[b.dataset.list] = state.lists[b.dataset.list].filter(x => x.id !== id); save.lists(); } render(); break;
     case "audiolang": { const t = cur() || BYID[id], xls = Object.keys(XL.langs), p = langPref();   // English → Hebrew → Español… → English
       setLang(isXl(p) ? (xls[xls.indexOf(p) + 1] || "en") : t && listenLang(t) === "he" ? (xls[0] || "en") : "he");
-      toast(isXl(langPref()) ? `${XL.langs[langPref()].name}: reading the AI translation where there is one; listening stays ${t ? LANG_NAME[listenLang(t)] : "English"}` : langPref() === "he" ? "Hebrew: reading and listening" : t && listenLang(t) === "tts" ? "English: the AI voice reads it" : "English: reading and listening"); break; }
+      toast(isXl(langPref()) ? `${XL.langs[langPref()].name}: reading Har Bracha's translation or an AI one where there is one; listening stays ${t ? LANG_NAME[listenLang(t)] : "English"}` : langPref() === "he" ? "Hebrew: reading and listening" : t && listenLang(t) === "tts" ? "English: the AI voice reads it" : "English: reading and listening"); break; }
     case "dl": { const t = BYID[id], st = dlState(t);
       if (st.s === "none") { if (!DL.ok) { toast("Storage isn't available for downloads"); break; }
         downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're back online" : `Downloading in ${dlLang(t) === "en" ? "English" : "Hebrew"} · about ${fmtMB(dlBytes(t, dlLang(t)))}`); }

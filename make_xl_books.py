@@ -5,9 +5,12 @@ shape {book, chapter, chapter_<lang>, sections:[{slug, title_<lang>, body_<lang>
   -> www/xl/<lang>/BB-CC.js  (one file per chapter, loaded when the chapter is opened in that language)
   -> www/xl/index.js         (which chapters have which languages, with their translated chapter and section titles)
 
-Only chapters that pass `work/check.py --lang <lang>` ship, as make_he_books.py does for English.
+Where Har Bracha publishes its own translation of a chapter (src/<lang>/BB-CC.json, fetched by fetch_xl_official.py
+from ph.yhb.org.il/<lang>, CC BY 4.0), that official text ships instead of the AI one and is labelled official; a
+chapter ships official only if every section of the Hebrew has its official counterpart.
+Only AI chapters that pass `work/check.py --lang <lang>` ship, as make_he_books.py does for English.
 To add a language: translate into work/<lang>/, add it to LANGS below, and run this script (build.sh does)."""
-import glob, json, os, re, subprocess, sys
+import glob, html, json, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORK = os.path.join(HERE, "work"); OUT = os.path.join(HERE, "www", "xl")
@@ -33,20 +36,49 @@ def clean(h, lang):
     h = re.sub(r"<p>(?:<i>)?(\[[^\]<]{1,60}\])(?:</i>)?</p>", r'<p class="ph-media"><i>\1</i></p>', h)
     return h
 
+def official(lang, cid, he):
+    """The official translation of a chapter, section by section, or None if the site lacks any section of it."""
+    p = os.path.join(HERE, "src", lang, f"{cid}.json")
+    if not os.path.exists(p): return None
+    raw = json.load(open(p)); raw = raw.get("posts", []) if isinstance(raw, dict) else raw
+    posts = {q["slug"]: q for q in raw if (q.get("content") or {}).get("rendered", "").strip()}
+    if not posts: return None
+    secs = []
+    for s in he["sections"]:
+        q = posts.get(s["slug"])
+        if not q: return False   # partial: the AI chapter stays
+        body = re.sub(r"(?is)<(script|style|iframe|form)\b.*?</\1>", "", q["content"]["rendered"])
+        title = html.unescape(re.sub(r"<[^>]+>", "", q["title"]["rendered"])).strip()
+        title = re.sub(r"^\d{1,2}\s*[\.\)–—-]\s*", "", title)   # the site numbers its section titles; the app numbers them itself
+        secs.append({"slug": s["slug"], "link": s["link"], "src": q.get("link") or "", "title": title, "body": body.strip(), "notes": []})
+    return secs
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     index = {"langs": {k: {"name": v["name"], "short": v["short"], "english": v["english"]} for k, v in LANGS.items()}, "ch": {}}
     for lang in LANGS:
         d = os.path.join(OUT, lang); os.makedirs(d, exist_ok=True)
         for f in glob.glob(os.path.join(d, "*.js")): os.remove(f)
-        shipped, report = 0, []
-        for f in sorted(glob.glob(os.path.join(WORK, lang, "*.json"))):
-            cid = os.path.basename(f)[:-5]
+        shipped, n_off, report = 0, 0, []
+        ids = sorted({os.path.basename(f)[:-5] for f in glob.glob(os.path.join(WORK, lang, "*.json"))}
+                     | {os.path.basename(f)[:-5] for f in glob.glob(os.path.join(HERE, "src", lang, "*.json"))})
+        for cid in ids:
+            f = os.path.join(WORK, lang, f"{cid}.json")
             hp = os.path.join(WORK, "he", f"{cid}.json")
             if not os.path.exists(hp): report.append(f"{cid}: no Hebrew source"); continue
+            he = json.load(open(hp)); off = official(lang, cid, he)
+            if off is False: report.append(f"{cid}: official translation lacks a section, AI kept")
+            if off:
+                src = json.load(open(os.path.join(HERE, "src", lang, f"{cid}.json")))
+                data = {"id": cid, "lang": lang, "translator": "official", "sections": off,
+                        "title": (src.get("chapter") if isinstance(src, dict) else "") or ""}
+                open(os.path.join(d, f"{cid}.js"), "w").write("window.PH_BOOK_LOAD(" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ");\n")
+                index["ch"].setdefault(cid, {})[lang] = {"t": data["title"], "s": [s["title"] for s in off], "o": 1}
+                shipped += 1; n_off += 1; continue
+            if not os.path.exists(f): continue
             ok, msg = valid(lang, cid)
             if not ok: report.append(f"{cid}: failing checks, not shipped\n{msg}"); continue
-            he, xl = json.load(open(hp)), json.load(open(f))
+            xl = json.load(open(f))
             by = {s["slug"]: s for s in xl.get("sections", [])}
             secs = []
             for s in he["sections"]:
@@ -58,7 +90,7 @@ def main():
             open(os.path.join(d, f"{cid}.js"), "w").write("window.PH_BOOK_LOAD(" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ");\n")
             index["ch"].setdefault(cid, {})[lang] = {"t": data["title"], "s": [s["title"] for s in secs]}
             shipped += 1
-        print(f"{lang}: {shipped} chapters shipped")
+        print(f"{lang}: {shipped} chapters shipped, {n_off} of them Har Bracha's official translation")
         for r in report: print(r)
     open(os.path.join(OUT, "index.js"), "w").write(
         "window.PH_XL = " + json.dumps(index, ensure_ascii=False, separators=(",", ":")) + ";\n")

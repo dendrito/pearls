@@ -41,7 +41,8 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 tts/test_speech.py`: Hebrew terms in any spelling reach the AI voice in a sayable form, English words
     untouched. It must end "speech: 6/6".
   - `python3 test_xl.py`: other reading languages. Choosing Español, a Spanish chapter with its AI label and credit,
-    the English fallback note on an official chapter, Português, and back to English. It must end "other languages: 20/20".
+    the English fallback note on an official chapter, Português, Har Bracha's own Spanish labelled official (a stand-in
+    for 18-01, put back afterwards), and back to English. It must end "other languages: 25/25".
   - `python3 test_flat.py`: the flat rule (see Rules). It must end "flat: no soft gradients or blurs".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
@@ -102,6 +103,12 @@ follow the same way (`work/TRANSLATE-fr.md`).
   shown in English (or Hebrew, if it has no English either) with a note saying so (`xlMissing()`).
 - Citation links run on the translation; respelling and Hebrew tints don't. Listening is unchanged: an other language
   counts as English for `listenLang()`. Interface chrome stays English.
+- **Official translations win.** Har Bracha publishes its own Spanish (Berakhot, Kashrut I and II, Taharat HaMishpaja)
+  and French (Berakhot) at ph.yhb.org.il/es and /fr, CC BY 4.0, with the same `BB-CC-SS` slugs. `fetch_xl_official.py`
+  saves them to `src/<lang>/BB-CC.json`; it must run where that site is reachable (the cloud build machine is blocked).
+  `make_xl_books.py` then ships a chapter as `"translator": "official"` (index `"o": 1`) when every section is there,
+  instead of the AI text, and `renderXlOfficial()` shows it labelled "Official translation" with Har Bracha's credit and
+  no AI marks. A chapter the site has only partly stays AI. There is no official Portuguese.
 - Size: each language adds about 10.5 MB of text (about 3 MB compressed in the APK); the index is 190 KB with two.
 
 ## Offline and downloads (Android)

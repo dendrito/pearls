@@ -1,9 +1,21 @@
 """Other reading languages (www/xl, make_xl_books.py): choose Español (then Português), read a chapter that has a Spanish AI translation,
-see the AI label and the credit, and get English with a note on a chapter that has none. Offline, like test_app.py.
+see the AI label and the credit, see Har Bracha's own Spanish labelled official where it exists, and get English with a note on a chapter that has none. Offline, like test_app.py.
 Must end "other languages: N/N"."""
-import os, sys
+import json, os, shutil, subprocess, sys
 from playwright.sync_api import sync_playwright
 here = os.path.dirname(os.path.abspath(__file__))
+# Har Bracha's own Spanish (src/es, from fetch_xl_official.py) replaces the AI text for a chapter it covers: a stand-in
+# for 18-01 is built for the test, and the real src/es/18-01.json (if any) is put back afterwards.
+FIX = os.path.join(here, "src", "es", "18-01.json"); KEEP = FIX + ".keep"
+if os.path.exists(FIX): shutil.move(FIX, KEEP)
+os.makedirs(os.path.dirname(FIX), exist_ok=True)
+he = json.load(open(os.path.join(here, "work", "he", "18-01.json")))
+json.dump({"chapter": "La pureza familiar", "posts": [{"slug": x["slug"], "link": f"https://ph.yhb.org.il/es/{x['slug']}/",
+    "title": {"rendered": f"{i + 1:02d} – Sección oficial {i + 1}"}, "content": {"rendered": f"<p>Texto oficial de Har Bracha, sección {i + 1}.</p><script>bad()</script>"}}
+    for i, x in enumerate(he["sections"])]}, open(FIX, "w"), ensure_ascii=False)
+def rebuild():
+    subprocess.run([sys.executable, os.path.join(here, "make_xl_books.py")], check=True, capture_output=True)
+rebuild()
 url = "file://" + os.path.join(here, "www", "index.html")
 ok, fails, errors, loaded = 0, [], [], []
 
@@ -70,9 +82,26 @@ with sync_playwright() as p:
     check("Portuguese body shown with lang=pt", "reconhecimento do bem" in body and "pt/10-01.js" in loaded)
     banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
     check("Portuguese labelled as an AI translation", "AI translation" in banner and "Portuguese" in banner and "Claude" in banner)
+    # a chapter Har Bracha translated into Spanish itself: its text, labelled official, no AI marks
+    pg.evaluate("PEARLS.setLang('es')"); pg.goto(url + "#ch-18-01"); pg.wait_for_timeout(700)
+    body = pg.eval_on_selector('.ai-sec[lang="es"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="es"]') else ""
+    check("official Spanish shown in place of the AI one", "Texto oficial de Har Bracha, sección 1." in body and not pg.query_selector("#reader script"))
+    banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
+    check("labelled official, not AI", "Official translation" in banner and "Har Bracha" in banner and "AI" not in banner and "Claude" not in banner)
+    check("no section marked AI, site numbers dropped", pg.evaluate("[...document.querySelectorAll('.ai-sec[lang=es] h3')].every(h => !h.querySelector('.aitag'))")
+          and pg.eval_on_selector('.ai-sec[lang="es"] h3', "e => e.textContent").strip() == "Sección oficial 1")
+    head = pg.eval_on_selector(".chhead .aiflag", "e => e.textContent")
+    foot = pg.eval_on_selector("#reader > p.foot", "e => e.textContent")
+    check("chapter header and credit say Har Bracha's translation", "Official translation" in head and "Yeshivat Har Bracha" in foot and "CC BY 4.0" in foot and "AI" not in foot)
+    check("links to the Spanish page and the Hebrew", pg.evaluate("[...document.querySelectorAll('#sec-1 .secfoot a')].map(a => a.textContent).join('|')") == "Spanish source ↗|Hebrew source ↗")
     pg.evaluate("PEARLS.setLang('en')"); pg.wait_for_timeout(700)
     check("back to English redraws the chapter", not pg.query_selector('.ai-sec[lang="es"]') and pg.evaluate("document.querySelectorAll('#reader .ai-sec').length") > 0)
     b.close()
+
+os.remove(FIX)
+if os.path.exists(KEEP): shutil.move(KEEP, FIX)
+elif not os.listdir(os.path.dirname(FIX)): os.rmdir(os.path.dirname(FIX))
+rebuild()
 
 print("errors:", errors or "none")
 total = ok + len(fails)

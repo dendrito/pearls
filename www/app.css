@@ -290,6 +290,8 @@ body.hc .mini .mctl .iconbtn.big{background:#fff;color:#000}
 .hebtitle{font-family:var(--f-heb);font-size:20px;color:var(--gold-2)}
 .xltitle{font-size:18px;line-height:1.35;color:var(--gold-2)}
 .aiflag.xlmissing{margin-bottom:14px}
+.aiflag.official,.aibanner.official{background:var(--ink-2);border-color:var(--line)}
+.aitag.off{color:var(--ink);background:var(--pearl)}
 
 .secfoot{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 10px}
 .secfoot a.linkbtn{text-decoration:none}
