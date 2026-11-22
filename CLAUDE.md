@@ -1,10 +1,11 @@
 # Pearls: notes for Claude Code
 
 Pearls is an English *Peninei Halakha* (Rabbi Eliezer Melamed, Yeshivat Har Bracha) reader and listener. One web app (`www/`)
-ships three ways:
+ships four ways:
 
 - an Android APK, built without the Android SDK;
 - an iPad / iPhone / Mac app (`apple/`, WKWebView);
+- a Windows app (`windows/`, Electron);
 - a web artifact on claude.ai.
 
 Pearls is its own project, with its own claude.ai project "Pearls". Meldar (meldar.pages.dev) is a separate product.
@@ -49,15 +50,31 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_daily.py`: the Daily Pearl schedule against the catalogue, the Home card and `#daily`, and finding
     next year's bookmark by itself (a stand-in PDF from `make_test_bookmark.py`, served through a fake proxy). It must
     end "daily pearl: 26/26".
-  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 14/14".
-  - `python3 test_android_shell.py`: the https app address, the data handover and the bundled fonts. It must end
-    "6/6 checks passed".
+  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 55/55". `node tools/cite_audit.js` counts linked and missed citations across every chapter (`docs/citation-audit-hebrew.md`).
+  - `python3 test_cite_offline.py`: a citation text opened once online opens offline afterwards (kept in IndexedDB
+    `pearls-cite`). It must end "cite offline: 3/3".
+  - `python3 test_android_shell.py`: the https app address, the data handover, the bundled fonts and the phone's own
+    voices through the app. It must end "8/8 checks passed".
   - `WRANGLER=… node test_sync.mjs`: sync's merge rules and API (`wrangler pages dev`). It must end "sync: 30/30".
   - `WRANGLER=… node test_sync_app.mjs`: sync end to end, a signed-in browser plus a stand-in for the app. It must end
     "sync app: 15/15". Needs Playwright (`NODE_PATH=$(npm root -g)`).
   - `python3 test_apple_shell.py`: the Apple bridge (`native-shim.js` against a stand-in for the Swift side), the
     device word ("on this iPad") and the iPad side rail. It must end "apple shell: 16/16". The Swift itself only
     builds on a Mac: `apple/README.md` has the steps.
+  - `NODE_PATH=$(npm root -g) xvfb-run -a node test_windows_shell.mjs` (after `cd windows && npm ci`): the real
+    Windows shell, `windows/main.js`, launched with this www/. It must end "windows shell: 24/24".
+
+## Windows app (2.6.2)
+
+- `windows/main.js` serves www on `app://pearls/` and gives the page Android's `PearlsNative` bridge, answered
+  synchronously over IPC (`windows/preload.js`): downloads into `%APPDATA%\Pearls\dl` (served at `/dl/` with byte
+  ranges), kept Hebrew in `text/`, `/proxy?u=` for ph.yhb.org.il only. `PEARLS_SHELL = "windows"`, so the page says
+  "this PC" (`SHELL_WORD`) and hides the Wi-Fi-only switches (`DESKTOP`).
+- Voices, sync and the media keys need nothing from the shell: Kokoro/Piper run in Chromium as on the web, sync uses
+  the app token flow, and `navigator.mediaSession` reaches Windows' media overlay. The shell adds taskbar
+  prev/play/next, a sleep blocker while playing, and a headphones-gone check (an output device vanishes).
+- Build: `./windows/build_windows.sh` (installer + zip, x64 and arm64, into `dist/windows/`). On Linux it needs Wine;
+  the "Windows app" GitHub Action builds on Windows instead. The installer is not code-signed. `windows/README.md`.
 
 ## Android 2.0 shell (Google Play ready)
 
@@ -75,7 +92,30 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   (also shown on the lock screen), tied to the MediaSession, and holds a partial wake lock while playing.
 - **Back:** handled through OnBackInvokedCallback. At the app's root, back sends the app to the background instead of
   closing it.
+- **AI voices:** Kokoro (Natural) and Piper (Light) run in the WebView exactly as on the web (`www/voice.js` and its
+  workers, models from Hugging Face into IndexedDB, each voice its own download). The phone's own voices come from
+  `DeviceVoice.java` (TextToSpeech renders each piece to a WAV, served at `/native/device-voice/list|say`), because the
+  WebView's speechSynthesis doesn't speak; only voices kept on the phone are listed, male first. The manifest's
+  `<queries>` for `TTS_SERVICE` is what lets Android 11+ see the speech engine.
 - **Fonts:** the Latin web fonts are bundled (`www/fonts/web/`, made by `fetch_webfonts.py` from Fontsource).
+
+## Layout 2.8 (cover art and posters)
+
+- `www/covers.js` (`PEARLS_COVERS.svg(slug)`) draws one flat scene per volume on a 100x100 grid. Shapes carry classes
+  (`m1 m2 m3 mk mf`) coloured from the cover's `--c1/--c2/--c3`, `--cv-ink`, `--cv-flame`, so a skin that re-colours
+  covers re-colours the art. `cover()`, `art()` and `plArt` use it and fall back to the old shapes for an unknown slug.
+- `.tint` is a block in the book's own colour (`style=coverStyle(v)`): the Home poster, the Daily Pearl card, the
+  compact mini player, the chapter band and the Now Playing stage. Skins re-colour it with the same
+  `:is(.cover,.art,.tint,.plart>i)` rules; text on it is `--on-tint` (dark where `c1` is light, e.g. nacre's alt).
+- Home: a poster (the calendar's next festival, else the top recommendation), "Jump back in" tiles, then the shelves.
+- Default playlists (`bookPls()`, `topicPls()` in app.js): one per book ("The whole book") and one per topic in
+  `TOPIC_LABEL` with 3+ chapters that carry the tag themselves (not only through their book), across books. Built from
+  the catalogue on each render, so they never go stale. Home shows "Playlists by topic"; Playlists shows By topic and By book.
+- The mini player is one compact row; the expand button (`prefs.miniFull`) shows the full 2.7 control bar.
+- Chapter page: a floating language button (`.langfab`, moved to `body` so it stays fixed; `langSheet()`) opens the
+  Language bar from anywhere in the text, above the mini player (`--mini-h`).
+- Chapter page: art band with the chapter number, then title, Listen and the text; language, spelling, tags and
+  Meldar links sit in a "More" fold (`prefs.chMore`); sections are chips; Mark as done is at the end.
 
 ## What is translated
 
@@ -200,7 +240,7 @@ follow the same way (`work/TRANSLATE-fr.md`).
 | Path | What |
 |---|---|
 | `www/app.js`, `app.css`, `skins.css`, `modes.css`, `data.js` | The app. 23 skins, each in light and dark (2.3; the six flat skins Azulejo, Cut Paper, Riso, Bone & Ink, Mizraḥ Arches and Thread came in 2.6, with their art in `www/art/<skin>-<light|dark>.svg`): `skins.css` draws each skin in its own mode (`light` in SKINS), `modes.css` holds the counterpart palette under `body[data-alt]`; Settings → Appearance (`prefs.mode`: design, light, dark, auto) picks. Pearl Minimal's three entries became one skin (old prefs migrate). Check with `python3 tools_skinshots.py home|read|settings` (contact sheets in `build/skinshots/`). 3 Hebrew typefaces (Frank Ruhl Libre, Shofar, Keter YG v0.103). Read/listen language pickers. Audio control bar. Credits page (`#credits`). |
-| `www/meldar-cite.js`, `www/pearls-cite-links.js`, `.css` | Citation links. Footnote and body citations (SA 345:2, MB, Shabbat 6a, Rambam, Tosafot, Tanakh, Arukh HaShulchan…) become links; a tap opens a sheet with the passage from Sefaria (Hebrew, English, each version's licence) and "Open on Sefaria / in Meldar". `meldar-cite.js` is Meldar's citation grammar, **shipped unmodified** like `meldar-record.js`: upgrade it by copying Meldar's file, never by editing it here. `linkCites()` in app.js runs before respelling and Hebrew tints (both rewrite text nodes); clicks are delegated (`citeClicks`) because chapter HTML is rebuilt as strings. A bare Shulchan Arukh siman takes its section from the chapter (`sefRef` → the grammar's section table) and the sheet says that part is our reading; with no chapter context it is not linked. Bare names ("Rashi") are not marked. "Peninei Halakha: Shabbat 21:8" opens that Pearls chapter. |
+| `www/meldar-cite.js`, `www/pearls-cite-links.js`, `.css` | Citation links. Footnote and body citations (SA 345:2, MB, Shabbat 6a, Rambam, Tosafot, Tanakh, Arukh HaShulchan…) become links; a tap opens a sheet with the passage from Sefaria (Hebrew, English, each version's licence) and "Open on Sefaria / in Meldar". `meldar-cite.js` is Meldar's citation grammar, **shipped unmodified** like `meldar-record.js`: upgrade it by copying Meldar's file, never by editing it here. `linkCites()` in app.js runs before respelling and Hebrew tints (both rewrite text nodes); clicks are delegated (`citeClicks`) because chapter HTML is rebuilt as strings. A bare Shulchan Arukh siman takes its section from the chapter (`sefRef` → the grammar's section table) and the sheet says that part is our reading; with no chapter context it is not linked. Bare names ("Rashi") are not marked. "Peninei Halakha: Shabbat 21:8" opens that Pearls chapter. Every passage opened from a citation is kept on the device (IndexedDB `pearls-cite`, in `fetchSource`): a kept copy shows at once and refreshes quietly when online, so it opens offline next time. Books Sefaria lacks are listed on `#missing` (Credits, and the sheet of any such citation), from `www/cite-missing.js`; re-run `node tools/make_missing_books.js` after changing the citation rules. |
 | `functions/api/`, `webauth/sync.js`, `www/pearls-sync-merge.js` | Sync across devices: where you stopped reading (`state.where`, chapter + section) and listening, finished chapters, lists, playlists, saved passages and settings. Browsers on pearls.pages.dev use the sign-in pass; the apps link with a one-time code from a signed-in browser (Settings → Sync across devices) and keep a device token. Stored in KV (`SYNC`, else `INVITES`). The merge rules are one file shared by the app and the server; anything in `store.set` that is in `WHOLE` or a per-chapter map syncs automatically. Device-only: text size, downloads, the Meldar study record. Setup and limits: `docs/cloudflare-pages.md`. |
 | `www/calendar.js` | The Jewish calendar and its readings: 22 festivals and fasts plus Rosh Ḥodesh, with postponements, study windows (30 days before a festival) and chapters. Drives Home's "On the calendar" shelf, `#calendar`, the `#pl-cal-<id>` playlists and the calendar boost in `recommend()`. Method: `docs/calendar-readings.md`. Test: `python3 test_calendar.py` (must end "calendar: 14/14"). |
 | `www/daily-pearl.js` | The Daily Pearl (הפנינה היומית), Peninei Halakha's own two halakhot a day. No feed exists (it goes out by WhatsApp, email, Telegram), so the year's schedule is copied from PH's printed study bookmark (PDF linked in the file), one token per day; `PH_DAILY.forDate()`. Drives Home's Daily Pearl card and `#daily`. **Next year's schedule is found by the app:** from two months before the schedule ends, once a day, `dailyLook()` (app.js) reads PH's Daily Pearl page through the proxy, finds a bookmark link for a newer year ("סימניית הלימוד - תשפ"ח"), reads the PDF with `www/pdf-text.js` (a small PDF text reader, loaded only then), turns the grid into the same token string (`parseBookmark`), and keeps it in `localStorage` `pearls.dailyYears` only if every printed date matches the Hebrew calendar, the day count matches the year, every book name in the margin is known, and every reference is in the catalogue. Otherwise nothing changes and the card links to PH. Reading the real 5787 bookmark this way reproduces the bundled string exactly. Bundling the year in `YEARS` is still the better release path; a bundled year always wins over a found one. The proxies allow `cdn1.yhb.org.il` too, where some bookmarks live. The bookmark is the Hebrew program; the English WhatsApp group may differ. |
@@ -211,6 +251,7 @@ follow the same way (`work/TRANSLATE-fr.md`).
 | `android/` | Manifest, res, `java/` (MainActivity, AppServer, PearlsBridge, PlaybackService), `build_apk.py`, `build_aab.py`, `make_icons.py`. |
 | Icon | "Glint A": a flat bone pearl with a quarter-arc glint on night (#EFE7D8 on #12110F). `python3 android/make_icons.py` redraws every size: Android PNGs, the adaptive and themed icons, the notification icon, the web icons, `store/play-icon-512.png` and the Apple set. The in-app header mark (`.brand .dot`) is the same shape in every skin: the pearl in `--logo` (default `--pearl`), the glint cut in `--ink`. |
 | `functions/`, `webauth/`, `docs/cloudflare-pages.md` | The web edition on Cloudflare Pages (pearls.pages.dev): output dir `www`, no build. `proxy.js` fetches ph.yhb.org.il text (only that host). The site is private: `_middleware.js` requires a pass, which comes from Cloudflare Access (Google or an email code, on `/signin`) or from an invite link made on `/admin` (stored in KV, can be cancelled). It also adds noindex. Setup steps are in the doc. Test: `WRANGLER=… node test_webauth.mjs`, which must end "webauth: 23/23". |
+| `windows/` | Electron shell for Windows: `main.js`, `preload.js`, `build_windows.sh`, `README.md`. Icons from `android/make_icons.py`. |
 | `apple/` | Xcode project. One multiplatform target (iPhone, iPad, Mac). iOS starts from UIKit (status bar follows the skin, background downloads); the Mac from SwiftUI. The `pearls://` scheme handler serves www, proxies ph.yhb.org.il (duplicate CORS headers), serves downloads at `/dl/` with byte ranges and saved text at `/native/text/`. Run `apple/sync_www.sh` after changing www; `apple/build_ios.sh ipa` makes an App Store Connect build on a Mac. |
 | `www/wide.css` | The wide layout (2.7), from 768px: side rail instead of the tab bar, a wider column, centred dialogs, Now Playing side by side in landscape. Layout only, so every skin works unchanged. |
 | `design/ui-directions/` | Design canvas sources (Parchment, Studio, Daf, Clear, Pearl Minimal + Sand/Ice/Night/Mint). |
@@ -240,3 +281,6 @@ follow the same way (`work/TRANSLATE-fr.md`).
   - A new skin font goes in `fetch_webfonts.py`, then run `patch_webfonts.py` and `test_fonts.py`. Never add a
     `font-family` without bundling it.
   - Avoid characters fonts rarely have (e.g. U+2011 non-breaking hyphen); use the plain one.
+  - A word quoted in another script (Allah الله, Bog Бог) goes in `<span lang="ar|ru">`; `:lang()` rules in app.css
+    draw it with `--f-ar` / `--f-cyr` (bundled Noto, only that script's subset; sans by default, serif in skins that
+    read in serif). `test_fonts.py` fails on an unmarked Cyrillic or Arabic letter, or one those faces lack.

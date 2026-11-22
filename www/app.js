@@ -104,6 +104,15 @@ const WORKS = new RegExp(["Peninei Hala[kc]h(?:a|ah)", "Mishn(?:a|ah) Berur(?:a|
   "Ye[ĥḥ]aveh Da[’']at", "Yabi[’']a Omer", "Igrot Moshe", "Sefer Ha-?[ĥḥ]inukh", "Seder Hayom", "Ben Ish [ĤḤ]ai", "Mishneh Torah", "Tur",
   "Hilkhot Shabbat", "Hilkhot [A-Z][\\p{L}’'-]+", "Masekhet [A-Z][\\p{L}’'-]+", "Tractate [A-Z][\\p{L}’'-]+",
   "Ashkenaz(?:im|i)?"].join("|"), "gu");   // named exceptions keep their usual spelling: Ashkenaz, never "Ascenaz"
+// The series is spelled "Peninei Halakha" everywhere Pearls shows or says it, whatever spelling the source used
+// (some official chapters print "Peninei Halachah"; Sefaria's catalogue writes "Peninei Halakhah"). Display only:
+// Sefaria references keep Sefaria's spelling, because that is how they are looked up.
+const PH_NAME_RE = /\bPeninei\s+Hala(?:kh|ch|k)(?:a|ah)\b/gi;
+const phName = s => String(s).replace(PH_NAME_RE, "Peninei Halakha");
+function phNameTree(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
+  while ((n = w.nextNode())) { PH_NAME_RE.lastIndex = 0; if (PH_NAME_RE.test(n.nodeValue)) n.nodeValue = phName(n.nodeValue); }
+}
 const rcache = new Map();
 function R(text) {
   if (!text || scheme === "source" || !LEXRE) return text;
@@ -174,7 +183,10 @@ const SKINS = [
   { id: "mizrah", name: "Mizraḥ Arches", note: "olive and saffron arch windows", bg: "#F4EEDC", acc: "#4F5B2E", light: true, alt: "#171A12" },
   { id: "thread", name: "Thread", note: "tzitzit strings and tallit stripes in blue", bg: "#F3F6F9", acc: "#2B5D8C", light: true, alt: "#0B1826" }
 ];
-const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match " + (window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : "phone")]];
+/* the word for the device the app runs on: the Apple and Windows apps say what they are (PEARLS_SHELL, set by apple/ and windows/);
+   Android and the web say "phone" */
+const SHELL_WORD = { ipad: "iPad", mac: "Mac", ios: "iPhone", windows: "PC" }[window.PEARLS_SHELL] || "phone";
+const MODES = [["design", "As designed"], ["light", "Light"], ["dark", "Dark"], ["auto", "Match " + SHELL_WORD]];
 /* 2.3: the three Pearl Minimal entries became one skin with modes */
 if (state.prefs.skin === "pearl-dark") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "dark"; save.prefs(); }
 if (state.prefs.skin === "pearl-auto") { state.prefs.skin = "pearl"; state.prefs.mode = state.prefs.mode || "auto"; save.prefs(); }
@@ -345,6 +357,18 @@ function presetTracks(p) {
   return list.map(t => t.id);
 }
 const PRESETS = window.PH_PRESETS.map(p => ({ ...p, kind: "preset", tracks: presetTracks(p) })).filter(p => p.tracks.length);
+/* 2.8 default playlists: every book, and every topic that runs through several chapters, built from the catalogue
+   so they never go stale. A topic counts a chapter only when the chapter itself carries the tag (not just its book),
+   so "Kiddush" is the kiddush chapters across the books, not the whole of Laws of Shabbat. */
+const bookPls = () => VOLS.map(v => ({ id: `book-${v.book}`, kind: "preset", group: "book", vol: v.book, name: R(v.title),
+  blurb: `Every chapter of ${R(v.title)}, in order${v.he ? ". Chapters without an English recording play in the AI voice or in Hebrew" : ""}.`,
+  tracks: volTracks(v).map(t => t.id) })).filter(p => p.tracks.length);
+const topicPls = () => Object.keys(TOPIC_LABEL).map(g => {
+  const ts = TRACKS.filter(t => t.tags.includes(g) && !t.vol.tags.includes(g)), books = new Set(ts.map(t => t.vol.book)).size;
+  return { id: `topic-${g}`, kind: "preset", group: "topic", tag: g, name: TOPIC_LABEL[g],
+    blurb: books > 1 ? `The chapters on ${TOPIC_LABEL[g].toLowerCase()} from ${books} books, in the order of the books.` : `The chapters on ${TOPIC_LABEL[g].toLowerCase()}, in order.`,
+    tracks: ts.map(t => t.id) };
+}).filter(p => p.tracks.length >= 3).sort((a, b) => b.tracks.length - a.tracks.length);
 function madeForYou() {
   const daily = recommend(8).map(r => r.t.id);
   const seasonIds = TRACKS.filter(t => t.tags.some(g => SEASON.tags.includes(g))).slice(0, 12).map(t => t.id);
@@ -358,13 +382,13 @@ function madeForYou() {
   if (liked.length) out.push({ id: "liked", kind: "auto", name: "Liked Pearls", blurb: "Everything you've hearted.", tracks: liked });
   return out;
 }
-function rankedPresets() {
+function rankedPresets(list = PRESETS) {
   const w = profile();
-  return PRESETS.map(p => ({ p, s: p.tracks.reduce((a, id) => a + cosine(w, BYID[id].tags) + (BYID[id].tags.some(g => SEASON.tags.includes(g)) ? .4 : 0), 0) / p.tracks.length
+  return list.map(p => ({ p, s: p.tracks.reduce((a, id) => a + cosine(w, BYID[id].tags) + (BYID[id].tags.some(g => SEASON.tags.includes(g)) ? .4 : 0), 0) / p.tracks.length
     - p.tracks.filter(id => (state.plays[id] || {}).done).length / p.tracks.length * .6 }))
     .sort((a, b) => b.s - a.s).map(x => x.p);
 }
-function findPlaylist(id) { if (id === "review" || id === "later" || id === "liked") return listPl(id); return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
+function findPlaylist(id) { if (id === "review" || id === "later" || id === "liked") return listPl(id); return state.mine.find(p => p.id === id) || PRESETS.find(p => p.id === id) || bookPls().find(p => p.id === id) || topicPls().find(p => p.id === id) || (id.startsWith("cal-") && CAL.map(calPl).find(p => p.id === id)) || madeForYou().find(p => p.id === id); }
 /* "On the calendar": what's in its study window, then what's next */
 function calCard(o) {
   const done = o.ids.filter(isDone).length, now = o.inWindow;
@@ -677,14 +701,22 @@ if (NK.on()) NK.status().then(x => {
 /* In the Apple app the device's voices come from the app (apple/Pearls/AppleVoice.swift): there the page's own
    speechSynthesis lists only the compact voices, never the Premium and Enhanced ones the reader installed. Each piece
    comes back as a WAV and plays through Neural's two players, like the natural voices, so pause, the lock screen, the
-   paragraph highlight and the reading speed work the same. The web and Android keep speechSynthesis (Speaker). */
+   paragraph highlight and the reading speed work the same. The Android app does the same through TextToSpeech
+   (android/…/DeviceVoice.java, served at /native/device-voice/): its WebView has no speechSynthesis that speaks.
+   The web keeps speechSynthesis (Speaker). */
 const AV = (() => {
-  const base = "pearls://app/native/apple-voice/", KEEP = "pearls.appleVoices";
-  let on = null, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
-  const isOn = () => { if (on === null) { try { on = !!(window.PearlsNative && JSON.parse(PearlsNative.info()).appleVoices); } catch { on = false; } } return on; };
+  const KEEP = "pearls.appleVoices";
+  let on = null, base = "", android = false, loaded = false, list = (() => { try { return JSON.parse(localStorage.getItem(KEEP)) || []; } catch { return []; } })();
+  const isOn = () => {
+    if (on === null) {
+      try { const i = window.PearlsNative ? JSON.parse(PearlsNative.info()) : {}; android = !i.appleVoices && !!i.deviceVoices;
+        base = i.appleVoices ? "pearls://app/native/apple-voice/" : android ? "/native/device-voice/" : ""; on = !!base; } catch { on = false; }
+    }
+    return on;
+  };
   async function refresh() {
     if (!isOn()) return [];
-    try { list = await (await fetch(base + "list")).json(); localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
+    try { list = await (await fetch(base + "list")).json(); loaded = true; localStorage.setItem(KEEP, JSON.stringify(list)); } catch {}
     return list;
   }
   async function say(text, id, speed) {
@@ -697,9 +729,9 @@ const AV = (() => {
     const blob = await r.blob(), rate = new DataView(await blob.slice(0, 44).arrayBuffer()).getUint32(24, true) || 22050;
     return { blob, dur: Math.max(0, blob.size - 44) / 2 / rate, genS: +r.headers.get("X-Gen-Seconds") || 0.01 };
   }
-  return { on: isOn, refresh, say, get list() { return list; } };
+  return { on: isOn, refresh, say, get list() { return list; }, get android() { isOn(); return android; }, get loaded() { return loaded; } };
 })();
-const QUALITY = { premium: "Premium", enhanced: "Enhanced" };
+const QUALITY = { premium: "Premium", enhanced: "Enhanced", veryhigh: "Very high quality", high: "High quality" };
 const avName = v => v.name.replace(/\s*\((Premium|Enhanced)\)$/, "");   // the quality is shown apart
 /* the voice chosen, else the best one: the app lists them best first and male first, so a Premium voice is picked by
    itself once it is installed, unless the reader chose another */
@@ -1177,8 +1209,9 @@ function mediaSession(t) {
    Files are fetched by Android's DownloadManager (PearlsNative, see android/java) into the app's files folder as
    BB-CC-SS-he.mp3 / -en.mp3 and played from there. dl.idx remembers which chapters were downloaded, in which
    language, and whether smart downloads fetched them (those may be deleted automatically; yours never are). */
-/* The word for the device in "saved on this phone": the Apple app says what it runs on (PEARLS_SHELL, set by apple/). */
-const DEVICE = window.PEARLS_SHELL === "ipad" ? "iPad" : window.PEARLS_SHELL === "mac" ? "Mac" : window.PEARLS_SHELL === "ios" ? "iPhone" : "phone";
+/* The word for the device in "saved on this phone" (SHELL_WORD, above: iPad, Mac, iPhone, PC, else phone). */
+const DEVICE = SHELL_WORD;
+const DESKTOP = window.PEARLS_SHELL === "windows";   // a computer: no mobile data, so no "Wi-Fi only"
 const NATIVE = window.PearlsNative || null;   // the Android app's bridge (android/java/.../PearlsBridge.java)
 const DL = {
   ok: false, dir: "", free: 0, files: new Map(), active: new Map(), timer: null,
@@ -1235,7 +1268,7 @@ function downloadTrack(t, opts = {}) {
   jobs.forEach(j => delete DL.failed[j.name]);
   DL.idx[t.id] = { lang, auto: !!opts.auto && (!prev || prev.auto), at: Date.now() };
   saveDl();
-  if (jobs.length) { try { NATIVE.enqueue(JSON.stringify(jobs), !!DL.prefs.wifiOnly); } catch {} }
+  if (jobs.length) { try { NATIVE.enqueue(JSON.stringify(jobs), !DESKTOP && !!DL.prefs.wifiOnly); } catch {} }
   hebrewPosts(t).catch(() => {});             // keep the Hebrew text too, for reading offline
   dlPoll(); return true;
 }
@@ -1306,7 +1339,7 @@ const DLI = {
 function dlLabel(t) {
   const st = dlState(t), L = st.lang === "en" ? "English" : "Hebrew";
   if (st.s === "done") return { cls: "on", icon: DLI.done, text: `Downloaded · ${L}` };
-  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: DL.prefs.wifiOnly && !online() ? "Waiting for a connection" : DL.prefs.wifiOnly ? "Waiting for Wi-Fi" : "Queued" };
+  if (st.s === "waiting") return { cls: "wait", icon: DLI.wifi, text: !online() ? "Waiting for a connection" : DL.prefs.wifiOnly && !DESKTOP ? "Waiting for Wi-Fi" : "Queued" };
   if (st.s === "loading") return { cls: "busy", icon: DLI.wait, text: `Downloading ${st.pct || 0}%` };
   return { cls: "", icon: DLI.get, text: "Download" };
 }
@@ -1346,7 +1379,7 @@ function dlMany(ids) {
   const bytes = ts.reduce((a, t) => a + dlBytes(t, dlLang(t)), 0);
   dialog(`<h3>Download ${ts.length} chapter${ts.length > 1 ? "s" : ""}?</h3>
     <p class="note" style="margin:0">About ${fmtMB(bytes)}${DL.free ? `; ${fmtMB(DL.free)} free on this ${DEVICE}` : ""}. Each chapter downloads in the language it plays in (${langPref() === "he" ? "Hebrew" : "English where recorded, otherwise Hebrew"}).
-    ${DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
+    ${DESKTOP ? "" : DL.prefs.wifiOnly ? "Downloads wait for Wi-Fi; you can change that in Downloads." : "Downloads use mobile data too."}</p>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-ok>Download</button></div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
     $("[data-ok]", s).onclick = () => { close(); ts.forEach(t => downloadTrack(t)); toast(`Downloading ${ts.length} chapter${ts.length > 1 ? "s" : ""}`); };
@@ -1355,6 +1388,7 @@ function dlMany(ids) {
 
 /* ---------- icons ---------- */
 const I = {
+  lang: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h10M8 3v2M5.5 5c.8 3.4 3 6 6.5 7.5M10.5 5c-.9 3.9-3.4 6.9-7 8.5M13 21l4-9 4 9M14.4 18h5.2"/></svg>',
   order: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>',
   repeat1: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5V10a4 4 0 0 1 4-4h11M16 3l3 3-3 3M20 12.5V14a4 4 0 0 1-4 4H5M8 21l-3-3 3-3"/><path d="M11.2 10.4 12.5 9.6v5" stroke-width="1.6"/></svg>',
@@ -1392,8 +1426,12 @@ const I = {
 
 /* ---------- small render helpers ---------- */
 const coverStyle = v => `--c1:${v.c1};--c2:${v.c2};--c3:${v.c3}`;
-const cover = (v, cls = "") => `<div class="cover ${cls}" style="${coverStyle(v)}"><div class="ring"></div><div class="glyph">${v.glyph}</div><div class="cap">${esc(R(v.short))}</div></div>`;
-const art = t => `<div class="art" style="${coverStyle(t.vol)}"><span>${t.vol.glyph}</span></div>`;
+/* covers.js draws a flat scene for each book; a book without one keeps the old circles */
+const coverArt = v => (window.PEARLS_COVERS && PEARLS_COVERS.svg(v.slug)) || "";
+const cover = (v, cls = "") => { const a = coverArt(v);
+  return `<div class="cover ${a ? "drawn" : ""} ${cls}" style="${coverStyle(v)}">${a || '<div class="ring"></div>'}<div class="glyph">${v.glyph}</div><div class="cap">${esc(R(v.short))}</div></div>`; };
+const artVol = v => { const a = coverArt(v); return `<div class="art ${a ? "drawn" : ""}" style="${coverStyle(v)}">${a || `<span>${v.glyph}</span>`}</div>`; };
+const art = t => artVol(t.vol);
 /* ---------- what is translated: official English · AI translation · Hebrew only ---------- */
 const KINDS = [
   { id: "official", label: "Official English", tag: "Official", h: "Official English translation",
@@ -1425,8 +1463,9 @@ function trackRow(t, o = {}) {
 }
 function plArt(pl) {
   const vols = [...new Set(pl.tracks.map(id => BYID[id] && BYID[id].vol).filter(Boolean))];
+  if (vols.length === 1 && coverArt(vols[0])) return `<div class="plart one"><i class="drawn" style="${coverStyle(vols[0])}">${coverArt(vols[0])}</i><div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
   const four = [0, 1, 2, 3].map(i => vols[i % Math.max(1, vols.length)] || VOLS[i]);
-  return `<div class="plart">${four.map((v, i) => `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
+  return `<div class="plart">${four.map((v, i) => { const a = coverArt(v); return a ? `<i class="drawn" style="${coverStyle(v)}">${a}</i>` : `<i style="--c1:${v.c1};background:${i % 3 ? v.c1 : v.c2}" data-g="${v.glyph}"></i>`; }).join("")}<div class="shade"></div><div class="badge">${esc(pl.name)}</div></div>`;
 }
 const plCard = pl => `<button class="plcard" data-act="playlist" data-id="${pl.id}">${plArt(pl)}<span>${pl.tracks.length} chapters · ${mins(plDur(pl.tracks)) || "–"}</span></button>`;
 const volCard = (v, k) => { if (!KIND[k]) k = null;   // also called as .map(volCard), so k may be an index
@@ -1445,39 +1484,64 @@ function setTab(name) { document.querySelectorAll(".tabs button").forEach(b => b
 function vHome() {
   setTop(null); setTab("home");
   if (!state.interests) return vOnboard();
-  const along = alongCard();
   const recs = recommend(10), hero = recs[0];
-  const lq = state.lastQueue && BYID[state.lastQueue.ids[state.lastQueue.idx]];
-  const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 3).map(([id]) => BYID[id]);
+  const resumeList = Object.entries(state.plays).filter(([id, p]) => BYID[id] && !p.done && (p.part || p.pos > 30)).sort((a, b) => b[1].last - a[1].last).slice(0, 6).map(([id]) => BYID[id]);
   const readHere = state.where && BYID[state.where.id] && !state.read[state.where.id] && state.where.sec > 1 ? BYID[state.where.id] : null;
   const hr = new Date().getHours(), greet = hr < 12 ? "Boker tov" : hr < 18 ? "Good afternoon" : "Erev tov";
   view.innerHTML = `
   <div class="view">
-    <div><div class="eyebrow">${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}</div>
-      <h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div>
+    ${posterCard(greet, hero)}
     ${offlineCard()}
-    ${along}
+    ${jumpBack(readHere, resumeList, recs)}
     ${dailyCard()}
     ${todayCard()}
-    ${hero ? `<section class="hero"><div class="orb"></div>
-      <div class="eyebrow" style="position:relative;color:var(--gold-2)">Recommended for you</div>
-      <h3>${esc(R(hero.t.title))}</h3>
-      <div class="why">${esc(hero.why || `${R(hero.t.vol.title)} · chapter ${hero.t.n}`)} · ${esc(R(hero.t.vol.short))}${dur(hero.t) ? ` · ${mins(dur(hero.t))}` : ""}</div>
-      <div class="row">${hasHe(hero.t) || hasEn(hero.t) ? `<button class="btn gold" data-act="play" data-id="${hero.t.id}">${I.play}Listen</button>` : ""}
-        <button class="btn ghost" data-act="chapter" data-id="${hero.t.id}">${I.read}${hero.t.vol.he && !hero.t.translated ? "Read the Hebrew" : "Read in English"}</button></div>
-      <p class="note herohint">Every recording is a chapter you can read. Tap its name anywhere in Pearls, or <b>Read along</b> in the player to open the section you're hearing.</p></section>` : ""}
     ${calShelf()}
-    ${resumeList.length || readHere ? `<section><div class="sec-h"><h2>Pick up where you left off</h2></div>${readHere ? `<button class="panel progresslink" data-act="resumeread" data-id="${readHere.id}" data-sec="${state.where.sec}"><span><span class="eyebrow">Continue reading</span><br><b>${esc(R(readHere.title))}</b><br><span class="note">${esc(R(readHere.vol.short))} ${readHere.n} · section ${state.where.sec}${readHere.sectionTitles[state.where.sec - 1] ? `: ${esc(R(readHere.sectionTitles[state.where.sec - 1]))}` : ""}</span></span><span class="dur">›</span></button>` : ""}<div class="list">${resumeList.map(t => trackRow(t)).join("")}</div></section>` : ""}
     <section><div class="sec-h"><h2>Made for you</h2><button class="more" data-go="library">All playlists</button></div>
       <div class="shelf">${madeForYou().map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>Recommended chapters</h2><button class="more" data-act="playrecs">${"Play all"}</button></div>
       <div class="list">${recs.slice(1, 7).map(r => trackRow(r.t, { why: r.why })).join("")}</div></section>
     <section><div class="sec-h"><h2>Curated playlists</h2></div>
       <div class="shelf">${rankedPresets().map(plCard).join("")}</div></section>
+    <section><div class="sec-h"><h2>Playlists by topic</h2><button class="more" data-go="library">All playlists</button></div>
+      <div class="shelf">${rankedPresets(topicPls()).map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>The books</h2><button class="more" data-go="books">See all</button></div>
       <div class="shelf">${VOLS.map(volCard).join("")}</div></section>
     ${aboutFoot()}
   </div>`;
+}
+/* 2.8 the poster at the top of Home: what's coming on the calendar, else the chapter Pearls recommends, drawn with its book's art */
+function posterCard(greet, hero) {
+  const when = `${HEB ? `<span class="hebdate">${HEB.day} ${esc(HEB.month)} ${esc(HEB.year)}</span> · ` : ""}${esc(CAL_NOW.length ? `${R(CAL_NOW[0].name)} ${calWhen(CAL_NOW[0])}` : SEASON.label)}`;
+  const c = CAL_NOW.find(o => o.ids.some(id => BYID[id]));
+  if (c) {
+    const ids = c.ids.filter(id => BYID[id]), v = BYID[ids[0]].vol, d = plDur(ids);
+    return `<section class="poster tint" style="${coverStyle(v)}"><div class="poster-art">${coverArt(v)}</div>
+      <div class="poster-body"><div class="eyebrow">${when}</div>
+        <h1 class="hello">Get ready for ${esc(R(c.name))}</h1>
+        <div class="row"><button class="btn gold" data-act="playpl" data-id="cal-${c.id}">${I.play}Play ${ids.length} chapter${ids.length > 1 ? "s" : ""}${mins(d) ? ` · ${mins(d)}` : ""}</button>
+          <button class="btn ghost" data-act="playlist" data-id="cal-${c.id}">${I.read}Read</button></div></div></section>`;
+  }
+  if (!hero) return `<section class="poster"><div class="poster-body"><div class="eyebrow">${when}</div><h1 class="hello">${greet}. <em>One pearl</em> at a time.</h1></div></section>`;
+  const t = hero.t;
+  return `<section class="poster tint" style="${coverStyle(t.vol)}"><div class="poster-art">${coverArt(t.vol)}</div>
+    <div class="poster-body"><div class="eyebrow">${when}</div>
+      <h1 class="hello">${esc(R(t.title))}</h1>
+      <div class="why">${esc(hero.why || `${R(t.vol.title)} · chapter ${t.n}`)}${dur(t) ? ` · ${mins(dur(t))}` : ""}</div>
+      <div class="row">${hasHe(t) || hasEn(t) ? `<button class="btn gold" data-act="play" data-id="${t.id}">${I.play}Listen</button>` : ""}
+        <button class="btn ghost" data-act="chapter" data-id="${t.id}">${I.read}${t.vol.he && !t.translated ? "Read the Hebrew" : "Read"}</button></div></div></section>`;
+}
+/* "Jump back in": what's in the player, where you stopped reading, what you were partway through, then recommendations */
+function jumpBack(readHere, resumeList, recs) {
+  const seen = new Set(), tiles = [];
+  const add = (t, act, sec, sub) => { if (!t || seen.has(t.id) || tiles.length >= 6) return; seen.add(t.id);
+    tiles.push(`<button class="jb" data-act="${act}" data-id="${t.id}"${sec ? ` data-sec="${sec}"` : ""}>${art(t)}<span><b>${esc(R(t.title))}</b><small>${esc(sub)}</small></span></button>`); };
+  const c = cur(); if (c) add(c, "readalong", 0, audio.paused ? "In the player" : "Listening now");
+  if (readHere) add(readHere, "resumeread", state.where.sec, `Reading · section ${state.where.sec}`);
+  resumeList.forEach(t => add(t, "chapter", 0, `${R(t.vol.short)} ${t.n} · partway`));
+  if (tiles.length < 4) recs.slice(1).forEach(r => add(r.t, "chapter", 0, `${R(r.t.vol.short)} ${r.t.n}`));
+  if (tiles.length < 2) return "";
+  if (tiles.length % 2) tiles.pop();
+  return `<section><div class="sec-h"><h2>Jump back in</h2></div><div class="jbgrid">${tiles.join("")}</div></section>`;
 }
 /* ---------- the Daily Pearl: Peninei Halakha's own two halakhot a day (daily-pearl.js) ---------- */
 const DAILY = window.PH_DAILY;
@@ -1511,7 +1575,8 @@ function dailyCard() {
     <p class="note" style="margin:0">Peninei Halakha's daily study runs on a schedule they publish each year. Pearls has it up to ${esc(new Date(DAILY.last() + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}; the next one isn't in this version yet.${window.PEARLS_PROXY ? " Pearls looks for it on Peninei Halakha's site once a day and adds it when it's out." : ""}</p>
     <div><a class="btn line" href="${DAILY.page}" target="_blank" rel="noopener">${I.ext}The Daily Pearl on Peninei Halakha</a></div></section>`;
   const items = dpItems(d.parts), first = items.find(x => x.t), kinds = [...new Set(items.filter(x => x.t).map(x => kindOf(x.t)))];
-  return `<section class="panel daily"><div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
+  const dv = first && first.t.vol, da = dv ? coverArt(dv) : "";
+  return `<section class="panel daily${da ? " tint" : ""}"${da ? ` style="${coverStyle(dv)}"` : ""}>${da ? `<div class="daily-art" aria-hidden="true">${da}</div>` : ""}<div class="sec-h"><div class="eyebrow">The Daily Pearl · <span lang="he" dir="rtl">הפנינה היומית</span></div><button class="more" data-go="daily">This week</button></div>
     <div class="dphead"><b>${esc(dpRef(d.parts))}</b><span class="kinds">${kinds.map(kindTag).join("")}</span></div>
     <div class="list">${items.map(dpRow).join("")}</div>
     ${first ? `<div class="row"><button class="btn gold" data-act="resumeread" data-id="${first.t.id}" data-sec="${first.sec}">${I.read}${kindOf(first.t) === "he" ? "Read the Hebrew" : "Read today's halakhot"}</button></div>` : ""}
@@ -1630,7 +1695,7 @@ function vCredits() {
       <p class="reader-p">Har Bracha makes the content of the Peninei Halakha website available under the ${ext("https://creativecommons.org/licenses/by/4.0/", "Creative Commons Attribution 4.0 International licence (CC BY 4.0)")}, with one addition: complete or near-complete copies may not be sold without their written permission. Translation, summaries and other derived works are explicitly allowed, provided the source is credited, linked and any changes are stated. The full terms are on the ${ext("https://ph.yhb.org.il/terms/", "site's terms page")} (in Hebrew).</p>
       <div class="panel"><div class="eyebrow" style="margin-bottom:6px">Changes Pearls makes</div>
         <ul class="credlist">
-          <li>Text is reformatted for phone reading, split by section, with links to Sefaria and Meldar.</li>
+          <li>Text is reformatted for phone reading, split by section, with links to Sefaria and Meldar. <a href="#missing">Books not on Sefaria</a>.</li>
           <li>The optional "Neo-Classic S&amp;P" spelling changes how some Hebrew terms are transliterated; the default, "Original", keeps the published spelling. <a href="#spelling">All spelling schemes</a>.</li>
           <li>Hebrew-only volumes are translated into English by AI, as above.</li>
           <li>Chapters are tagged by topic and grouped into playlists and recommendations.</li>
@@ -1653,6 +1718,26 @@ function vCredits() {
       </ul></section>
   </div>`;
 }
+/* Books not on Sefaria (#missing): the works Peninei Halakha cites that Sefaria does not hold, so their citations
+   are named but not linked. The list is made by tools/make_missing_books.js (www/cite-missing.js). */
+function vMissing() {
+  setTop("Books not on Sefaria"); setTab("");
+  const M = window.PEARLS_MISSING || {books: []}, books = M.books;
+  const total = books.reduce((a, b) => a + b.n, 0);
+  const chip = id => { const t = BYID[id]; return t ? `<a class="chip" href="#ch-${id}">${esc(t.vol.short)} ${t.n}</a>` : ""; };
+  view.innerHTML = `<div class="view credits missing">
+    <div><div class="eyebrow">Citations</div>
+      <h1 class="hello">Books we <em>can't link</em>.</h1>
+      <p class="sub">Most sources Peninei Halakha cites open from the text: tap one to read it from Sefaria. These ${books.length} books aren't on Sefaria, so their ${total.toLocaleString("en")} citations are named but not linked. Some are recent works still under copyright; others Sefaria doesn't carry yet.</p></div>
+    <section><div class="list">${books.map(b => `<details class="panel mbook">
+        <summary><b>${esc(b.name)}</b>${b.he ? ` <span lang="he" dir="rtl" class="he" style="font-family:var(--f-heb)">${esc(b.he)}</span>` : ""}
+          <span class="note" style="margin-left:auto">${b.n} ${b.n === 1 ? "citation" : "citations"} · ${b.ch.length} ${b.ch.length === 1 ? "chapter" : "chapters"}</span></summary>
+        ${b.also.length ? `<p class="foot" style="margin:6px 0 0">Also spelled ${b.also.map(esc).join(", ")}</p>` : ""}
+        <div class="chips" style="margin-top:8px">${b.ch.map(chip).join("")}</div></details>`).join("")}</div>
+      <p class="foot">Checked against Sefaria's full list of titles${M.made ? `; list made ${esc(M.made)}` : ""}. A citation is also left unlinked when it doesn't say enough to find the passage (a Zohar page, a volume not named); those books are on Sefaria and aren't listed here.</p></section>
+  </div>`;
+}
+
 /* All spelling schemes, compared (#spelling). The same table Meldar shows; source: spelling/spelling-schemes.md in the
    Pearls project. Cells marked * are worked out from that scheme's rules, not seen printed. */
 const SCHEME_LIST = [
@@ -1830,15 +1915,19 @@ async function fetchSections(t) {
 function cleanHeb(html) {
   const d = document.createElement("div"); d.innerHTML = html;
   d.querySelectorAll("script,style,iframe,form,svg,noscript").forEach(e => e.remove());
+  // ph.yhb.org.il embeds its YouTube shiurim as a still frame (Embed Plus "facade": a thumbnail from i.ytimg.com
+  // plus a play button). It is not the text, plays nothing here, and Curió asked for it gone (5 Nov 2026).
+  d.querySelectorAll(".epyt-video-wrapper,.epyt-facade,img[alt='YouTube player'],img[src*='ytimg.com'],button.epyt-facade-play,button[aria-label='Play']").forEach(e => e.remove());
   d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
   d.querySelectorAll("[style]").forEach(e => e.removeAttribute("style"));
   return d.innerHTML;
 }
 function cleanHTML(html, t) {
   const d = document.createElement("div"); d.innerHTML = html;
-  d.querySelectorAll("script,style,iframe,form,img[src^='http:']").forEach(e => e.remove());
+  d.querySelectorAll("script,style,iframe,form,img[src^='http:'],.epyt-video-wrapper,.epyt-facade,img[alt='YouTube player'],img[src*='ytimg.com']").forEach(e => e.remove());
   d.querySelectorAll("a[href]").forEach(a => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
   d.querySelectorAll("[style]").forEach(e => { if (!/padding-left/.test(e.getAttribute("style"))) e.removeAttribute("style"); });
+  phNameTree(d);
   if (t) linkCites(d, t);
   respellTree(d);
   return d.innerHTML;
@@ -1849,32 +1938,37 @@ function vChapter(id) {
   const d = dur(t), liked = state.likes.has(t.id), sim = similar(t, 5);
   const prevT = BYID[`${t.vol.book}-${String(t.n - 1).padStart(2, "0")}`], nextT = BYID[`${t.vol.book}-${String(t.n + 1).padStart(2, "0")}`];
   view.innerHTML = `<div class="view">
-    <div class="chhead" style="display:flex;flex-direction:column;gap:10px">
-      <div class="eyebrow">${esc(R(t.vol.title))} · Chapter ${t.n}</div><h1>${esc(R(t.title))}</h1>${xlOf(t) && XL.ch[t.id][xlOf(t)].t ? `<div class="xltitle" lang="${xlOf(t)}">${esc(XL.ch[t.id][xlOf(t)].t)}</div>` : ""}${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
-      <div class="chips">${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen${d ? ` · ${mins(d)}` : ""}<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
+    <div class="chband tint" style="${coverStyle(t.vol)}"><div class="chband-art" aria-hidden="true">${coverArt(t.vol)}</div>
+      <button class="chcrumb" data-act="vol" data-id="${t.vol.book}">${esc(R(t.vol.title))}</button><span class="chnum" aria-hidden="true">${t.n}</span></div>
+    <div class="chhead">
+      <div class="eyebrow">Chapter ${t.n} of ${volTracks(t.vol).length}${d ? ` · ${mins(d)}` : ""} ${kindTag(kindOf(t))}</div>
+      <h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
+      <div class="chacts">
+        ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
-        <button class="btn ${isDone(t.id) ? "ghost" : "line"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button>
         ${dlButton(t)}</div>
-      ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
-        <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
-        ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}
-      ${xlOfficial(t) ? `<div class="aiflag official"><b>Official translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is Yeshivat Har Bracha's own translation of Rabbi Melamed's Hebrew.</div>`
-        : xlOf(t) ? `<div class="aiflag"><b>AI translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is an AI translation (Claude) of Rabbi Melamed's Hebrew, marked AI throughout.</div>`
-        : t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
-      ${langBar(t)}
-      <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${state.where && state.where.id === t.id && state.where.sec > 1 ? `<button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button>` : ""}</div>
+      ${state.where && state.where.id === t.id && state.where.sec > 1 ? `<div><button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button></div>` : ""}
+      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
+      <details class="chmore"${state.prefs.chMore ? " open" : ""}><summary><span>Language · ${esc(READ_LABEL[state.prefs.read || "en"] || "English")}</span><span>Spelling · ${esc(SCHEMES[scheme].name)}</span><span class="more">More</span></summary>
+        <div class="chmore-in">${langBar(t)}
+        <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
+        ${sefRef(t, null) ? `<div class="meldarrow"><a class="tool" href="https://meldar.pages.dev/?ref=${encodeURIComponent(sefRef(t, null))}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a>
+          <a class="tool" href="https://meldar.pages.dev/?explain=${encodeURIComponent(sefRef(t, null))}&title=${encodeURIComponent(t.title)}" target="_blank" rel="noopener">${I.ext}<span>Explain it back in Meldar</span></a>
+          ${t.vol.book === "19" ? `<a class="tool" href="https://meldar.pages.dev/?view=giyur" target="_blank" rel="noopener">${I.ext}<span>Meldar Giyur track</span></a>` : ""}</div>` : ""}</div></details>
     </div>
+    <button class="langfab" data-act="langsheet" data-id="${t.id}" aria-label="Language: ${READ_LABEL[state.prefs.read || "en"] || "English"}. Change">${I.lang}<b>${langShort()}</b></button>
     <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
-    ${t.sectionTitles.length ? `<div class="panel"><div class="eyebrow" style="margin-bottom:6px">In this chapter</div><div class="toc">${(xlOf(t) ? XL.ch[t.id][xlOf(t)].s : t.sectionTitles).map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span>${xlOf(t) ? `<span lang="${xlOf(t)}">${esc(s)}</span>` : `<span>${esc(R(s))}</span>`}</button>`).join("")}</div></div>` : ""}
+    ${t.sectionTitles.length > 1 ? `<nav class="toc secchips" aria-label="Sections in this chapter">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</nav>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
+    <div class="chend"><button class="btn ${isDone(t.id) ? "ghost" : "gold"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button></div>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
       ${prevT ? `<button class="btn line" data-act="chapter" data-id="${prevT.id}">← Ch. ${prevT.n}</button>` : "<span></span>"}
       ${nextT ? `<button class="btn line" data-act="chapter" data-id="${nextT.id}">Ch. ${nextT.n} →</button>` : ""}</div>
     <section><div class="sec-h"><h2>Listen next</h2></div><div class="list">${sim.map(r => trackRow(r.t, { why: r.why })).join("")}</div></section>
   </div>`;
+  const fab = view.querySelector(".langfab"); if (fab) document.body.appendChild(fab);   // fixed to the screen, not the animated view
+  const cm = view.querySelector("details.chmore"); if (cm) cm.ontoggle = () => { state.prefs.chMore = cm.open; save.prefs(); };
   view.querySelectorAll(".toc button").forEach(b => b.onclick = () => { const s = $(`#sec-${b.dataset.sec}`); if (s) s.scrollIntoView({ behavior: "smooth" }); });
   const xl = xlOf(t);
   (xl ? loadXl(t, xl) : fetchSections(t)).then(posts => {
@@ -1906,7 +2000,7 @@ function renderHebrewChapter(t, d, r) {
     secs.map((s, i) => {
       const heb = `<div class="heb-orig" lang="he" dir="rtl" data-sec="${i + 1}" ${d.translated ? "hidden" : ""}>${s.body_he != null ? `<h3>${s.title_he}</h3>${s.body_he}${notesHTML((s.notes_he || []).map(n => ({ n: n.n, he: n.he })), "he")}` : ""}</div>`;
       if (!d.translated || !s.body_en) return `<section id="sec-${i + 1}">${heb}<p class="foot"><a href="${esc(s.link)}" target="_blank" rel="noopener">Source: ph.yhb.org.il</a></p></section>`;
-      const box = document.createElement("div"); box.innerHTML = s.body_en + notesHTML(s.notes_en); linkCites(box, t); respellTree(box);
+      const box = document.createElement("div"); box.innerHTML = s.body_en + notesHTML(s.notes_en); phNameTree(box); linkCites(box, t); respellTree(box);
       return `<section id="sec-${i + 1}"><div class="ai-sec"><h3>${esc(R(s.title_en || ""))} <span class="aitag sm">AI</span></h3>${box.innerHTML}
         <div class="secfoot"><button class="linkbtn" data-heb>Show Hebrew</button><a class="linkbtn" href="${esc(s.link)}" target="_blank" rel="noopener">Hebrew source ↗</a></div></div>${heb}${secTools(t, i)}</section>`;
     }).join("") +
@@ -1994,7 +2088,7 @@ function citeClicks(root) {
     e.preventDefault(); e.stopPropagation();
     const ref = a.dataset.ref || "";
     if (a.classList.contains("pc-cite-internal")) return openPHRef(ref);
-    citeSheet({ ref, text: a.textContent, resolved: !!ref, why: ref ? "" : a.title, secBy: a.dataset.secby || "", sec: a.dataset.sec || "" });
+    citeSheet({ ref, base: a.dataset.base || "", text: a.textContent, resolved: !!ref, why: ref ? "" : a.title, secBy: a.dataset.secby || "", sec: a.dataset.sec || "" });
   });
 }
 function openPHRef(ref) {   // "Peninei Halakhah, Shabbat 21:8" -> that chapter in Pearls, scrolled to the section
@@ -2010,20 +2104,38 @@ function citeSheet(h) {
   const sec = h.secBy === "vol" || h.secBy === "chapter"
     ? `<p class="pc-note">The siman is the author's. The section (${esc(h.sec)}) is our reading of this chapter, because the citation doesn't name one.</p>` : "";
   dialog(`<div class="pc-sheet"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-      <h3>${esc(h.resolved ? h.ref : h.text)}</h3><button class="iconbtn" data-x aria-label="Close">${I.x}</button></div>
+      <h3>${esc(phName(h.resolved ? h.ref : h.text))}</h3><button class="iconbtn" data-x aria-label="Close">${I.x}</button></div>
     ${h.resolved ? `${sec}<div class="pc-body"><div class="loading"><div class="spin"></div>Loading from Sefaria…</div></div>
       <div class="meldarrow"><a class="tool" href="${PEARLS_CITE.sefariaUrl(h.ref)}" target="_blank" rel="noopener">${I.ext}<span>Open on Sefaria</span></a>
       <a class="tool" href="${PEARLS_CITE.meldarUrl(h.ref)}" target="_blank" rel="noopener">${I.ext}<span>Open in Meldar</span></a></div>`
       : `<p class="note">${esc(h.why || "This reference couldn't be turned into a text address.")}</p>`}</div>`, (s, close) => {
     $("[data-x]", s).onclick = close;
     if (!h.resolved) return;
-    PEARLS_CITE.fetchSource(h.ref).then(x => {
-      const body = $(".pc-body", s); if (!body) return;
-      body.innerHTML = x.error ? `<p class="note">${esc(x.error)}</p>`
-        : (x.he ? `<p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}` : "")
-        + (x.en ? `<p class="pc-en">${esc(x.en)}</p>${lic(x.enVersion, x.enLicence)}` : "");
-      const he = $(".pc-he", body); if (he) tintHebrew(he);
-    });
+    const body = $(".pc-body", s); if (!body) return;
+    // a comment on a verse or a folio: the passage it comments on first, then the comment, each in the chosen mode
+    const refs = h.base ? [h.base, h.ref] : [h.ref], got = [];
+    const modes = [["he", "עברית"], ["both", "Both"], ["side", "Side by side"], ["en", "English"]];
+    body.insertAdjacentHTML("beforebegin", `<div class="seg pc-modes" role="radiogroup" aria-label="Show">${modes.map(([v, l]) =>
+      `<button role="radio" data-m="${v}" ${v === "he" ? 'lang="he"' : ""}>${l}</button>`).join("")}</div>`);
+    const btns = [...s.querySelectorAll(".pc-modes button")];
+    const paint = () => {
+      const m = state.prefs.citeMode || "both";
+      btns.forEach(b => { const on = b.dataset.m === m; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+      body.innerHTML = refs.map((r, i) => {
+        const x = got[i], head = refs.length > 1 ? `<h4 class="pc-sub">${esc(phName(r))}</h4>` : "";
+        if (!x) return `${head}<div class="loading"><div class="spin"></div>Loading from Sefaria…</div>`;
+        if (x.error) return `${head}<p class="note">${esc(x.error)}</p>`;
+        const he = x.he ? `<div><p class="pc-he" lang="he" dir="rtl">${esc(x.he)}</p>${lic(x.heVersion, x.heLicence)}</div>` : "";
+        const en = x.en ? `<div><p class="pc-en">${esc(x.en)}</p>${lic(x.enVersion, x.enLicence)}</div>` : "";
+        const only = x.en ? "" : `<p class="pc-note">Hebrew only on Sefaria: it has no English translation of this text.</p>`;
+        const show = !x.en || m === "he" ? he + only : !x.he || m === "en" ? en : m === "side" ? `<div class="pc-side">${he}${en}</div>` : he + en;
+        return head + show;
+      }).join("");
+      body.querySelectorAll(".pc-he").forEach(tintHebrew);
+    };
+    btns.forEach(b => b.onclick = () => { state.prefs.citeMode = b.dataset.m; save.prefs(); paint(); });
+    paint();
+    refs.forEach((r, i) => PEARLS_CITE.fetchSource(r).then(x => { got[i] = x; paint(); }));
   });
 }
 
@@ -2083,6 +2195,7 @@ function setLang(v) {
   document.querySelectorAll('[data-act="setread"]').forEach(x => { const on = x.dataset.v === v; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); });
   const m = location.hash.match(/^#ch-(\d\d-\d\d)/), rt = m && BYID[m[1]], r = $("#reader");
   if (r && rt) applyReadLang(rt, r);
+  document.querySelectorAll(".langfab b").forEach(x => { x.textContent = langShort(); });
   document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); });
   document.querySelectorAll('[data-act="playch"] .plang').forEach(pl => { const x = BYID[pl.parentNode.dataset.id]; if (x) pl.textContent = ` · ${LANG_NAME[listenLang(x)]}`; });
   const t = cur();
@@ -2097,7 +2210,7 @@ function audioNote(t) {   // under the language control: what you'll hear
   return en ? `You'll hear the Hebrew recording; this chapter has no English to read aloud.` : `You'll hear the Hebrew recording.`;
 }
 function voiceField() {
-  if (!canSpeak() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
+  if (!canSpeak() && !AV.on() && !VX()) return `<div class="field"><label>AI voice</label><span class="note">This ${DEVICE} has no speech engine, so chapters without an English recording play in Hebrew.</span></div>`;
   const on = state.prefs.aiVoice !== false;
   return `<div data-voicefield><div class="field"><label>AI voice</label>
     <button class="opt" data-aivoice aria-pressed="${on}"><span style="flex:1"><b>Read the English aloud where there's no recording</b><br><span class="note">An AI voice reads the translation, section by section. Labelled "AI voice".</span></span><span class="switch ${on ? "on" : ""}" aria-hidden="true"></span></button></div>
@@ -2151,9 +2264,9 @@ function engineList() {
     out += row("piper", "Light (Piper)", `Made on this ${DEVICE} too, and much lighter: keeps up on any phone. More robotic, no guttural ḥ. Each voice is a whole model of its own (about 63 MB). Only voices whose recordings are public domain.${sp("piper")}`,
       `<div class="note sublabel">Voice</div>${piperListed().map(piperRow).join("")}${piperListed().some(piperHas) ? "" : `<span class="note">Until a voice is downloaded, your ${DEVICE}'s voice reads.</span>`}`, piperListed().some(piperHas));
   }
-  if (canSpeak()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
-    `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings.</span>`}`);
-  if (V) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
+  if (canSpeak() || AV.on()) out += row("device", `This ${DEVICE}'s voice`, "Always there, nothing to download. How it sounds depends on the voices installed.",
+    `<div class="voicelist" data-voices>${voiceList()}</div>${AV.on() ? "" : `<span class="note">More voices: on iPhone and iPad, Settings → Accessibility → Spoken Content → Voices → English (the "Enhanced" and "Premium" ones sound best). On a Mac, System Settings → Accessibility → Spoken Content. On Android, the Text-to-speech settings. On Windows, Settings → Time &amp; language → Speech → Manage voices.</span>`}`);
+  if (V && !DESKTOP) { const wo = V.wifiOnly(); out += `<button class="opt" data-vwifi aria-pressed="${wo}"><span style="flex:1"><b>Download voices on Wi-Fi only</b></span><span class="switch ${wo ? "on" : ""}" aria-hidden="true"></span></button>`; }
   return out;
 }
 function refreshEngines() { document.querySelectorAll("[data-engines]").forEach(n => { n.innerHTML = engineList(); }); document.querySelectorAll("[data-langnote]").forEach(n => { const x = BYID[n.dataset.langnote]; if (x) n.innerHTML = audioNote(x); }); }
@@ -2216,9 +2329,12 @@ function tryNeural(k) {
 }
 function appleVoiceList() {
   const L = AV.list, on = appleChoice();
-  if (!L.length) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
+  if (!L.length && !(AV.android && AV.loaded)) return `<span class="note">Loading the voices on this ${DEVICE}…</span>`;
   const good = L.some(v => QUALITY[v.quality]);
-  const card = good ? "" : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  const card = good ? "" : AV.android
+    ? `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Text-to-speech output (or System → Languages → Text-to-speech) → the engine's settings (the gear) → Install voice data → English, and download a voice. Pearls lists only voices kept on the ${DEVICE}, never ones that send the text online, and picks the best one by itself unless you have chosen another.</div>`
+    : `<div class="note voicecard"><b>Better voices, free and offline.</b> On this ${DEVICE}: Settings → Accessibility → Read &amp; Speak → Voices → English (on earlier versions, Spoken Content → Voices, or Live Speech → Voices), and download a <b>Premium</b> voice (or Enhanced). Pearls picks the best one by itself once it is there, unless you have chosen another.</div>`;
+  if (!L.length && AV.android) return `<span class="note">No English voice is kept on this ${DEVICE} yet.</span>` + card;
   return card + L.map(v => `<div class="voicerow"><button class="opt ${v.id === on ? "on" : ""}" data-voice="${esc(v.id)}"><span class="radio ${v.id === on ? "on" : ""}"></span><span style="flex:1"><b>${esc(avName(v))}</b> <span class="note">${esc(v.lang)}${QUALITY[v.quality] ? ` · ${QUALITY[v.quality]}` : ""}${v.gender ? ` · ${v.gender}` : ""}</span></span></button><button class="iconbtn" data-try="${esc(v.id)}" aria-label="Hear ${esc(avName(v))}">${I.play}</button></div>`).join("");
 }
 function voiceList() {
@@ -2296,7 +2412,13 @@ function langBar(t) {
     ${opts.map(([v, l]) => `<button role="radio" aria-checked="${r === v}" class="${r === v || opts.length === 1 ? "on" : ""}" data-act="setread" data-v="${v}" data-id="${t.id}" ${v === "he" || isXl(v) ? `lang="${v}"` : ""}>${l}</button>`).join("")}</div></div>
     <p class="note langnote" data-langnote="${t.id}">${audioNote(t)}</p></div>`;
 }
-const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" }; for (const l in XL.langs) READ_LABEL[l] = XL.langs[l].name;
+const READ_LABEL = { en: "English", he: "Hebrew", both: "English + Hebrew", side: "Side by side" };
+/* 2.8 the language button that floats over the chapter: the reading language from anywhere in the text */
+const langShort = () => ({ en: "EN", he: "עב", both: "EN+עב", side: "EN | עב" })[state.prefs.read || "en"] || "EN";
+function langSheet(t) {
+  dialog(`<h3>Language</h3>${langBar(t)}<div style="display:flex;justify-content:flex-end"><button class="btn line" data-x>Done</button></div>`,
+    (s, close) => { $("[data-x]", s).onclick = close; });
+}
 /* Show the chapter in the reader's language: English, Hebrew, both (Hebrew under each English section) or side by side
    (English and Hebrew in two columns, paragraph beside paragraph; on a phone each Hebrew paragraph sits under its English). */
 function applyReadLang(t, r) {
@@ -2469,12 +2591,12 @@ function vDownloads() {
     ${!DL.ok ? `<div class="panel note">This ${DEVICE}'s storage isn't available right now, so audio can't be downloaded.</div>` : ""}
     ${busy.length ? `<section><div class="sec-h"><h2>Downloading</h2><button class="more" data-act="dlcancel">Cancel all</button></div>
       <div class="list">${busy.map(t => trackRow(t, { why: dlLabel(t).text, end: `<button class="iconbtn" style="background:none" data-act="dlrm" data-id="${t.id}" aria-label="Cancel">${I.x}</button>` })).join("")}</div>
-      ${p.wifiOnly && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
+      ${p.wifiOnly && !DESKTOP && busy.some(t => dlState(t).s === "waiting") ? `<p class="note">Waiting downloads start on Wi-Fi. Turn off “Wi-Fi only” below to use mobile data.</p>` : ""}</section>` : ""}
     <section class="panel dlset"><div class="eyebrow">Smart downloads</div>
       ${tog("smart", "Download ahead", `Keeps the chapter you're on and the next ones in your queue on the ${DEVICE}, plus chapters you're partway through, so they play without a connection.`)}
       <div class="field"><label>Chapters ahead</label><div class="chips">${[1, 3, 5, 10].map(n => `<button class="chip ${p.ahead === n ? "on" : ""}" data-ahead="${n}">${n}</button>`).join("")}</div></div>
       ${tog("autoDelete", "Delete after listening", "Removes chapters that smart downloads fetched once you've heard them. Chapters you download yourself stay until you remove them.")}
-      ${tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
+      ${DESKTOP ? "" : tog("wifiOnly", "Wi-Fi only", "Downloads wait for Wi-Fi instead of using mobile data.")}
       <div class="field"><label>Storage limit for smart downloads</label><div class="chips">${[[500, "500 MB"], [1024, "1 GB"], [2048, "2 GB"], [5120, "5 GB"], [0, "No limit"]].map(([v, l]) => `<button class="chip ${p.limitMB === v ? "on" : ""}" data-limit="${v}">${l}</button>`).join("")}</div>
         <span class="note">When it's full, the oldest smart downloads make room, heard ones first. About ${fmtMB(8000 * 3600)} per hour of Hebrew audio, ${fmtMB(16000 * 3600)} of English.</span></div>
     </section>
@@ -2665,7 +2787,7 @@ function syncWire(s) {
     const code = q("#syncCode").value.trim(); if (!code) return;
     try {
       const r = await fetch(SYNC.base + "/api/claim", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "omit",
-        body: JSON.stringify({ code, device: location.protocol === "pearls:" ? (window.PEARLS_SHELL === "ipad" ? "iPad app" : window.PEARLS_SHELL === "mac" ? "Mac app" : "iPhone app") : window.PearlsNative ? "Android app" : "Pearls app" }) });
+        body: JSON.stringify({ code, device: location.protocol === "pearls:" ? (window.PEARLS_SHELL === "ipad" ? "iPad app" : window.PEARLS_SHELL === "mac" ? "Mac app" : "iPhone app") : window.PEARLS_SHELL === "windows" ? "Windows app" : window.PearlsNative ? "Android app" : "Pearls app" }) });
       const j = await r.json();
       if (!r.ok) { toast(j.error || "That code didn't work"); return; }
       store.set("syncToken", j.token); syncNote({ who: j.who || "", err: "" });
@@ -2681,7 +2803,7 @@ function syncWire(s) {
     try {
       const r = await fetch("/api/link", { method: "POST", headers: { "Content-Type": "application/json" } }), j = await r.json();
       if (!r.ok) { toast(j.error || "Couldn't make a code"); return; }
-      dialog(`<h3>Link the app</h3><p class="note">In the Pearls app on your phone or iPad, open Settings → Sync across devices and type this code. It works once, for ${j.minutes} minutes.</p>
+      dialog(`<h3>Link the app</h3><p class="note">In the Pearls app on your phone, iPad or PC, open Settings → Sync across devices and type this code. It works once, for ${j.minutes} minutes.</p>
         <p style="font:600 30px/1.2 ui-monospace,monospace;letter-spacing:.08em;text-align:center;margin:8px 0">${esc(j.code)}</p>
         <div style="display:flex;justify-content:flex-end"><button class="btn gold" data-ok>Done</button></div>`, (d, close) => { d.querySelector("[data-ok]").onclick = () => { close(); syncDevices(s); }; });
     } catch { toast("Couldn't reach the server"); }
@@ -2722,7 +2844,7 @@ function settingsDialog() {
     <button class="opt" data-pref="tint"><span class="radio ${state.prefs.tint ? "on" : ""}"></span><span style="flex:1"><b>Tint look-alike Hebrew letters</b><br><span class="note" lang="he">ב/כ · ד/ר · ה/ח · ו/ז · ג/נ · ס/ם</span></span></button>
     ${syncField()}
     <div class="field"><label for="meldarTpl">Open in Meldar: link pattern</label><input id="meldarTpl" placeholder="https://meldar.pages.dev/?ref={ref}" value="${esc(state.prefs.meldar)}">
-      <span class="note">Use {ref} for the Sefaria reference, e.g. “Peninei Halakhah, Berakhot 4:2”. Leave empty to hide the Meldar button.</span></div>
+      <span class="note">Use {ref} for the chapter’s Sefaria reference, such as Berakhot 4:2. Leave empty to hide the Meldar button.</span></div>
     <p class="foot" style="margin:0">Neo-Classic S&amp;P re-spells ${LEX.length} recurring terms (${LEX.filter(e => e.st === "a").length} as Keter Shem Tob spells them, the rest derived by the same rules). Book and rabbi names keep their published spelling.</p>
     ${NATIVE ? `<a class="btn line" href="#downloads" data-credits>${DLI.get}Downloads &amp; offline</a>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><a class="btn line" href="#credits" data-credits>Credits &amp; licence</a><button class="btn gold" data-ok>Done</button></div>`, (s, close) => {
@@ -2766,6 +2888,8 @@ function vLibrary() {
           <button class="btn gold" data-act="newpl">${I.plus}Create a playlist</button></div>`}</section>
     <section><div class="sec-h"><h2>Made for you</h2></div><div class="shelf">${madeForYou().map(plCard).join("")}</div></section>
     <section><div class="sec-h"><h2>Curated</h2></div><div class="volgrid">${rankedPresets().map(p => plCard(p).replace('class="plcard"', 'class="plcard" style="width:auto"')).join("")}</div></section>
+    <section><div class="sec-h"><h2>By topic</h2></div><div class="volgrid">${topicPls().map(p => plCard(p).replace('class="plcard"', 'class="plcard" style="width:auto"')).join("")}</div></section>
+    <section><div class="sec-h"><h2>By book</h2></div><div class="shelf">${bookPls().map(plCard).join("")}</div></section>
   </div>`;
 }
 function vPlaylist(id) {
@@ -2775,7 +2899,7 @@ function vPlaylist(id) {
   const ts = pl.tracks.map(i => BYID[i]).filter(Boolean);
   view.innerHTML = `<div class="view">
     <div class="vhead">${plArt(pl)}<div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-      <div class="eyebrow">${own ? "Your playlist" : pl.kind === "list" ? "Your list" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
+      <div class="eyebrow">${own ? "Your playlist" : pl.kind === "list" ? "Your list" : pl.cal ? "On the calendar" : pl.kind === "auto" ? "Made for you" : pl.group === "topic" ? "Playlist by topic" : pl.group === "book" ? "The whole book" : "Curated"}</div><h1>${esc(R(pl.name))}</h1>
       <div class="stats"><span>${ts.length} chapters</span><span>${mins(plDur(pl.tracks)) || "–"}</span></div></div></div>
     ${pl.blurb ? `<p class="sub" style="margin:0">${esc(pl.blurb)}</p>` : ""}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -2844,12 +2968,18 @@ function mTools(t, labelled) {   // the mini player's Read along / Favorite / Pl
 }
 function renderMini() {
   const t = cur(); mini.hidden = !t; if (!t) { document.body.classList.remove("has-mini"); return; }
-  document.body.classList.add("has-mini");
+  const full = !!state.prefs.miniFull;   // 2.8: one row by default, the whole control bar when opened
+  document.body.classList.add("has-mini"); document.body.classList.toggle("mini-full", full);
+  requestAnimationFrame(() => document.body.style.setProperty("--mini-h", mini.offsetHeight + "px"));
+  mini.classList.toggle("compact", !full); mini.classList.add("tint"); mini.setAttribute("style", coverStyle(t.vol));
   const both = hasHe(t) && (hasEn(t) || (enText(t) && aiVoiceOn()));
   mini.innerHTML = `<div class="mrow">${art(t)}<button class="txtbtn" data-act="np" aria-label="Open player"><div class="t">${esc(R(t.title))}</div><div class="m">${esc(R(t.vol.short))} · ch. ${t.n} · section ${P.part + 1} of ${nSections(t)}</div></button>
       <span class="mwide">${mTools(t)}</span>
-      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening" ${xlLang() ? `lang="${xlLang()}"` : ""}>${xlLang() ? XL.langs[xlLang()].short : P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
+      <button class="langpill ${both ? "" : "fixed"}" ${both ? 'data-act="audiolang"' : "disabled"} aria-label="Language: reading and listening">${P.lang === "he" ? "עב" : "EN"}</button>${P.lang === "tts" ? `<button class="aipill" data-act="voice" title="AI voice: ${esc(voiceLabel(pickVoice()))}. Tap to change">AI voice</button>` : ""}
+      <button class="iconbtn mplay" data-act="toggle" aria-label="${audio.paused ? "Play" : "Pause"}">${audio.paused ? I.play : I.pause}</button>
+      <button class="iconbtn mexp" data-act="miniexp" aria-label="${full ? "Fewer controls" : "More controls"}" aria-expanded="${full}">${full ? I.down : I.up}</button>
       <button class="iconbtn mclose" data-act="closeplayer" aria-label="Close player">${I.x}</button></div>
+    <div class="mbar" aria-hidden="true"><i id="mBar"></i></div>
     <div class="mtools">${mTools(t, true)}</div>
     <div class="mseek"><span id="mCur">0:00</span><input type="range" id="miniSeek" min="0" step="1" value="0" aria-label="Seek"><span id="mLeft">–</span></div>
     <div class="mctl">
@@ -2868,6 +2998,7 @@ function renderMini() {
 function updateProgress() {
   const pct = audio.duration ? audio.currentTime / audio.duration * 100 : 0;
   const ms = $("#miniSeek"); if (ms && !ms._drag) { ms.max = audio.duration || 0; ms.value = audio.currentTime; ms.style.setProperty("--p", pct + "%"); }
+  const mb = $("#mBar"); if (mb) mb.style.width = pct + "%";
   const mc = $("#mCur"), ml = $("#mLeft"); if (mc && !(ms && ms._drag)) mc.textContent = fmt(audio.currentTime); if (ml) ml.textContent = audio.duration ? "-" + fmt(Math.max(0, audio.duration - audio.currentTime)) : "–";
   const sk = $("#seek"); if (sk && !sk._drag) { sk.max = audio.duration || dur(cur() || {}) || 0; sk.value = audio.currentTime; }
   const a = $("#tCur"), b = $("#tLeft"); if (a) a.textContent = fmt(audio.currentTime); if (b) b.textContent = "-" + fmt(Math.max(0, (audio.duration || 0) - audio.currentTime));
@@ -2899,7 +3030,7 @@ function syncNP(full) {
     const upnext = upcoming(3).filter(i => i !== t.id).map(i => BYID[i]).filter(Boolean), pm = PLAY_MODES.find(x => x[0] === playMode());
     npEl.innerHTML = `<div class="sheet-h"><button class="iconbtn" data-act="npclose" aria-label="Close">${I.down}</button>
         <div class="eyebrow">${P.ctx ? esc(P.ctx) : "Now playing"}</div><button class="iconbtn" data-act="trackmenu" data-id="${t.id}" aria-label="More">${I.more}</button></div>
-      <div class="np">${cover(t.vol, "bigart")}
+      <div class="np"><div class="npstage tint" style="${coverStyle(t.vol)}">${cover(t.vol, "bigart")}</div>
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div style="min-width:0"><div class="tt">${esc(R(t.title))}</div>
           <div class="vv">${esc(R(t.vol.title))} · chapter ${t.n} · <span lang="he" dir="rtl">${esc(t.vol.heb)}</span></div>
           <div class="vv" style="color:var(--gold-2)">Section ${P.part + 1} of ${nSections(t)}${t.sectionTitles[P.part] ? ` · ${esc(R(t.sectionTitles[P.part]))}` : ""}</div></div>
@@ -3086,6 +3217,7 @@ document.addEventListener("click", e => {
     case "trackmenu": trackMenu(id); break;
     case "spelling": settingsDialog(); break;
     case "setread": setLang(b.dataset.v); break;
+    case "langsheet": { const t = BYID[id]; if (t) langSheet(t); break; }
     case "voice": voiceDialog(); break;
     case "playsec": { const t = BYID[id]; const ids = TRACKS.filter(x => x.vol === t.vol).map(x => x.id); playQueue(ids, ids.indexOf(id), t.vol.title, +b.dataset.sec - 1); break; }
     case "readlang": { const order = ["en", "he", "both", "side"]; state.prefs.read = order[(order.indexOf(state.prefs.read || "en") + 1) % order.length]; save.prefs();
@@ -3157,6 +3289,7 @@ document.addEventListener("click", e => {
     case "np": openNP(); break;
     case "npclose": history.back(); break;
     case "readalong": readAlong(); break;
+    case "miniexp": state.prefs.miniFull = !state.prefs.miniFull; save.prefs(); renderMini(); break;
     case "mshuffle": modeToggle(playMode() === "shuffle" ? "next" : "shuffle"); break;
     case "mrepeat": { const order = ["repeatAll", "repeat1", "repeatSec"], i = order.indexOf(playMode()); modeToggle(i === order.length - 1 ? "next" : order[i + 1]); break; }
     case "mbook": modeToggle(playMode() === "book" ? "next" : "book"); break;
@@ -3178,7 +3311,7 @@ backBtn.onclick = () => history.length > 1 ? history.back() : go("");
 /* ---------- routing (hash) ---------- */
 function go(h) { if (("#" + h) === location.hash || (!h && !location.hash)) render(); else location.hash = h; }
 function render() {
-  closeNP(); document.querySelectorAll(".scrim").forEach(s => s.remove());
+  closeNP(); document.querySelectorAll(".scrim, body > .langfab").forEach(s => s.remove());
   const h = location.hash.slice(1);
   if (h.startsWith("vol-")) vVol(h.slice(4));
   else if (h.startsWith("ch-")) vChapter(h.slice(3));
@@ -3190,6 +3323,7 @@ function render() {
   else if (h === "search") vSearch();
   else if (h === "credits") vCredits();
   else if (h === "spelling") vSpelling();
+  else if (h === "missing") vMissing();
   else if (h === "calendar") vCalendar();
   else if (h === "daily") vDaily();
   else if (h === "downloads") vDownloads();
