@@ -30,9 +30,12 @@ with non-breaking spaces as French typography requires (a plain space is accepta
 - Translate ordinary words (pain, vin, fruit, bénédiction when generic). Gloss a rare term once in parentheses.
 
 ## The Divine Name
-- Hebrew prose ה' → **Hachem**; אלוקים → **Dieu**; הקב"ה → **le Saint, béni soit-Il**.
+- Hebrew prose ה' → **Dieu** (as Har Bracha's French: Dieu 304, Hachem 28); אלוקים → **Dieu**; הקב"ה → **le Saint béni
+  soit-Il** (no comma).
 - In a verse (whole or partial) the Name → **l'Éternel**.
-- A blessing formula: « Béni sois-Tu, Hachem, notre Dieu, Roi du monde … » when quoted in the study text.
+- A blessing formula is quoted as Har Bracha quotes it: transliterated first, the French after it in brackets:
+  « Baroukh Ata, Ado-naï, Elo-hénou, Mélekh ha'olam, Boré péri haguéfen » (« Béni sois-Tu, Éternel, notre Dieu, Roi de
+  l'univers, qui crées le fruit de la vigne »). A long liturgical text (Birkat hamazon, the seven blessings) may stay in French.
 - Where the Names themselves are the subject, write them as the English does (Y-H-V-H, Ado-nai …).
 
 ## Citations
@@ -46,17 +49,28 @@ the form used. The same goes for tractates with a page (Pesaḥim 7a), Rishonim 
 and Tanakh books in a reference, by their Hebrew names (Bereshit, Shemot, Vayikra, Bamidbar, Devarim, Tehilim, Mishlei 3:6, Yeshayahu, Kohelet; never Genesis, Exodus, Exode, Psaumes). The French spelling rules above are for Hebrew words in running prose.
 
 ## Numbers and measures
-Arabic numerals; kezayit, révi'it, kebeitsa keep the Hebrew term, with the author's own conversions.
+Arabic numerals; kazaït, revi'it, kebeitsa keep the Hebrew term, with the author's own conversions.
 
 ## Settled in the first chapters (match these)
 - Cross-references: "plus haut 3:6", "plus loin 10, note 11".
-- Blessing names: Hamotsi, Mezonot, Al Ha-miḥya, Méein Chaloch, Boré Néfachot, Haguéfen, Chéhakol, Ha'ets, Ha'adama,
+- Blessing names: Hamotsi, Mézonot, Al Ha-miḥya, Méein Chaloch, Boré Néfachot, Haguéfen, Chéhakol, Ha'ets, Ha'adama,
   Hatov Vehamétiv.
 - "a priori" / "a posteriori" for lekhatḥila / bediavad.
 - A person's name follows the French prose rules (Rav Mordekhaï Eliyahou); a book title keeps the house form.
 
 ## Har Bracha's own conventions (Curió, 17 Nov 2026: "do it the way PH does it")
-- God: **Dieu** or **l'Éternel** (as Har Bracha's French; not "D.ieu"); prose **Hachem**.
-- A Name in transliteration is hyphenated: **Ado-naï**, **Élo-hénou** (never Adonaï, Elohénou).
+- God: **Dieu** or **l'Éternel** (as Har Bracha's French; not "D.ieu"); prose **Dieu**.
+- A Name in transliteration is hyphenated: **Ado-naï**, **Elo-hénou** (never Adonaï, Elohénou).
 - Spellings: **Chabbat** (tractate citations stay "Shabbat 21a"), **Richonim**, **A'haronim**.
 - "Maran" is always followed by whom it means; in Rav Ovadia's school a bare "Maran" means the Choul'han 'Aroukh.
+
+## Terms Har Bracha's French uses (Curió, 22 Nov 2026: "fully, terms too")
+Measured on Har Bracha's 18 French Berakhot chapters (`/mnt/project-files/pearls-languages/glossary-measured-es-fr.md`):
+- **bénédiction** (berakha only where the Hebrew word itself is discussed), **décisionnaires** for poskim,
+  **nos sages** for 'Hazal, **ablution des mains** for netilat yadayim (the blessing name « Al nétilat yadaïm » stays).
+- **Qidouch** (kiddouchin, the marriage, unchanged), **kazaït**, **revi'it**, **Mézonot**, **Chabbat**.
+- In prose **le Talmud de Babylone** / **le Talmud de Jérusalem**; a reference keeps the house form (Bavli Pesaḥim 21b,
+  Yerushalmi Orla 3:1) so it links to the right work.
+- **mitsva** stays: Har Bracha's French keeps it (with commandement where the Hebrew is ציווי).
+- Rambam, Rashi, Tosafot and the codes keep the house form even in prose, so citations link (Har Bracha writes Maïmonide,
+  Rachi, Tossephot).

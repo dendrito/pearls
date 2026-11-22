@@ -22,16 +22,16 @@ Clear, natural Brazilian Portuguese, understood in Portugal too. Impersonal wher
 ## Hebrew terms (the usage of Brazilian Jewish communities)
 - ח and כ without dagesh → **ch** (berachá, halachá, Bircat HaMazon, chamets, Shulchan Aruch, pikúach néfesh, melachá/melachot).
 - צ → ts (mitsvá, matsá), ק → k (kidush, kashrut), ש → sh (Shabat), final ה not written.
-- Accents by Portuguese rules for the Hebrew stress: Torá, Tefilá, berachá, halachá, mitsvá, Havdalá, Sucá, Pêssach.
+- Accents by Portuguese rules for the Hebrew stress: Torá, Tefilá, berachá, halachá, mitsvá (only in fixed phrases, see below), Havdalá, Sucá, Pêssach.
 - Prefix ה written **Ha** joined, capitalised in names: HaMazon, HaMotsí, HaGafen.
-- Established forms: Shabat, Kidush, Havdalá, Pêssach, Sucot, Rosh Hashaná, Yom Kipur, Chanucá, Purim, Chazal, Guemará,
+- Established forms: Shabat, Kidush, Havdalá, Pêssach, Sucot, Rosh Hashaná, Yom Kipur, Chanucá, Purim, Guemará,
   Mishná, Talmud, Shulchan Aruch, Rambam, Rashi, tefilin, tsitsit, kashrut, casher.
 - Translate ordinary words (pão, vinho, fruta, bênção when generic). Gloss a rare term once in parentheses.
 
 ## The Divine Name
-- Hebrew prose ה' → **HaShem**; אלוקים → **Deus**; הקב"ה → **o Santo, Bendito Seja**.
+- Hebrew prose ה' → **HaShem**; אלוקים → **D'us**; הקב"ה → **o Santo Bendito Seja**.
 - In a verse (whole or partial) the Name → **o Eterno**.
-- A blessing formula: "Bendito és Tu, HaShem, nosso Deus, Rei do universo …" when quoted in the study text.
+- A blessing formula: "Bendito és Tu, HaShem, nosso D'us, Rei do universo …" when quoted in the study text.
 - Where the Names themselves are the subject, write them as the English does (Y-H-V-H, Ado-nai …).
 
 ## Citations
@@ -47,3 +47,17 @@ Arabic numerals; kezait, reviit, kebeitsá keep the Hebrew term, with the author
 - A Name in transliteration: **Ad-onai**, **Elokim**, **Elokênu** (never Adonai, Elohim).
 - Spellings: **Shabat** (tractate citations stay "Shabbat 21a"), **Ben Ish Ḥai**, **Yeḥaveh Da'at**, **Rav Ovadia Yossef**.
 - "Maran" is always followed by whom it means; in Rav Ovadia's school a bare "Maran" means the Shulchan Aruch.
+
+## Terms translated as Har Bracha's Spanish translates them (Curió, 22 Nov 2026)
+PH has no Portuguese, so the Portuguese follows the choices of the Spanish (`TRANSLATE-es.md`):
+- מצוה → **preceito** (masculine: o preceito, este preceito, cumpri-lo, os 613 preceitos). Keep **mitsvá** only in fixed
+  Hebrew phrases: Bar/Bat Mitsvá, se'udat mitsvá, beilat mitsvá, met mitsvá, Ner Mitsvá, tashmishei mitsvá, hidur mitsvá,
+  Sefer Mitsvot Gadol/Katan, mitsvot hateluiot, and inside an italic Hebrew phrase (<i>mitsvá min hamuvchar</i>).
+- פוסקים → **juristas**; חז"ל → **os nossos sábios**.
+- מעשר → **dízimo** (primeiro dízimo, segundo dízimo, dízimo do pobre); תרומה → **oferta** (grande oferta, oferta do
+  dízimo); an italic Hebrew gloss keeps the Hebrew (<i>maasser kesafim</i>).
+- שחיטה → **abate** (masculine), glossed once per chapter: abate (<i>shechitá</i>). Citations keep Hilchot Shechitá.
+- Talmud Bavli → **Talmud Babilônico**; Yerushalmi → **Talmud de Jerusalém** (a citation such as "Yerushalmi Berakhot 1:1"
+  keeps the house form). A translated word is never italicised.
+- Blessings stay in Portuguese ("Bendito és Tu, HaShem, nosso D'us, Rei do universo…"); the Spanish quotes them
+  transliterated as Har Bracha does, a form with no Portuguese model yet.
