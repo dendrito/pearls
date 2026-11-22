@@ -1942,14 +1942,16 @@ function vChapter(id) {
       <button class="chcrumb" data-act="vol" data-id="${t.vol.book}">${esc(R(t.vol.title))}</button><span class="chnum" aria-hidden="true">${t.n}</span></div>
     <div class="chhead">
       <div class="eyebrow">Chapter ${t.n} of ${volTracks(t.vol).length}${d ? ` · ${mins(d)}` : ""} ${kindTag(kindOf(t))}</div>
-      <h1>${esc(R(t.title))}</h1>${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
+      <h1>${esc(R(t.title))}</h1>${xlOf(t) && XL.ch[t.id][xlOf(t)].t ? `<div class="xltitle" lang="${xlOf(t)}">${esc(XL.ch[t.id][xlOf(t)].t)}</div>` : ""}${t.titleHe ? `<div class="hebtitle" lang="he" dir="rtl">${esc(t.titleHe)}</div>` : ""}
       <div class="chacts">
         ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
         ${dlButton(t)}</div>
       ${state.where && state.where.id === t.id && state.where.sec > 1 ? `<div><button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button></div>` : ""}
-      ${t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
+      ${xlOfficial(t) ? `<div class="aiflag official"><b>Official translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is Yeshivat Har Bracha's own translation of Rabbi Melamed's Hebrew.</div>`
+        : xlOf(t) ? `<div class="aiflag"><b>AI translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is an AI translation (Claude) of Rabbi Melamed's Hebrew, marked AI throughout.</div>`
+        : t.vol.he ? `<div class="aiflag"><b>AI translation</b> This book has no official English edition. ${t.translated ? "The English below is an AI translation of the Hebrew, marked AI throughout." : "This chapter is in Hebrew until its AI translation is added."}</div>` : ""}
       <details class="chmore"${state.prefs.chMore ? " open" : ""}><summary><span>Language · ${esc(READ_LABEL[state.prefs.read || "en"] || "English")}</span><span>Spelling · ${esc(SCHEMES[scheme].name)}</span><span class="more">More</span></summary>
         <div class="chmore-in">${langBar(t)}
         <div class="chips"><button class="chip" data-act="spelling" style="height:32px;font-size:13px">Spelling · ${esc(SCHEMES[scheme].name)}</button>${t.tags.filter(g => !t.vol.tags.includes(g)).slice(0, 4).map(g => `<span class="chip" style="height:30px;font-size:13px">${esc(TOPIC_LABEL[g] || g)}</span>`).join("")}</div>
@@ -1959,7 +1961,7 @@ function vChapter(id) {
     </div>
     <button class="langfab" data-act="langsheet" data-id="${t.id}" aria-label="Language: ${READ_LABEL[state.prefs.read || "en"] || "English"}. Change">${I.lang}<b>${langShort()}</b></button>
     <button class="nowbar" id="nowbar" data-act="tonowsec" hidden>${I.play}<span>Playing now · <span data-n></span></span><span class="go">Go there</span></button>
-    ${t.sectionTitles.length > 1 ? `<nav class="toc secchips" aria-label="Sections in this chapter">${t.sectionTitles.map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span><span>${esc(R(s))}</span></button>`).join("")}</nav>` : ""}
+    ${t.sectionTitles.length > 1 ? `<nav class="toc secchips" aria-label="Sections in this chapter">${(xlOf(t) ? XL.ch[t.id][xlOf(t)].s : t.sectionTitles).map((s, i) => `<button data-sec="${i + 1}"><span>${i + 1}</span>${xlOf(t) ? `<span lang="${xlOf(t)}">${esc(s)}</span>` : `<span>${esc(R(s))}</span>`}</button>`).join("")}</nav>` : ""}
     <article class="reader" id="reader"><div class="loading"><div class="spin"></div>Loading the English text…</div></article>
     <div class="chend"><button class="btn ${isDone(t.id) ? "ghost" : "gold"}" data-act="markdone" data-id="${t.id}">${isDone(t.id) ? "✓ Done" : "Mark as done"}</button></div>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
