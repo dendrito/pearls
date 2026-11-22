@@ -322,4 +322,26 @@ public class PearlsBridge {
         } catch (Exception e) { return null; }
         finally { f.delete(); }
     }
+
+    /* ---------- Print for Shabbat: the page has laid out its sheets (#pp-print, @page size set); hand them to
+       Android's print service, which offers a printer or "Save as PDF". The WebView's own print adapter prints
+       what @media print shows. ---------- */
+    @JavascriptInterface
+    public void print(final String name, final boolean landscape, final String paper) {
+        act.runOnUiThread(new Runnable() {
+            @Override public void run() {
+                try {
+                    android.print.PrintManager pm = (android.print.PrintManager) act.getSystemService(Context.PRINT_SERVICE);
+                    android.print.PrintAttributes.MediaSize m = "letter".equals(paper)
+                        ? android.print.PrintAttributes.MediaSize.NA_LETTER : android.print.PrintAttributes.MediaSize.ISO_A4;
+                    android.print.PrintAttributes attrs = new android.print.PrintAttributes.Builder()
+                        .setMediaSize(landscape ? m.asLandscape() : m.asPortrait())
+                        .setMinMargins(android.print.PrintAttributes.Margins.NO_MARGINS)
+                        .build();
+                    String job = name == null || name.isEmpty() ? "Pearls" : name;
+                    pm.print(job, web.createPrintDocumentAdapter(job), attrs);
+                } catch (Exception e) { /* no print service: nothing to do */ }
+            }
+        });
+    }
 }

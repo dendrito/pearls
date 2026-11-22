@@ -2,7 +2,7 @@
 
 A face that lacks a letter makes the phone borrow it from another font, so words like "Ḥanukka" come out with one odd
 letter (the "weird dotted letters"). This test fails if:
-  1. a font family named first in any font stack in app.css / skins.css / modes.css isn't bundled in www/fonts/web/
+  1. a font family named first in any font stack in app.css / skins.css / modes.css / print.css isn't bundled in www/fonts/web/
      (system fonts excepted below), or
   2. a bundled Latin family/style doesn't cover, inside its unicode-range, every letter and every punctuation mark that
      occurs in the app's text (www/*.js, www/en, www/books) or that a spelling scheme can produce, or
@@ -69,7 +69,7 @@ def main():
     bundled = {f for f, _ in faces}
     # 1. every font stack starts with a bundled face
     used = set()
-    for name in ("app.css", "skins.css", "modes.css"):
+    for name in ("app.css", "skins.css", "modes.css", "print.css"):
         src = open(os.path.join(WWW, name)).read()
         for stack in re.findall(r"(?:--f-[a-z]+|font-family)\s*:\s*([^;}]+)", src):
             first = stack.split(",")[0].strip().strip("\"'")

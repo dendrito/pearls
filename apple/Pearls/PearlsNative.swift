@@ -1,5 +1,10 @@
 import Foundation
 import WebKit
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 
 /// The native half of window.PearlsNative on iPhone, iPad and Mac (the page half is native-shim.js).
 ///
@@ -170,11 +175,45 @@ final class PearlsNative: NSObject, WKScriptMessageHandler, URLSessionDownloadDe
         case "clearText": clearText()
         case "setBars": onBars?(a["hex"] as? String ?? "", a["light"] as? Bool ?? false)
         case "log": NSLog("[page %@] %@", a["kind"] as? String ?? "log", a["text"] as? String ?? "")
+        case "print": printPage(message.webView, name: a["name"] as? String ?? "Pearls", landscape: a["landscape"] as? Bool ?? false, letter: (a["paper"] as? String) == "letter")
         case "mediaState": break   // WebKit already drives the lock screen and Control Centre from the page's Media Session
         default: break
         }
         if let s = body["seq"] as? Int { ack = max(ack, s) }
         schedulePush()
+    }
+
+    /// Print for Shabbat: the page has laid out its sheets (#pp-print, @page size set) and @media print shows only
+    /// them, so the web view prints itself. iOS / iPadOS: the system print sheet (a printer, or Save to Files as PDF).
+    /// macOS: the print panel, on the paper the page asked for.
+    private func printPage(_ web: WKWebView?, name: String, landscape: Bool, letter: Bool) {
+        guard let web = web else { return }
+        #if os(iOS)
+        let info = UIPrintInfo(dictionary: nil)
+        info.jobName = name
+        info.outputType = .general
+        info.orientation = landscape ? .landscape : .portrait
+        let pc = UIPrintInteractionController.shared
+        pc.printInfo = info
+        pc.printFormatter = web.viewPrintFormatter()
+        if let pop = web.window?.rootViewController?.view, UIDevice.current.userInterfaceIdiom == .pad {
+            pc.present(from: CGRect(x: pop.bounds.midX, y: 60, width: 1, height: 1), in: pop, animated: true, completionHandler: nil)
+        } else {
+            pc.present(animated: true, completionHandler: nil)
+        }
+        #else
+        let info = NSPrintInfo.shared.copy() as! NSPrintInfo
+        let mm = { (v: CGFloat) in v / 25.4 * 72 }
+        let w = letter ? mm(215.9) : mm(210), h = letter ? mm(279.4) : mm(297)
+        info.paperSize = landscape ? NSSize(width: h, height: w) : NSSize(width: w, height: h)
+        info.orientation = landscape ? .landscape : .portrait
+        info.topMargin = 0; info.bottomMargin = 0; info.leftMargin = 0; info.rightMargin = 0
+        info.horizontalPagination = .fit; info.verticalPagination = .automatic
+        info.jobDisposition = .spool
+        let op = web.printOperation(with: info)
+        op.jobTitle = name
+        if let win = web.window { op.runModal(for: win, delegate: nil, didRun: nil, contextInfo: nil) } else { op.run() }
+        #endif
     }
 
     private func enqueue(_ jobs: [[String: Any]], wifiOnly: Bool) {

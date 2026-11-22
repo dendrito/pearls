@@ -1388,6 +1388,7 @@ function dlMany(ids) {
 
 /* ---------- icons ---------- */
 const I = {
+  print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 9V3.5h10V9M7 17H4.5A1.5 1.5 0 0 1 3 15.5v-5A1.5 1.5 0 0 1 4.5 9h15a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 14h10v6.5H7z"/></svg>',
   lang: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h10M8 3v2M5.5 5c.8 3.4 3 6 6.5 7.5M10.5 5c-.9 3.9-3.4 6.9-7 8.5M13 21l4-9 4 9M14.4 18h5.2"/></svg>',
   order: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>',
@@ -1493,6 +1494,7 @@ function vHome() {
     ${posterCard(greet, hero)}
     ${offlineCard()}
     ${jumpBack(readHere, resumeList, recs)}
+    ${shabbatPrintCard()}
     ${dailyCard()}
     ${todayCard()}
     ${calShelf()}
@@ -1853,7 +1855,8 @@ function vVol(book, kind) {
       <div class="stats"><span class="kinds">${ks.map(kindTag).join("")}</span><span>${ts.length} chapters</span>${total ? `<span>${ts.every(dur) ? "" : "≈ "}${(total / 3600).toFixed(1)} h of audio${ts.every(dur) ? "" : "+"}</span>` : ""}${heard ? `<span>${heard}/${ts.length} heard</span>` : ""}</div></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn gold" data-act="playvol" data-id="${v.book}" data-start="${ts.indexOf(firstUnheard)}">${I.play}${heard ? "Continue" : "Play the book"}</button>
-      <button class="btn ghost" data-act="savevol" data-id="${v.book}">${I.plus}Save as playlist</button>${dlManyButton(ts.map(t => t.id))}</div>
+      <button class="btn ghost" data-act="savevol" data-id="${v.book}">${I.plus}Save as playlist</button>${dlManyButton(ts.map(t => t.id))}
+      <button class="btn line" data-act="printvol" data-id="${v.book}">${I.print}Print</button></div>
     ${ks.length > 1 ? kindChips(only, kindCounts(ts), "vkind") : `<p class="note kinddesc" style="margin:0">${kindTag(ks[0])} ${KIND[ks[0]].desc}</p>`}
     <div class="list">${ts.filter(t => only === "all" || kindOf(t) === only).map(t => trackRow(t)).join("")}</div>
     ${v.book === "03" ? `<p class="note">Audio for this volume may not be available; the text is.</p>` : ""}
@@ -1947,6 +1950,7 @@ function vChapter(id) {
         ${playable(t) ? `<button class="btn gold" data-act="playch" data-id="${t.id}">${I.play}Listen<span class="plang"> · ${LANG_NAME[listenLang(t)]}</span></button>` : `<span class="note">No recording of this chapter</span>`}
         <button class="iconbtn ${liked ? "on" : ""}" data-act="like" data-id="${t.id}" aria-label="Like">${liked ? I.heartOn : I.heart}</button>
         <button class="iconbtn" data-act="addto" data-id="${t.id}" aria-label="Add to playlist">${I.plus}</button>
+        <button class="iconbtn" data-act="print" data-id="${t.id}" aria-label="Print for Shabbat">${I.print}</button>
         ${dlButton(t)}</div>
       ${state.where && state.where.id === t.id && state.where.sec > 1 ? `<div><button class="chip" data-act="jumpsec" data-sec="${state.where.sec}" style="height:32px;font-size:13px">Continue at section ${state.where.sec}</button></div>` : ""}
       ${xlOfficial(t) ? `<div class="aiflag official"><b>Official translation</b> The ${esc(XL.langs[xlOf(t)].english)} below is Yeshivat Har Bracha's own translation of Rabbi Melamed's Hebrew.</div>`
@@ -2148,10 +2152,178 @@ function secTools(t, i, opts = {}) {
     ${playable(t) ? `<button class="tool" data-act="playsec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Listen from this section">${I.play}<span>Listen from here</span></button>` : ""}
     <button class="tool ${saved ? "on" : ""}" data-act="savesec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Save this section">${saved ? I.bookOn : I.book}<span>${saved ? "Saved" : "Save"}</span></button>
     <button class="tool" data-act="sharesec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Share this section">${I.share}<span>Share</span></button>
+    <button class="tool" data-act="printsec" data-id="${t.id}" data-sec="${i + 1}" aria-label="Print this section">${I.print}<span>Print</span></button>
     ${opts.hebrew ? `<button class="tool" data-act="hebsec" data-id="${t.id}" data-sec="${i + 1}">${I.heb}<span>Hebrew</span></button>` : ""}
     ${ref ? `<a class="tool" href="${sefUrl(ref)}" target="_blank" rel="noopener">${I.ext}<span>Sefaria</span></a>` : ""}
     ${meldarUrl(ref) ? `<a class="tool" href="${meldarUrl(ref)}" target="_blank" rel="noopener">${I.ext}<span>Meldar</span></a>` : ""}
   </div>`;
+}
+/* ---------- Print for Shabbat (print.js lays out the pages; this gathers the text and asks what to print) ----------
+   A section, a chapter, a book, a playlist or the Shabbat bundle, in any of print.js's layouts, as pages, a folded
+   booklet, pocket cards or a tri-fold. The text is what the reader shows (respelled, Peninei Halakha's name, AI marked
+   AI), without links or buttons. Every printout ends with the credit, the licence and a note that it holds words of Torah. */
+const PRINT_LETTER = /-(US|CA|MX|PH|CL|CO|VE|CR|GT|PA|PR|SV|DO|NI|HN)$/i.test(navigator.language || "");
+const printPrefs = () => Object.assign({ style: "classic", format: "pages", cover: "none", lang: null, paper: PRINT_LETTER ? "letter" : "a4", ink: "colour" }, state.prefs.print || {});
+function comingShabbat(d = new Date()) { const x = new Date(d); x.setHours(12, 0, 0, 0); while (x.getDay() !== 6) x.setDate(x.getDate() + 1); return x; }
+const gbDate = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+function printClean(html, opts = {}) {   // the reader's HTML, made for paper: no links, buttons, images or inline styles
+  const d = document.createElement("div"); d.innerHTML = html;
+  d.querySelectorAll("script,style,iframe,form,img,svg,button,video,audio,noscript,.secfoot,.sectools,.epyt-video-wrapper,.epyt-facade,[hidden]").forEach(e => e.remove());
+  d.querySelectorAll("a").forEach(a => a.replaceWith(...a.childNodes));
+  d.querySelectorAll("[style],[id],[class]").forEach(e => { e.removeAttribute("style"); e.removeAttribute("id"); if (!e.matches("ol")) e.removeAttribute("class"); });
+  d.querySelectorAll("ol.fn").forEach(o => o.className = "pp-fn");
+  if (opts.en) { phNameTree(d); respellTree(d); }
+  return d.innerHTML;
+}
+const noNum = s => String(s || "").replace(/^\s*\d+[.)]\s*/, "");
+const PRINT_AI_NOTE = l => `AI translation (Claude, Anthropic) from Rabbi Melamed's Hebrew${l ? ` into ${l}` : ""}. Not reviewed by Yeshivat Har Bracha or a rabbi: check the Hebrew before relying on it in practice.`;
+async function printHebrew(t, d) {   // [{title, html}] by section, or null when it can't be had (offline, first time)
+  if (d && d.sections && d.sections.some(s => s.body_he != null)) return d.sections.map(s => ({ title: printClean(s.title_he || ""), html: printClean((s.body_he || "") + notesHTML((s.notes_he || []).map(n => ({ n: n.n, he: n.he })))) }));
+  try { const posts = await hebrewPosts(t); return posts.map(p => ({ title: printClean(p.title.rendered || ""), html: printClean(cleanHeb(p.content.rendered)) })); } catch { return null; }
+}
+async function printChapter(t, lang, wantHe, only) {
+  const ch = { id: t.id, n: t.n, vol: { ...t.vol, short: R(t.vol.short), title: R(t.vol.title) }, eyebrow: `${R(t.vol.title)} · Chapter ${t.n}`,
+    title: R(t.title), titleHe: t.titleHe || null, note: "", secs: [] }, credit = [];
+  const keep = (s, i) => !only || only.includes(i + 1);
+  const xl = lang !== "en" && lang !== "he" && lang !== "both" ? lang : null;
+  let he = null, d = null;
+  if (xl && XL.ch[t.id] && XL.ch[t.id][xl]) {
+    const x = await loadXl(t, xl), L = XL.langs[xl] || { english: xl }, off = x.translator === "official";
+    ch.title = XL.ch[t.id][xl].t || ch.title;
+    ch.secs = x.sections.map((s, i) => ({ n: i + 1, title: esc(s.title || ""), ai: !off, lang: xl, dir: "ltr",
+      html: printClean((off ? cleanXlHTML(s.body) : s.body) + notesHTML((s.notes || []).map(n => ({ n: n.n, en: n.t })))) }));
+    if (off) credit.push(`${esc(L.english)} translation by Yeshivat Har Bracha, as published on ph.yhb.org.il.`);
+    else { ch.note = esc(PRINT_AI_NOTE(L.english)); credit.push(`Translated into ${esc(L.english)} by AI (Claude) from the Hebrew. Sections marked AI.`); }
+  } else {
+    if (xl) ch.note = esc(`${(XL.langs[xl] || { english: xl }).english} isn't available for this chapter yet, so it prints in ${t.vol.he && !t.translated ? "Hebrew" : "English"}.`);
+    d = await fetchSections(t);
+    if (lang === "he" || (t.vol.he && !t.translated)) {
+      he = await printHebrew(t, t.vol.he ? d : null);
+      if (he) {
+        ch.secs = he.map((h, i) => ({ n: i + 1, title: h.title, html: h.html, lang: "he", dir: "rtl" }));
+        if (t.titleHe) { ch.title = t.titleHe; ch.titleHe = R(t.title); }
+        if (t.vol.he && !t.translated && lang !== "he") ch.note = (ch.note ? ch.note + " " : "") + "This chapter isn't translated yet, so it prints in Hebrew.";
+        ch.secs = ch.secs.filter(keep); return { ch, credit };
+      }
+      if (!t.vol.he || t.translated) ch.note = (ch.note ? ch.note + " " : "") + "The Hebrew needs a connection the first time, so this chapter prints in English.";
+      else throw new Error("offline");
+    }
+    if (t.vol.he) {
+      ch.secs = d.sections.map((s, i) => ({ n: i + 1, title: esc(R(s.title_en || "")), ai: true, lang: "en", dir: "ltr", html: printClean((s.body_en || "") + notesHTML(s.notes_en), { en: true }) }));
+      ch.note = (ch.note ? ch.note + " " : "") + esc(PRINT_AI_NOTE());
+      credit.push("Translated into English by AI (Claude, Anthropic) from Rabbi Melamed's Hebrew. Sections marked AI.");
+    } else {
+      ch.secs = d.map((p, i) => ({ n: i + 1, title: printClean(noNum(p.title.rendered), { en: true }), lang: "en", dir: "ltr", html: printClean(p.content.rendered, { en: true }) }));
+      credit.push("English translation by Yeshivat Har Bracha.");
+    }
+  }
+  if (wantHe) {
+    if (!he) he = await printHebrew(t, t.vol.he ? d || await fetchSections(t) : null);
+    if (he) ch.secs.forEach((s, i) => { if (he[i]) s.he = he[i]; });
+    else ch.note = (ch.note ? ch.note + " " : "") + "The Hebrew needs a connection the first time, so it isn't printed beside this chapter.";
+  }
+  ch.secs = ch.secs.filter(keep);
+  return { ch, credit };
+}
+async function printGather(spec, o) {
+  const lang = o.lang, wantHe = lang === "both" || o.style === "sbs";
+  const ts = spec.ids.map(id => BYID[id]).filter(Boolean), chapters = [], credits = new Set();
+  for (const t of ts) {
+    try { const r = await printChapter(t, lang === "both" ? "en" : lang, wantHe, spec.secs && spec.secs[t.id]); if (r.ch.secs.length) { chapters.push(r.ch); r.credit.forEach(c => credits.add(c)); } }
+    catch (e) { /* a chapter that can't be had offline is left out, and said so below */ chapters.push({ ...{ id: t.id, n: t.n, vol: t.vol, eyebrow: `${R(t.vol.title)} · Chapter ${t.n}`, title: R(t.title) }, secs: [{ n: 1, title: "", html: "<p>This chapter needs a connection the first time it is opened. Open it once online and print again.</p>" }] }); }
+  }
+  const v = (ts[0] || {}).vol || VOLS[0], sh = comingShabbat(), h = hebToday(sh);
+  const doc = { title: spec.title, heTitle: spec.heTitle || null, sub: spec.sub || `For Shabbat · ${gbDate(sh)}`, lang: lang === "both" ? "both" : lang,
+    vol: { ...v, short: R(v.short), title: R(v.title) }, chapters, credits: [...credits],
+    dateLine: `Shabbat · ${gbDate(sh)}${h ? ` · ${h.day} ${h.month} ${h.year}` : ""}`, extras: {} };
+  const dp = DAILY && DAILY.forDate(sh);
+  if (dp) doc.extras.daily = { ref: dpRef(dp.parts), items: dpItems(dp.parts).map(it => it.t ? dpHalakha(it.t, it.sec) : `Halakha ${it.sec}`) };
+  const c = CAL[0]; if (c) doc.extras.cal = { name: R(c.name), he: c.he || "", when: calWhen(c) };
+  return doc;
+}
+/* what can be printed from where: each entry point offers the scopes that make sense there */
+function printSpecs(kind, id, sec) {
+  if (kind === "pl") { const pl = findPlaylist(id), ids = pl ? pl.tracks.filter(x => BYID[x]) : [];
+    return [{ key: "pl", label: `This playlist · ${ids.length} chapter${ids.length === 1 ? "" : "s"}`, ids, title: pl ? R(pl.name) : "Playlist" }]; }
+  if (kind === "vol") { const v = VOLS.find(x => x.book === id), ids = TRACKS.filter(t => t.vol === v).map(t => t.id);
+    return [{ key: "vol", label: `The whole book · ${ids.length} chapters`, ids, title: R(v.title), heTitle: v.heb }]; }
+  if (kind === "shabbat") return [shabbatSpec()];
+  const t = BYID[id]; if (!t) return [];
+  const out = [];
+  if (sec) out.push({ key: "sec", label: `This section · ${sec}`, ids: [t.id], secs: { [t.id]: [+sec] }, title: R((t.sectionTitles[sec - 1]) || t.title), heTitle: t.titleHe });
+  out.push({ key: "ch", label: `This chapter · ${t.sectionTitles.length || t.sections || ""} sections`.replace(/ · $/, ""), ids: [t.id], title: R(t.title), heTitle: t.titleHe });
+  const rest = TRACKS.filter(x => x.vol === t.vol && x.n >= t.n);
+  if (rest.length > 1) out.push({ key: "next", label: `This and the next two chapters`, ids: rest.slice(0, 3).map(x => x.id), title: R(t.vol.title), heTitle: t.vol.heb });
+  out.push({ key: "vol", label: `The whole book · ${TRACKS.filter(x => x.vol === t.vol).length} chapters`, ids: TRACKS.filter(x => x.vol === t.vol).map(x => x.id), title: R(t.vol.title), heTitle: t.vol.heb });
+  return out;
+}
+function shabbatSpec() {   // the Friday bundle: what you're on, the Daily Pearl's halakhot for Shabbat, and what's due in Review
+  const ids = [], secs = {}, sh = comingShabbat();
+  const add = (id, s) => { if (!BYID[id]) return; if (!ids.includes(id)) ids.push(id); if (s) (secs[id] = secs[id] || []).push(s); else secs[id] = null; };
+  const c = cur() || (state.where && BYID[state.where.id]);
+  if (c) add(c.id);
+  const dp = DAILY && DAILY.forDate(sh);
+  if (dp) for (const it of dpItems(dp.parts)) if (it.t && secs[it.t.id] !== null) add(it.t.id, it.sec);
+  state.lists.review.filter(r => BYID[r.id] && r.due <= sh.getTime() + DAY).slice(0, 2).forEach(r => add(r.id));
+  for (const k in secs) if (secs[k] === null) delete secs[k];
+  return { key: "shabbat", label: `For Shabbat · ${ids.length} chapter${ids.length === 1 ? "" : "s"}`, ids, secs, title: "For Shabbat", heTitle: "לשבת קודש", sub: gbDate(sh) };
+}
+function printLangs(spec) {   // English, Hebrew, both, and the other reading languages any chapter here has
+  const out = [["en", "English"], ["he", "עברית"], ["both", "Both"]];
+  for (const [l, x] of Object.entries(XL.langs)) if (l !== "fr" && spec.ids.some(id => XL.ch[id] && XL.ch[id][l])) out.push([l, x.name]);
+  return out;
+}
+function printDialog(kind, id, sec, keepKey) {
+  const specs = printSpecs(kind, id, sec); if (!specs.length || !window.PEARLS_PRINT) return;
+  const P = PEARLS_PRINT, o = printPrefs();
+  let spec = specs.find(s => s.key === keepKey) || specs[0];
+  if (!o.lang) o.lang = isXl(langPref()) ? langPref() : langPref() === "he" ? "he" : "en";
+  const chips = (name, list, cur, dis = () => false) => `<div class="chips pp-chips" data-k="${name}">${list.map(([v, l]) => `<button class="chip${v === cur ? " on" : ""}" data-v="${v}" aria-pressed="${v === cur}"${dis(v) ? " disabled" : ""}${/[֐-׿]/.test(l) ? ' lang="he"' : ""}>${esc(l)}</button>`).join("")}</div>`;
+  const paint = s => {
+    const st = P.STYLES.find(x => x.id === o.style) || P.STYLES[0];
+    if (!st.formats.includes(o.format)) o.format = st.formats[0];
+    const langs = printLangs(spec); if (!langs.some(([v]) => v === o.lang)) o.lang = "en";
+    if (st.sbs && (o.lang === "he" || o.lang === "both")) o.lang = "en";
+    const n = spec.ids.length;
+    s.querySelector(".pp-dlg").innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h3 style="margin:0">Print for Shabbat</h3><p class="note" style="margin:4px 0 0">${esc(spec.title)}</p></div><button class="iconbtn" data-x aria-label="Close">${I.x}</button></div>
+      ${specs.length > 1 ? `<div class="pp-k">What</div>${chips("scope", specs.map(x => [x.key, x.label]), spec.key)}` : `<p class="note" style="margin:0">${esc(spec.label)}</p>`}
+      <div class="pp-k">Layout</div>
+      <div class="pp-styles">${P.STYLES.map(x => `<button class="pp-style${x.id === o.style ? " on" : ""}" data-style="${x.id}" aria-pressed="${x.id === o.style}"><span class="pp-sw pp-sw-${x.id}" aria-hidden="true"><i></i><i></i><i></i></span><b>${esc(x.name)}</b></button>`).join("")}</div>
+      <p class="note" style="margin:0">${esc(st.desc)}${o.style === "trifold" && n > 1 ? " Best for a short text: a longer one makes several leaflets." : ""}${o.style === "table" && n > 2 ? " Best for one or two chapters." : ""}</p>
+      ${st.formats.length > 1 ? `<div class="pp-k">Format</div>${chips("format", [["pages", "Pages"], ["booklet", "Folded booklet"]], o.format)}` : ""}
+      ${o.style !== "table" ? `<div class="pp-k">Cover</div>${chips("cover", [["none", "None"], ["simple", "Title page"], ["illus", "Illustrated"]], o.cover)}` : ""}
+      <div class="pp-k">Language</div>${chips("lang", langs, o.lang, v => st.sbs && (v === "he" || v === "both"))}
+      ${st.sbs ? `<p class="note" style="margin:0">Side by side puts the Hebrew beside the language you choose.</p>` : ""}
+      <div class="pp-k">Paper and ink</div>${chips("paper", [["a4", "A4"], ["letter", "Letter"]], o.paper)}${chips("ink", [["colour", "Colour"], ["light", "Light colour"], ["black", "Black"]], o.ink)}
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px"><button class="btn line" data-x>Cancel</button><button class="btn gold" data-go-print${n ? "" : " disabled"}>Preview</button></div>`;
+  };
+  dialog(`<div class="pp-dlg"></div>`, (s, close) => {
+    s.querySelector(".dialog").classList.add("pp-dialog");
+    paint(s);
+    s.querySelector(".pp-dlg").onclick = e => {
+      if (e.target.closest("[data-x]")) return close();
+      const sb = e.target.closest("[data-style]"); if (sb) { o.style = sb.dataset.style; return paint(s); }
+      const c = e.target.closest(".pp-chips [data-v]");
+      if (c && !c.disabled) { const k = c.parentNode.dataset.k; if (k === "scope") spec = specs.find(x => x.key === c.dataset.v); else o[k] = c.dataset.v; return paint(s); }
+      if (e.target.closest("[data-go-print]")) {
+        state.prefs.print = { ...o }; save.prefs(); close();
+        toast(spec.ids.length > 3 ? `Gathering ${spec.ids.length} chapters…` : "Gathering the text…");
+        printGather(spec, o).then(doc => {
+          if (!doc.chapters.length) return toast("Nothing to print");
+          P.open(doc, o, { onBack: () => printDialog(kind, id, sec, spec.key) });
+        }).catch(() => toast("Couldn't gather the text. Try again online."));
+      }
+    };
+  });
+}
+/* Thursday and Friday: a Home card offering the Shabbat printout */
+function shabbatPrintCard() {
+  const day = new Date().getDay(); if ((day !== 4 && day !== 5) || !window.PEARLS_PRINT) return "";
+  const sp = shabbatSpec(); if (!sp.ids.length) return "";
+  return `<section class="panel ppcard"><div class="eyebrow">Shabbat · ${esc(gbDate(comingShabbat()))}</div>
+    <div class="ppcard-row"><span class="ppcard-ic" aria-hidden="true">${I.print}</span><div><b>Print for Shabbat</b><p class="note" style="margin:2px 0 0">${sp.ids.map(x => esc(R(BYID[x].title))).slice(0, 3).join(" · ")}${sp.ids.length > 3 ? " …" : ""}</p></div></div>
+    <div class="row"><button class="btn gold" data-act="printshabbat">${I.print}Print</button></div></section>`;
 }
 const hebCache = {};
 async function hebrewFor(t, sec) {           // official English books: the Hebrew original from ph.yhb.org.il (CC BY 4.0)
@@ -2907,6 +3079,7 @@ function vPlaylist(id) {
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn gold" data-act="playpl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.play}Play</button>
       <button class="btn ghost" data-act="shufflepl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.shuffle}Shuffle</button>${dlManyButton(ts.map(t => t.id))}
+      <button class="btn line" data-act="printpl" data-id="${pl.id}" ${ts.length ? "" : "disabled"}>${I.print}Print</button>
       ${own ? `<button class="btn line" data-act="renamepl" data-id="${pl.id}">Rename</button><button class="btn line" data-act="delpl" data-id="${pl.id}">Delete</button>`
             : `<button class="btn line" data-act="copypl" data-id="${pl.id}">${I.plus}Save a copy</button>`}</div>
     ${ts.length ? `<div class="list">${ts.map((t, i) => trackRow(t, pl.kind === "list" ? { why: (pl.why || {})[t.id], end: `<button class="iconbtn" style="background:none;width:34px" data-act="${pl.list === "liked" ? "like" : "unlist"}" data-list="${pl.list}" data-id="${t.id}" aria-label="Remove">${I.x}</button>` } : { end: own ? `
@@ -3107,6 +3280,7 @@ function trackMenu(id) {
     <button class="opt" data-a="later">${I.clock}<b>${onList("later", id) ? "Remove from Study later" : "Study later"}</b></button>
     <button class="opt" data-a="read">${I.read}<b>${cur() && cur().id === id ? `Read along · section ${P.part + 1}` : "Read the text"}</b></button>
     <button class="opt" data-a="radio">${I.shuffle}<b>Start a mix from this chapter</b></button>
+    <button class="opt" data-a="print">${I.print}<b>Print for Shabbat</b></button>
     ${NATIVE && (hasHe(t) || hasEn(t)) ? (dlState(t).s === "none" ? `<button class="opt" data-a="dl">${DLI.get}<b>Download</b></button>` : `<button class="opt" data-a="undl">${I.x}<b>Remove download</b></button>`) : ""}
     ${(state.plays[id] || {}).done ? `<button class="opt" data-a="unheard">${I.x}<b>Mark as not heard</b></button>` : ""}`, (s, close) => {
     s.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
@@ -3117,6 +3291,7 @@ function trackMenu(id) {
       if (a === "review") toggleList("review", id);
       if (a === "later") toggleList("later", id);
       if (a === "read") { if (cur() && cur().id === id) readAlong(); else { closeNP(); go(`ch-${id}`); } }
+      if (a === "print") printDialog("ch", id);
       if (a === "radio") { playQueue([id, ...similar(t, 9).map(r => r.t.id)], 0, `Mix from ${t.title}`); toast("Mix started"); }
       if (a === "dl") { downloadTrack(t); toast(DL.prefs.wifiOnly && !online() ? "Will download when you're online" : "Downloading"); }
       if (a === "undl") { removeDownload(t); toast("Download removed"); }
@@ -3216,6 +3391,11 @@ document.addEventListener("click", e => {
     case "rm": { const pl = findPlaylist(id); const [gone] = pl.tracks.splice(+b.dataset.i, 1); save.mine(); render(); toast(`Removed “${BYID[gone].title}”`); break; }
     case "addhere": { const pl = findPlaylist(b.dataset.pl); pl.tracks.push(id); save.mine(); render(); toast("Added"); break; }
     case "addto": addTo(id); break;
+    case "print": printDialog("ch", id); break;
+    case "printsec": printDialog("ch", id, b.dataset.sec); break;
+    case "printvol": printDialog("vol", id); break;
+    case "printpl": printDialog("pl", id); break;
+    case "printshabbat": printDialog("shabbat"); break;
     case "trackmenu": trackMenu(id); break;
     case "spelling": settingsDialog(); break;
     case "setread": setLang(b.dataset.v); break;
@@ -3357,5 +3537,5 @@ renderMini();
 render();
 syncStart();
 setTimeout(dailyLook, 5000);
-window.PEARLS = { SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang, NE, NK, Neural };   // handy for debugging
+window.PEARLS = { printGather, printDialog, shabbatSpec, printSpecs, SYNC, syncNow, syncPull, localDoc, applyDoc, playMode, setPlayMode, upcoming, toggleList, studied, onList, listPl, recommend, similar, TRACKS, VOLS, PRESETS, state, R, cleanHTML, setScheme, setEnWords, renderHebrewChapter, loadBook, DL, dlState, smartRun, downloadTrack, P, audio, listenLang, BYID, setLang, NE, NK, Neural };   // handy for debugging
 })();

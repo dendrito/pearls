@@ -14,7 +14,7 @@ import os, re, sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WWW = os.path.join(ROOT, "www")
 ART = os.path.join(WWW, "art")
-FILES = ["app.css", "skins.css", "modes.css", "app.js", "covers.js", "index.html"] + \
+FILES = ["app.css", "skins.css", "modes.css", "print.css", "app.js", "print.js", "covers.js", "index.html"] + \
         (["art/" + f for f in sorted(os.listdir(ART)) if f.endswith(".svg")] if os.path.isdir(ART) else [])
 
 
