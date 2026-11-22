@@ -831,7 +831,9 @@
   // the volume a self-citation names -> Pearls' name for it ("Mo’adim" -> Festivals, "Tefillah" -> Prayer), or '' if Pearls lacks it
   [['Tefillah', 'Prayer'], ['Tefila', 'Prayer'], ['Tefillat Nashim', "Women's Prayer"], ["Laws of Women's Prayer", "Women's Prayer"],
     ['Moadim', 'Festivals'], ["Yamim Nora'im", 'Days of Awe'], ['Yamim Noraim', 'Days of Awe'], ["Shevi'it", 'Shemitah and Yovel'],
-    ['Kashrut', 'Kashrut'], ['Laws of Kashrut', 'Kashrut'], ['Zmanim', 'Zemanim'], ['Laws of Prayer', 'Prayer']].forEach(function (r) { PH_VOL_EN[foldMT(r[0])] = r[1]; });
+    ['Kashrut', 'Kashrut'], ['Laws of Kashrut', 'Kashrut'], ['Zmanim', 'Zemanim'], ['Laws of Prayer', 'Prayer'],
+    ["Pessa'h", 'Pesach'], ['Pessah', 'Pesach'], ['Souccot', 'Sukkot'], ['Soukkot', 'Sukkot'],
+    ['Simchat Habayit', "Simchat Habayit U'Virkhato"], ['Simḥat Ha-bayit', "Simchat Habayit U'Virkhato"]].forEach(function (r) { PH_VOL_EN[foldMT(r[0])] = r[1]; });
   var PH_TITLES = {}; Object.keys(PH_VOL_HE).forEach(function (k) { PH_TITLES[PH_VOL_HE[k]] = 1; });
   // the numbered collections, matched apart because folding would make "I" and "II" one word
   var PH_PARTS = {'likutim': ['Likkutim I', 'Likkutim II'], 'likkutim': ['Likkutim I', 'Likkutim II'],
@@ -1152,7 +1154,7 @@
    * Each rule below answers a failure that fetching every ref from Sefaria turned up:
    *  1. a range written short: "Psalms 78:36-7" is 36–37; "Devarim 11:32-12:1" crosses a chapter.
    *  2. "Kitzur Shulḥan Arukh 129:20" is the Kitzur, not the Shulchan Arukh.
-   *  3. Even HaEzer has 178 simanim: an inherited EH section with a larger siman is Oraḥ Ḥayim (240, 546…).
+   *  3. Even HaEzer has 178 simanim and Yoreh De'ah 403: an inherited section with a larger siman is Oraḥ Ḥayim (240, 451…).
    *  4. "MB ad loc. 33" after "MA 306:15; Birkei Yosef ad loc. 7" is 306:33, not 7:33.
    *  5. a bare commentary number with no siman before it ("MA 604") is the siman, not 604:604.
    *  6. numbers past the end of a book, or a se'if a siman does not have on Sefaria (BOUNDS, Sefaria's own shapes), are a typo or another work's
@@ -1212,9 +1214,11 @@
         h.start -= k[0].length; h.text = text.slice(h.start, h.end);
         h.ref = 'Kitzur Shulchan Arukh ' + m[1]; h.work = 'Kitzur Shulchan Arukh'; delete h.sec; delete h.secBy;
       }
-      // 3 · an inherited Even HaEzer past its last siman
-      if ((m = /, Even HaEzer (\d+)/.exec(h.ref)) && +m[1] > 178 && h.secBy) {
-        h.ref = h.ref.replace(', Even HaEzer ', /^Arukh HaShulchan/.test(h.ref) ? ', Orach Chaim ' : ', Orach Chayim '); h.sec = 'OC';
+      // 3 · an inherited Even HaEzer or Yoreh De'ah past its last siman is Oraḥ Ḥayim (Kashrut's "SA 451:6" is Pesaḥ)
+      if ((m = /, (Even HaEzer|Yoreh De'ah) (\d+)/.exec(h.ref)) && +m[2] > SA_END[m[1]] && h.secBy) {
+        // commentaries Sefaria holds only outside Oraḥ Ḥayim: no Oraḥ Ḥayim ref to move to
+        if (/^(?:Pitchei Teshuva|Siftei Kohen|Beit Shmuel|Chelkat Mechokek)\b/.test(h.ref)) { h.resolved = false; h.why = OUT_WHY; h.ref = ''; return; }
+        h.ref = h.ref.replace(', ' + m[1] + ' ', /^Arukh HaShulchan/.test(h.ref) ? ', Orach Chaim ' : ', Orach Chayim '); h.sec = 'OC';
       }
       var sk = SK_REF.exec(h.ref), pk = prev && SIMAN_REF.exec(prev.ref);
       if (sk && !/:/.test(h.text)) {
@@ -1725,6 +1729,8 @@
       ['(Devarim 11:32-12:1)', '', ['Deuteronomy 11:32-12:1']],                    // a range across chapters
       ['(Kitzur Shulḥan Arukh 129:20)', 'Peninei Halakhah, Days of Awe 3', ['Kitzur Shulchan Arukh 129:20']],
       ['(SA 240:11)', "Peninei Halakhah, Simchat Habayit U'Virkhato 2", ['Shulchan Arukh, Orach Chayim 240:11']],   // EH ends at 178
+      ['(SA 451:6; Taz 451:8)', 'Peninei Halakhah, Kashrut 33', ['Shulchan Arukh, Orach Chayim 451:6', 'Turei Zahav on Shulchan Arukh, Orach Chayim 451:8']],   // YD ends at 403
+      ["(Peninei Halakha, Pessa'h 10:5; Souccot 4:2)", '', ['Peninei Halakhah, Pesach 10:5']],
       ['(MA 306:15; Birkei Yosef ad loc. 7; MB ad loc. 33)', 'Peninei Halakhah, Shabbat 22',
         ['Magen Avraham 306:15', '', 'Mishnah Berurah 306:33']],                   // "ad loc." is the siman, not the 7
       ['(Peninei Halakha: Mo’adim 10:3; Peninei Halachah Likutim I, 4:6)', '',
