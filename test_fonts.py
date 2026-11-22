@@ -35,7 +35,7 @@ def needed(problems=None):
     span = re.compile(r'<span lang=\\?"([a-z]{2,3})\\?"[^>]*>(.*?)</span>')
     # Estante's voice engine (voice*.js, *-worker.js) and pearls-phonemes.js hold sound tables that are never shown
     files = [f for f in glob.glob(os.path.join(WWW, "*.js")) if not re.match(r"(voice.*|.*-worker|pearls-phonemes)\.js$", os.path.basename(f))] + glob.glob(os.path.join(WWW, "en", "**", "*"), recursive=True) \
-        + glob.glob(os.path.join(WWW, "books", "**", "*"), recursive=True)
+        + glob.glob(os.path.join(WWW, "books", "**", "*"), recursive=True) + glob.glob(os.path.join(WWW, "xl", "**", "*"), recursive=True)
     for f in files:
         if not os.path.isfile(f) or not f.endswith((".js", ".json", ".html", ".txt")): continue
         text = open(f, encoding="utf8").read()
@@ -51,6 +51,9 @@ def needed(problems=None):
                 if problems is not None: problems.add(f"{os.path.relpath(f, HERE)}: {n} '{ch}' isn't inside <span lang=\"{SCRIPTS[n][1][0]}\">")
                 continue
             if o < 128 or 0x0590 <= o <= 0x05FF or 0xFB1D <= o <= 0xFB4F: continue
+            # a word quoted in another script (21-11 names God in Arabic and Russian) is drawn by the system's font for
+            # that script, as Hebrew is by the Hebrew faces; no Latin face is meant to show it
+            if 0x0400 <= o <= 0x052F or 0x0600 <= o <= 0x06FF: continue
             cat = unicodedata.category(ch)
             if cat.startswith("L") or cat == "Lm" or ch in PUNCT_OK: chars.add(ch)
     return chars, foreign

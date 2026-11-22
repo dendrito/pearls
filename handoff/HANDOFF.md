@@ -149,5 +149,11 @@ is in `chat-transcript.jsonl.gz`.
    - host the files;
    - add them to the app as an "AI voice" audio option, labelled like the AI translations.
    Kokoro reads ḥ as gibberish, so `lexicon.tsv` and the ḥ->kh rule are needed.
+9. **Finish the French AI translation** (paused by the user 16 Nov 2026). 75 of the 180 Hebrew-only chapters are in
+   `work/fr/` (10, 11, 17-00..35, 18-00..04, 19-01..04). Still to do: 17-36..38, 18-05..10, 19-05..09, book 06,
+   book 20, book 21, book 16, books 07 and 08. Follow `work/TRANSLATE-fr.md` (house forms for works, Rishonim and
+   Tanakh books), check each with `python3 -I work/check.py --lang fr BB-CC`, then switch French on by uncommenting
+   `fr` in `LANGS` in `make_xl_books.py`, rebuild and extend `test_xl.py`. Spanish and Portuguese are done and live.
+   The 153 official-English chapters wait until their Hebrew is fetched (`fetch_ph_hebrew.py` on the user's Mac).
 8. **Play release, the user's side:** the developer account, 12 testers for 14 days, Har Bracha's permission, a
    hosted privacy policy, the foreground-service video, and replacing `CONTACT_EMAIL`.

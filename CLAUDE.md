@@ -41,6 +41,9 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
     does", the Ashkenaz exception and the `#spelling` page. It must end "spelling: 11/11".
   - `python3 tts/test_speech.py`: Hebrew terms in any spelling reach the AI voice in a sayable form, English words
     untouched. It must end "speech: 6/6".
+  - `python3 test_xl.py`: other reading languages. Choosing Español, a Spanish chapter with its AI label and credit,
+    the English fallback note on an official chapter, Português, Har Bracha's own Spanish labelled official (a stand-in
+    for 18-01, put back afterwards), and back to English. It must end "other languages: 25/25".
   - `python3 test_flat.py`: the flat rule (see Rules). It must end "flat: no soft gradients or blurs".
   - `python3 test_fonts.py`: the font hard rule (see Rules). It must end "fonts: all letters covered".
   - `python3 test_calendar.py`: calendar dates and postponements. It must end "calendar: 14/14".
@@ -121,6 +124,32 @@ the volumes in `catalog.js`), **AI translation** (a Hebrew-only volume whose cha
 **Hebrew only** (not translated yet). Books (`#books`, `#books-official|ai|he`), a mixed book's page (`#vol-20-he`) and
 Search filter by it, and track rows and book cards carry a flat tag (`.kindtag`). The Books and Search filters are
 remembered in `prefs.booksKind` / `prefs.searchKind`.
+
+## Other languages
+
+Spanish and Brazilian Portuguese are reading languages for chapters that have an AI translation into them (Claude, from
+the Hebrew; the Portuguese used the Spanish as a helper). Both cover the 180 Hebrew-only chapters. French is meant to
+follow the same way (`work/TRANSLATE-fr.md`).
+
+- `work/<lang>/BB-CC.json` holds the translation, in the English shape with `_<lang>` field names. Only chapters that
+  pass `python3 -I work/check.py --lang <lang> BB-CC` ship. Never edit `work/`.
+- `make_xl_books.py` (run by `build.sh` before the font check) writes `www/xl/<lang>/BB-CC.js`, one file per chapter
+  loaded when it opens, and `www/xl/index.js` (`PH_XL`): the languages and, per chapter, its translated chapter and
+  section titles. **To add a language, add it to `LANGS` in `make_xl_books.py`**; the app reads the list from the index.
+- In `app.js` the language is just another `prefs.read` value (`es`), set by `setLang()` from Settings, the chapter
+  page and the mini player's pill (EN → עב → ES → PT → EN). `xlOf(t)` says whether a chapter has the chosen language;
+  `renderXlChapter()` shows it under an AI banner that names Claude and the Hebrew source, with "AI" on every section,
+  `lang="es"` on the text, Show Hebrew per section and the Rabbi Melamed / Har Bracha credit. A chapter without it is
+  shown in English (or Hebrew, if it has no English either) with a note saying so (`xlMissing()`).
+- Citation links run on the translation; respelling and Hebrew tints don't. Listening is unchanged: an other language
+  counts as English for `listenLang()`. Interface chrome stays English.
+- **Official translations win.** Har Bracha publishes its own Spanish (Berakhot, Kashrut I and II, Taharat HaMishpaja)
+  and French (Berakhot) at ph.yhb.org.il/es and /fr, CC BY 4.0, with the same `BB-CC-SS` slugs. `fetch_xl_official.py`
+  saves them to `src/<lang>/BB-CC.json`; it must run where that site is reachable (the cloud build machine is blocked).
+  `make_xl_books.py` then ships a chapter as `"translator": "official"` (index `"o": 1`) when every section is there,
+  instead of the AI text, and `renderXlOfficial()` shows it labelled "Official translation" with Har Bracha's credit and
+  no AI marks. A chapter the site has only partly stays AI. There is no official Portuguese.
+- Size: each language adds about 10.5 MB of text (about 3 MB compressed in the APK); the index is 190 KB with two.
 
 ## Offline and downloads (Android)
 

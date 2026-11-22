@@ -14,6 +14,7 @@ fi
 python3 make_catalog.py
 python3 make_translit.py
 [ -f www/fonts/web/fonts.css ] || python3 fetch_webfonts.py
+python3 make_xl_books.py                 # Spanish (and later more) AI translations -> www/xl; before the font check reads them
 python3 patch_webfonts.py >/dev/null      # adds ḥ ĥ ḳ ʿ ½ … where a face lacks them
 python3 test_fonts.py || exit 1          # hard rule: every letter in the app is drawn by its own typeface
 python3 test_flat.py || exit 1           # hard rule: flat skins, no soft gradients or blurred shadows
