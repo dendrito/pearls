@@ -88,6 +88,7 @@
     textList: function () { return JSON.stringify(S.texts || []); },
     clearText: function () { var n = (S.texts || []).length; S.texts = []; post("clearText"); return n; },
     mediaState: function (json) { post("mediaState", { json: String(json || "") }); },
+    print: function (name, landscape, paper) { post("print", { name: String(name || "Pearls"), landscape: !!landscape, paper: paper === "letter" ? "letter" : "a4" }); },
     setBars: function (hex, light) { post("setBars", { hex: String(hex || ""), light: !!light }); },
     saveMigration: function () {},
     takeMigration: function () { return null; }

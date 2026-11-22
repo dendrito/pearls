@@ -98,6 +98,12 @@ def run():
         pg.fill("#syncCode", "ABCD-EFGH"); pg.click("[data-synclink]"); pg.wait_for_timeout(800)
         calls = pg.evaluate("__calls")
         check("linking calls pearls.pages.dev/api/claim", calls[:1] == ["https://pearls.pages.dev/api/claim"])
+        pg.evaluate("""async () => { const doc = await PEARLS.printGather({ ids: ['01-06'], title: 'Kiddush' }, { style: 'classic', lang: 'en' });
+          await PEARLS_PRINT.open(doc, { style: 'classic', format: 'booklet', cover: 'none', lang: 'en', paper: 'a4', ink: 'colour' }); }""")
+        pg.wait_for_selector(".pp-overlay .pp-sheet", timeout=60000); pg.click(".pp-go"); pg.wait_for_timeout(200)
+        pm = pg.evaluate("__app.msgs.filter(m => m.m === 'print').map(m => m.a)")
+        check("Print for Shabbat goes to the app (landscape A4 booklet)", len(pm) == 1 and pm[0]["landscape"] and pm[0]["paper"] == "a4" and "Kiddush" in pm[0]["name"])
+        pg.evaluate("PEARLS_PRINT.close()")
         check("no page errors", not errors)
         if errors: print("   ", errors[:3])
         pg.close()

@@ -1,0 +1,293 @@
+/* Print for Shabbat (print.js): pages laid out by Pearls itself, in true millimetres, so a booklet folds right.
+   Flat like the rest of the app (test_flat.py): solid colour, rules and type; no gradient, blurred shadow or blur.
+   Every face named here is bundled (test_fonts.py reads this file too).
+   Colours come from variables so the three inks are one rule each:
+     --p1 main colour, --p2 accent, --fill a block of colour, --on text on that block, --soft a pale panel.
+   .ink-light keeps the colour as rules and type only (no big blocks); .ink-black makes everything black. */
+
+/* ---------- the preview overlay ---------- */
+.pp-overlay{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;background:#3b3833;color:#f3efe6;font-family:"Figtree",system-ui,sans-serif}
+.pp-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));background:#24221f;flex-wrap:wrap}
+.pp-bar .pp-t{flex:1;min-width:0}
+.pp-bar .pp-t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-bar .pp-t span{font-size:12.5px;color:#c9c2b3}
+.pp-bar button{font:inherit;font-size:14px;font-weight:600;border-radius:999px;padding:9px 16px;border:1px solid #6d675c;background:transparent;color:#f3efe6;cursor:pointer}
+.pp-bar button.pp-go{background:#e2b65c;border-color:#e2b65c;color:#1a1406}
+.pp-help{font-size:13px;line-height:1.45;color:#e6e0d3;padding:8px 14px;background:#2d2b27;border-top:1px solid #45413a}
+.pp-help b{color:#fff}
+.pp-scroll{flex:1;overflow:auto;padding:18px 12px 40px;-webkit-overflow-scrolling:touch}
+.pp-sheetwrap{margin:0 auto 18px;position:relative}
+.pp-sheetwrap>.pp-cap{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#c9c2b3;margin:0 0 5px}
+.pp-sheetwrap .pp-sheet{transform-origin:0 0;outline:1px solid #1d1b18}
+.pp-busy{display:flex;align-items:center;justify-content:center;gap:10px;height:60vh;font-size:15px;color:#e6e0d3}
+.pp-measure{position:fixed;left:-20000px;top:0;visibility:hidden;pointer-events:none}
+#pp-print{display:none}
+
+@media print{
+  html,body{background:#fff!important;margin:0!important;padding:0!important;height:auto!important;overflow:visible!important}
+  body>*:not(#pp-print){display:none!important}
+  #pp-print{display:block!important}
+  #pp-print .pp-sheet{break-after:page;page-break-after:always;outline:none!important;transform:none!important}
+  #pp-print .pp-sheet:last-child{break-after:auto;page-break-after:auto}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+
+/* ---------- sheets and pages ---------- */
+.pp-sheet{position:relative;background:#fff;overflow:hidden;display:flex;flex-wrap:wrap;color:#1f1b16;box-sizing:border-box}
+.pp-sheet .pp-fold{position:absolute;top:0;bottom:0;border-left:.3mm dashed #b9b1a3}
+.pp-sheet .pp-cut{position:absolute;border:0 dashed #b9b1a3}
+.pp-page{position:relative;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;
+  padding:var(--my) var(--mx) calc(var(--my) * .9);font-size:var(--fs);line-height:1.45;background:var(--paper,#fff)}
+.pp-page *{box-sizing:border-box}
+.pp-head{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:4mm;font:500 .66em/1.2 "EB Garamond",serif;letter-spacing:.16em;text-transform:uppercase;color:var(--p2);border-bottom:.25mm solid var(--p1);padding-bottom:1.2mm;margin-bottom:4mm}
+.pp-head span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-head .he{font-family:"Frank Ruhl Libre",serif;letter-spacing:0;text-transform:none;font-size:1.1em}
+.pp-foot{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:4mm;margin-top:3mm;font:400 .6em/1.3 "EB Garamond",serif;color:#6d655a}
+.pp-foot .pp-n{font:500 1.55em "EB Garamond",serif;color:var(--p1)}
+.pp-top{flex:none}
+.pp-body{flex:1;min-height:0;display:flex;gap:6mm}
+.pp-box{flex:1;min-width:0;overflow:hidden}
+.pp-colrule .pp-box+.pp-box{border-left:.25mm solid #d6cfc2;padding-left:6mm;margin-left:-0.1mm}
+.pp-ai{display:inline-block;font:700 .58em/1 "Figtree",sans-serif;letter-spacing:.1em;border:.25mm solid currentColor;padding:.5mm .8mm;margin:0 0 0 1.5mm;vertical-align:.25em;color:var(--p2)}
+.pp-blank{background:#fff}
+
+/* ---------- the text itself ---------- */
+.pp-flow{font-family:"EB Garamond",serif;text-align:justify;hyphens:auto;-webkit-hyphens:auto;color:#1f1b16}
+.pp-flow p,.pp-flow li{margin:0;orphans:1;widows:1}
+.pp-flow p{text-indent:1.3em}
+.pp-flow p.pp-first,.pp-flow p.pp-cont,.pp-flow .pp-h+p,.pp-flow blockquote p,.pp-flow li p{text-indent:0}
+.pp-flow .pp-brk{text-align-last:justify}
+.pp-flow blockquote{margin:.35em 0 .35em 1.3em;font-size:.93em;line-height:1.4}
+.pp-flow blockquote.pp-cont{margin-top:0}
+.pp-flow ul,.pp-flow ol{margin:.3em 0 .3em 1.4em;padding:0}
+.pp-flow sup{font-size:.62em;line-height:0}
+.pp-flow strong,.pp-flow b{font-weight:600}
+.pp-flow .pp-h{font:600 1.1em/1.22 "EB Garamond",serif;margin:.9em 0 .3em;text-align:left;color:var(--p1);text-indent:0}
+.pp-flow .pp-h:first-child{margin-top:0}
+.pp-flow .pp-h i{font-style:normal;color:var(--p2);margin-right:.45em}
+.pp-flow .pp-fn{font-size:.82em;line-height:1.35;margin:.4em 0 0;padding:.4em 0 0 1.4em;border-top:.2mm solid #d6cfc2;color:#3b352d}
+.pp-flow .pp-fn li{margin-bottom:.15em}
+.pp-flow .pp-note{font:italic .9em/1.4 "EB Garamond",serif;color:#5c5348;margin:0 0 .6em;text-align:left}
+.pp-flow [dir=rtl],.pp-flow .pp-he{direction:rtl;text-align:justify;font-family:"Frank Ruhl Libre",serif;font-size:1em;line-height:1.6}
+.pp-flow .pp-he p{text-indent:0;margin-bottom:.25em}
+.pp-flow .pp-he .pp-h{text-align:right;font-family:"Frank Ruhl Libre",serif}
+.pp-flow .pp-he .pp-h i{margin:0 0 0 .45em}
+.pp-flow .pp-he blockquote{margin:.35em 1.3em .35em 0}
+.pp-flow .pp-he ul,.pp-flow .pp-he ol,.pp-flow .pp-he .pp-fn{margin-left:0;margin-right:1.4em;padding-left:0;padding-right:1.4em}
+.pp-flow li.pp-cont{list-style:none}
+.pp-flow .pp-chh{margin:0 0 .5em;padding:.2em 0 .35em;border-bottom:.3mm solid var(--p1);text-align:left}
+.pp-flow .pp-chh:not(:first-child){margin-top:1em}
+.pp-flow .pp-chh .ey{font:600 .62em/1.3 "Figtree",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--p2)}
+.pp-flow .pp-chh h2{font:400 1.55em/1.08 "EB Garamond",serif;margin:.5mm 0;color:#1f1b16}
+.pp-flow .pp-chh .he{font:500 1.1em "Frank Ruhl Libre",serif;direction:rtl;text-align:right;color:var(--p1)}
+.pp-s-table .pp-flow .pp-chh h2,.pp-s-trifold .pp-flow .pp-chh h2{font-family:"Instrument Serif",serif}
+.pp-s-table .pp-body>.pp-box+.pp-box{border-left:.25mm solid #d6cfc2;padding-left:4.5mm;margin-left:-.1mm}
+.pp-flow .pp-heb-under{margin-top:.6em;padding-top:.4em;border-top:.2mm dotted #cfc6b6}
+.pp-colophon{font:400 .78em/1.45 "EB Garamond",serif;color:#3b352d;margin-top:1.2em;padding-top:.6em;border-top:.25mm solid var(--p1);text-align:left}
+.pp-colophon .he{direction:rtl;font-family:"Frank Ruhl Libre",serif;text-align:center;margin:.5em 0 0;color:#5c5348}
+.pp-colophon .tr{text-align:center;font-style:italic;color:#5c5348}
+
+/* chapter opener, shared shape: eyebrow, title, Hebrew title, a line under it */
+.pp-open{margin-bottom:5mm;padding-bottom:3mm;border-bottom:.3mm solid var(--p1)}
+.pp-open .ey{font:500 .7em/1.2 "EB Garamond",serif;letter-spacing:.2em;text-transform:uppercase;color:var(--p2)}
+.pp-open h1{font:400 2.4em/1.05 "EB Garamond",serif;margin:1.5mm 0 1mm;color:#1f1b16;text-wrap:balance}
+.pp-open .he{font:500 1.35em/1.25 "Frank Ruhl Libre",serif;direction:rtl;color:var(--p1)}
+.pp-open .by{font:italic .9em "EB Garamond",serif;color:#5c5348;margin-top:1mm}
+.pp-open .pp-note{margin:2mm 0 0}
+
+/* ---------- covers ---------- */
+.pp-cover{justify-content:space-between;text-align:center;align-items:stretch}
+.pp-cover .sm{font:600 .62em/1.4 "Figtree",sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--p2)}
+.pp-cover h1{font:400 2.9em/1.02 "EB Garamond",serif;margin:2mm 0 1mm;text-wrap:balance}
+.pp-cover .he{font:500 1.7em "Frank Ruhl Libre",serif;direction:rtl;color:var(--p1)}
+.pp-cover .pp-art{width:62%;aspect-ratio:1;margin:4mm auto;border:.4mm solid var(--p1);flex:none}
+.pp-job .cv{position:static;inset:auto;z-index:auto}   /* app.css puts the volume art behind its card; on paper it sits in its own frame */
+.pp-cover .pp-art svg,.pp-svg svg,.pp-medal svg,.pp-mast .ic svg{width:100%;height:100%;display:block}
+.pp-cover .pp-art .m1{fill:#fff}.pp-cover .pp-art .m2,.pp-cover .pp-art .mk{fill:var(--p1)}.pp-cover .pp-art .m3{fill:#e3ddd2}.pp-cover .pp-art .mf{fill:var(--p2)}
+.pp-cover .sub{font:500 .72em/1.4 "EB Garamond",serif;letter-spacing:.18em;text-transform:uppercase;color:#5c5348}
+/* M · illustrated: the book's own scene, full page, in its colours */
+.pp-cover.illus{background:var(--fill);color:var(--on)}
+.pp-cover.illus .pp-art{width:100%;aspect-ratio:auto;flex:1 1 0;min-height:0;border:0}   /* fills what the titles leave; the art keeps its square inside */
+.pp-cover.illus .pp-art .m1{fill:var(--c1)}.pp-cover.illus .pp-art .m2{fill:var(--c2)}.pp-cover.illus .pp-art .m3{fill:var(--c3)}.pp-cover.illus .pp-art .mk{fill:#f4eee2}.pp-cover.illus .pp-art .mf{fill:#e2b65c}
+.pp-cover.illus h1{color:var(--on)}.pp-cover.illus .he,.pp-cover.illus .sm,.pp-cover.illus .sub{color:var(--onacc)}
+.pp-back{justify-content:flex-end}
+.pp-back .pp-colophon{font-size:.85em}
+
+/* ---------- A · classic ---------- */
+.pp-s-classic{--p1:#1f1b16;--p2:#8a6a1f}
+/* B · two columns */
+.pp-s-twocol{--p1:#1f1b16;--p2:#8a6a1f}
+/* C · side by side */
+.pp-s-sbs{--p1:#1f1b16;--p2:#8a6a1f}
+.pp-row{display:grid;grid-template-columns:1fr 1fr;gap:6mm;overflow:hidden;margin-bottom:2mm}
+.pp-row>.pp-cell{overflow:hidden;min-width:0}
+.pp-row>.pp-cell+.pp-cell{border-left:.25mm solid #d6cfc2;padding-left:5mm;margin-left:-1mm}
+/* D · large print */
+.pp-s-large{--p1:#1f1b16;--p2:#8a6a1f}
+.pp-s-large .pp-flow{font-family:"Atkinson Hyperlegible",sans-serif;text-align:left;hyphens:manual;-webkit-hyphens:manual;line-height:1.5}
+.pp-s-large .pp-flow p{text-indent:0;margin-bottom:.55em}
+.pp-s-large .pp-flow .pp-h{font-family:"Atkinson Hyperlegible",sans-serif;font-weight:700;font-size:1.12em}
+.pp-s-large .pp-flow blockquote{font-size:.95em;border-left:.6mm solid var(--p1);padding-left:3mm;margin-left:0}
+.pp-s-large .pp-open h1{font-family:"Atkinson Hyperlegible",sans-serif;font-weight:700;font-size:1.8em}
+/* F · heritage */
+.pp-s-heritage{--p1:#a2452b;--p2:#a2452b;--ink2:#2a2f7a}
+.pp-s-heritage .pp-head{border:0;justify-content:space-between;color:var(--p1)}
+.pp-s-heritage .pp-orn{display:flex;align-items:center;gap:1.6mm;color:var(--p1);margin:0 0 3mm}
+.pp-s-heritage .pp-orn i{flex:1;border-top:.25mm solid currentColor}
+.pp-s-heritage .pp-orn b{width:1.7mm;height:1.7mm;border-radius:50%;background:currentColor}
+.pp-s-heritage .pp-orn b.s{width:.9mm;height:.9mm}
+.pp-s-heritage .pp-open{border:0;text-align:center;margin-bottom:2mm}
+.pp-s-heritage .pp-medal{width:31mm;height:31mm;border-radius:50%;overflow:hidden;margin:0 auto 3mm;border:.8mm solid var(--p1);padding:.9mm;background:#fff}
+.pp-s-heritage .pp-medal>div{width:100%;height:100%;border-radius:50%;overflow:hidden}
+.pp-s-heritage .pp-medal .m1{fill:var(--c1)}.pp-s-heritage .pp-medal .m2{fill:var(--c2)}.pp-s-heritage .pp-medal .m3{fill:var(--c3)}.pp-s-heritage .pp-medal .mk{fill:#f4eee2}.pp-s-heritage .pp-medal .mf{fill:#e2b65c}
+.pp-s-heritage .pp-open h1{font-size:2.6em}
+.pp-s-heritage .pp-open .he{color:var(--p1)}
+.pp-s-heritage .pp-flow .pp-h{color:var(--ink2)}
+.pp-s-heritage .pp-flow .pp-h i{color:var(--p1)}
+.pp-s-heritage .pp-flow .pp-h .pp-hn{font:500 1.05em "Frank Ruhl Libre",serif;font-style:normal;color:var(--p1);margin-right:.45em}
+.pp-s-heritage .pp-flow p.pp-dc::first-letter{float:left;font:400 3.5em/.85 "EB Garamond",serif;color:var(--p1);padding:.08em .1em 0 0}
+.pp-s-heritage .pp-foot{justify-content:center}
+.pp-s-heritage .pp-foot .pp-fl{display:none}
+/* G · azulejo */
+.pp-s-azulejo{--p1:#234b8c;--p2:#c97a1f}
+.pp-s-azulejo .pp-tiles{position:absolute;inset:0;background-color:#f3ead4;background-size:8mm 8mm;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='34' height='34'%3E%3Crect width='34' height='34' fill='%23f3ead4'/%3E%3Cpath d='M17 2 L32 17 L17 32 L2 17Z' fill='%23234b8c'/%3E%3Ccircle cx='17' cy='17' r='6' fill='%23f3ead4'/%3E%3Ccircle cx='17' cy='17' r='2.5' fill='%23c97a1f'/%3E%3Cpath d='M0 0h6L0 6zM34 0h-6l6 6zM0 34h6l-6-6zM34 34h-6l6-6z' fill='%23c97a1f'/%3E%3C/svg%3E")}
+.pp-s-azulejo.pp-page{padding:calc(var(--my) + 5mm) calc(var(--mx) + 3mm) calc(var(--my) + 3mm)}
+.pp-s-azulejo .pp-panel{position:absolute;inset:calc(var(--my) - 3mm) calc(var(--mx) - 6mm);background:#fff;border:.5mm solid var(--p1);outline:.25mm solid var(--p1);outline-offset:-1.6mm}
+.pp-s-azulejo .pp-head,.pp-s-azulejo .pp-top,.pp-s-azulejo .pp-body,.pp-s-azulejo .pp-foot{position:relative}
+.pp-s-azulejo .pp-head{border-color:var(--p2);color:var(--p2)}
+.pp-s-azulejo .pp-open{text-align:center;border:0;margin-bottom:2mm}
+.pp-s-azulejo .pp-open h1{font-family:"Cormorant Garamond",serif;font-weight:600;color:var(--p1)}
+.pp-s-azulejo .pp-open .he{color:var(--p1)}
+.pp-s-azulejo .pp-tile{width:5.5mm;height:5.5mm;margin:3mm auto 1mm;transform:rotate(45deg);background:var(--p2);border:1mm solid #fff;outline:.6mm solid var(--p1)}
+.pp-s-azulejo .pp-flow .pp-h{font-family:"Cormorant Garamond",serif;font-weight:700;font-size:1.2em;color:var(--p1);border-bottom:.25mm solid var(--p2);padding-bottom:.4mm}
+.pp-s-azulejo .pp-flow .pp-h i{color:var(--p2)}
+/* H · Mizraḥ arch */
+.pp-s-arch{--p1:#5a2f1f;--p2:#b5652e;--p3:#e9c46a}
+.pp-s-arch .pp-arch{width:72%;height:62mm;margin:0 auto;border-radius:999px 999px 0 0;background:var(--p1);position:relative;overflow:hidden}
+.pp-s-arch .pp-arch>i{position:absolute;inset:2.6mm 2.6mm 0;border-radius:999px 999px 0 0;background:var(--p2)}
+.pp-s-arch .pp-arch>div{position:absolute;inset:5.6mm 5.6mm 0;border-radius:999px 999px 0 0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center;padding:0 5mm 4mm}
+.pp-s-arch .pp-arch .he{font:500 1.7em "Frank Ruhl Libre",serif;color:var(--p1);direction:rtl}
+.pp-s-arch .pp-arch h1{font:400 1.75em/1.05 "EB Garamond",serif;margin:1mm 0;text-wrap:balance}
+.pp-s-arch .pp-arch .ey{font:500 .62em "EB Garamond",serif;letter-spacing:.2em;text-transform:uppercase;color:var(--p2)}
+.pp-s-arch .pp-band{display:flex;height:3.2mm;margin:0 0 4mm}
+.pp-s-arch .pp-band i{flex:1}
+.pp-s-arch .pp-band i:nth-child(3n+1){background:var(--p1)}.pp-s-arch .pp-band i:nth-child(3n+2){background:var(--p2)}.pp-s-arch .pp-band i:nth-child(3n){background:var(--p3)}
+.pp-s-arch .pp-open{border:0;padding:0;margin:0}
+.pp-s-arch .pp-open .pp-note{text-align:center}
+.pp-s-arch .pp-flow .pp-h{color:var(--p1)}
+/* L · riso */
+.pp-s-riso{--p1:#d02f67;--p2:#1f8f8f}
+.pp-s-riso .pp-flow{color:#1d3d4a}
+.pp-s-riso .pp-open{position:relative;border:0;padding-bottom:0}
+.pp-s-riso .pp-open .ey{font:700 .7em "Bricolage Grotesque",sans-serif;color:var(--p2)}
+.pp-s-riso .pp-open h1{font:700 2.3em/1.02 "Bricolage Grotesque",sans-serif;color:var(--p1);max-width:68%}
+.pp-s-riso .pp-open .he{color:var(--p2);max-width:68%}
+.pp-s-riso .pp-dot{position:absolute;right:16mm;top:-2mm;width:24mm;height:24mm;border-radius:50%;background:var(--p2);mix-blend-mode:multiply}
+.pp-s-riso .pp-big{position:absolute;right:0;top:-4mm;font:800 32mm/0.8 "Bricolage Grotesque",sans-serif;color:var(--p1);mix-blend-mode:multiply}
+.pp-s-riso .pp-rule{height:1.6mm;background:var(--p2);margin:7mm 0 4mm}
+.pp-s-riso .pp-flow .pp-h{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1em;color:var(--p1)}
+.pp-s-riso .pp-flow .pp-h i{color:var(--p2)}
+.pp-s-riso .pp-head{color:var(--p2);border-color:var(--p1);font-family:"Bricolage Grotesque",sans-serif}
+/* I · Shabbat table sheet */
+.pp-s-table{--p1:#1f3a5f;--p2:#c0392b;--p3:#e9c46a;--soft:#f4e3b8}
+.pp-s-table.pp-page{padding:0}
+.pp-s-table .pp-mast{flex:none;background:var(--fill);color:var(--on);padding:5mm 7mm 4mm;display:flex;gap:4mm;align-items:center;position:relative}
+.pp-s-table .pp-mast .ic{width:19mm;height:19mm;flex:none;background:var(--p3);border-radius:50%;overflow:hidden}
+.pp-s-table .pp-mast .ic .m1{fill:var(--p3)}.pp-s-table .pp-mast .ic .m2,.pp-s-table .pp-mast .ic .mk{fill:var(--p1)}.pp-s-table .pp-mast .ic .m3{fill:#c8743a}.pp-s-table .pp-mast .ic .mf{fill:var(--p2)}
+.pp-s-table .pp-mast h1{font:400 2.5em/1 "Instrument Serif",serif;margin:0}
+.pp-s-table .pp-mast .dt{font:600 .7em "Figtree",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--onacc);margin-top:1.5mm}
+.pp-s-table .pp-mast .he{font:500 1.5em "Frank Ruhl Libre",serif;position:absolute;right:7mm;top:5mm;color:var(--onacc);direction:rtl}
+.pp-s-table .pp-strip{flex:none;display:flex;justify-content:space-between;gap:4mm;background:var(--p3);color:var(--p1);font:700 .68em "Figtree",sans-serif;letter-spacing:.11em;text-transform:uppercase;padding:1.4mm 7mm}
+.pp-s-table .pp-mini{flex:none;display:flex;justify-content:space-between;padding:4mm 7mm 2mm;font:600 .66em "Figtree",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--p1);border-bottom:.3mm solid var(--p1);margin:0 7mm}
+.pp-s-table .pp-mini{padding-left:0;padding-right:0}
+.pp-s-table .pp-body{padding:4mm 7mm 3mm;gap:4.5mm}
+.pp-s-table .pp-side{flex:0 0 31%;display:flex;flex-direction:column;gap:3mm;min-height:0}
+.pp-s-table .pp-side .pp-box{flex:1;height:auto;min-height:0}
+.pp-s-table .pp-tbox{flex:none;border:.4mm solid var(--p1);padding:2.6mm;font:400 .92em/1.38 "EB Garamond",serif}
+.pp-s-table .pp-tbox.y{background:var(--soft);border-color:var(--soft)}
+.pp-s-table .pp-tbox .k{font:700 .66em "Figtree",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--p2);margin-bottom:1mm}
+.pp-s-table .pp-tbox p{margin:0 0 .8mm}
+.pp-s-table .pp-flow .pp-h{color:var(--p2)}
+.pp-s-table .pp-footband{flex:none;background:var(--fill);color:var(--onacc);font:500 .62em "EB Garamond",serif;padding:1.6mm 7mm;display:flex;justify-content:space-between;gap:4mm}
+.pp-s-table .pp-footband .pp-n{color:var(--on)}
+/* J · pocket cards */
+.pp-s-cards{--p1:var(--c1);--p2:var(--c1)}
+.pp-s-cards.pp-page{padding:4mm}
+.pp-s-cards .pp-card{flex:1;min-height:0;display:flex;flex-direction:column;border-radius:3mm;overflow:hidden;background:var(--soft);border:.3mm solid var(--p1)}
+.pp-s-cards .pp-cardhd{flex:none;height:17mm;background:var(--fill);position:relative;overflow:hidden}
+.pp-s-cards .pp-cardhd .pp-svg{position:absolute;right:-2mm;top:-3mm;width:24mm;height:24mm}
+.pp-s-cards .pp-cardhd .m1{fill:var(--fill)}.pp-s-cards .pp-cardhd .m2{fill:var(--c2)}.pp-s-cards .pp-cardhd .m3{fill:var(--c3)}.pp-s-cards .pp-cardhd .mk{fill:#fff}.pp-s-cards .pp-cardhd .mf{fill:#e2b65c}
+.pp-s-cards .pp-cardhd i{position:absolute;left:3mm;top:2.4mm;font:700 .55em "Figtree",sans-serif;letter-spacing:.16em;text-transform:uppercase;font-style:normal;color:var(--onacc)}
+.pp-s-cards .pp-cardhd b{position:absolute;left:3mm;bottom:2.2mm;right:22mm;font:400 1.5em/1 "Instrument Serif",serif;color:var(--on);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-s-cards .pp-body{padding:2.4mm 3mm 0}
+.pp-s-cards .pp-flow .pp-h{color:var(--p1);font-size:1.05em}
+.pp-s-cards .pp-cardft{flex:none;display:flex;justify-content:space-between;font:600 .55em "Figtree",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--p1);padding:1.4mm 3mm 2mm}
+/* K · tri-fold */
+.pp-s-trifold{--p1:var(--c1);--p2:#c8743a}
+.pp-s-trifold.pp-cover{background:var(--fill);color:var(--on)}
+.pp-s-trifold.pp-cover .pp-art{border-radius:50%;overflow:hidden;border:1mm solid var(--onacc);width:66%}
+.pp-s-trifold.pp-cover .pp-art .m1{fill:var(--fill)}.pp-s-trifold.pp-cover .pp-art .m2{fill:var(--c2)}.pp-s-trifold.pp-cover .pp-art .m3{fill:var(--c3)}.pp-s-trifold.pp-cover .pp-art .mk{fill:#f4eee2}.pp-s-trifold.pp-cover .pp-art .mf{fill:#e2b65c}
+.pp-s-trifold.pp-cover h1{color:var(--on)}.pp-s-trifold.pp-cover .he,.pp-s-trifold.pp-cover .sm,.pp-s-trifold.pp-cover .sub{color:var(--onacc)}
+.pp-s-trifold .pp-flow .pp-h{color:var(--p1)}
+.pp-s-trifold .pp-flow .pp-h i{color:var(--p2)}
+
+/* ---------- inks ---------- */
+/* defaults first, at no specificity, so each style and ink below can set its own */
+:where(.pp-page){--fill:var(--p1);--on:#fff;--onacc:var(--p3,#e9c46a);--soft:#f7f2e8}
+.pp-s-cards{--soft:color-mix(in srgb,var(--c1) 6%,#fff)}
+.pp-s-cards,.pp-s-trifold,.pp-cover.illus{--on:var(--onc);--onacc:var(--onc2)}
+.pp-cover.illus{--fill:var(--c1)}
+.pp-job.ink-light{--fill:#fff;--on:var(--p1);--onacc:var(--p2)}
+.pp-job.ink-light .pp-s-table .pp-mast,.pp-job.ink-light .pp-s-table .pp-footband{border-bottom:.6mm solid var(--p1)}
+.pp-job.ink-light .pp-s-table .pp-footband{border-top:.6mm solid var(--p1);border-bottom:0}
+.pp-job.ink-light .pp-s-table .pp-strip{background:#fff;border-bottom:.3mm solid var(--p1)}
+.pp-job.ink-light .pp-s-table .pp-tbox.y{background:#fff;border-color:var(--p3)}
+.pp-job.ink-light .pp-s-cards .pp-cardhd{border-bottom:.5mm solid var(--p1)}
+.pp-job.ink-light .pp-s-cards{--soft:#fff}
+.pp-job.ink-light .pp-s-azulejo .pp-tiles{display:none}
+.pp-job.ink-light .pp-s-arch .pp-arch{background:#fff;border:.6mm solid var(--p1);border-bottom:0}
+.pp-job.ink-light .pp-s-arch .pp-arch>i{display:none}
+.pp-job.ink-light .pp-s-arch .pp-band{height:.8mm}
+.pp-job.ink-light .pp-cover.illus .pp-art .m1,.pp-job.ink-light .pp-s-trifold.pp-cover .pp-art .m1,.pp-job.ink-light .pp-s-cards .pp-cardhd .m1{fill:#fff}
+.pp-job.ink-light .pp-s-riso .pp-dot{background:#fff;border:.6mm solid var(--p2)}
+.pp-job.ink-black *{--p1:#000!important;--p2:#3a3a3a!important;--p3:#bdbdbd!important;--c1:#000!important;--c2:#555!important;--c3:#bbb!important;--fill:#fff!important;--on:#000!important;--onacc:#333!important;--soft:#fff!important;--ink2:#000!important}
+.pp-job.ink-black .pp-flow,.pp-job.ink-black .pp-s-riso .pp-flow{color:#000}
+.pp-job.ink-black .pp-s-azulejo .pp-tiles{display:none}
+.pp-job.ink-black .pp-s-arch .pp-arch{background:#fff;border:.6mm solid #000;border-bottom:0}
+.pp-job.ink-black .pp-s-arch .pp-arch>i{display:none}
+.pp-job.ink-black .pp-s-riso .pp-dot{display:none}
+.pp-job.ink-black .pp-s-table .pp-mast,.pp-job.ink-black .pp-s-table .pp-footband{border-bottom:.6mm solid #000}
+.pp-job.ink-black .pp-s-table .pp-strip{background:#fff;border-bottom:.3mm solid #000}
+.pp-job.ink-black .pp-s-cards .pp-cardhd{border-bottom:.5mm solid #000}
+.pp-job.ink-black .pp-cover .pp-art .m1,.pp-job.ink-black .pp-s-cards .pp-cardhd .m1{fill:#fff}
+
+/* ---------- the Print sheet and the Friday card, in the app's own colours (any skin) ---------- */
+.pp-dialog{max-height:88vh;overflow:auto}
+.pp-dlg{display:flex;flex-direction:column;gap:9px}
+.pp-k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin-top:4px}
+.pp-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pp-chips .chip{height:32px;font-size:13.5px}
+.pp-chips .chip[disabled]{opacity:.4}
+.pp-styles{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.pp-style{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--ink-3);color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.pp-style.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.pp-style b{font-weight:600;line-height:1.2}
+/* each layout's swatch: three flat bands in its own colours */
+.pp-sw{display:flex;width:100%;height:30px;border-radius:6px;overflow:hidden;background:#fbf8f1;border:1px solid rgba(0,0,0,.12)}
+.pp-sw i{flex:1}
+.pp-sw-classic i:nth-child(1){flex:.5;background:#fbf8f1}.pp-sw-classic i:nth-child(2){flex:2;background:#fbf8f1;border-top:6px solid #fbf8f1;border-bottom:16px solid #e4ded3}.pp-sw-classic i:nth-child(3){flex:.5;background:#fbf8f1}
+.pp-sw-twocol i{background:#fbf8f1;border-top:8px solid #fbf8f1;border-bottom:12px solid #e4ded3;margin:0 2px}
+.pp-sw-sbs i:nth-child(1){background:#e4ded3}.pp-sw-sbs i:nth-child(2){flex:.08;background:#8a6a1f}.pp-sw-sbs i:nth-child(3){background:#d9cdb2}
+.pp-sw-large i:nth-child(1){flex:.3;background:#fbf8f1}.pp-sw-large i:nth-child(2){flex:2;background:#fbf8f1;border-top:4px solid #fbf8f1;border-bottom:8px solid #1f1b16}.pp-sw-large i:nth-child(3){flex:.3;background:#fbf8f1}
+.pp-sw-heritage i:nth-child(1){background:#a2452b}.pp-sw-heritage i:nth-child(2){background:#fbf8f1}.pp-sw-heritage i:nth-child(3){background:#2a2f7a}
+.pp-sw-azulejo{background:#234b8c}.pp-sw-azulejo i:nth-child(2){flex:2;background:#fff;margin:4px 0;border:2px solid #c97a1f}
+.pp-sw-arch i:nth-child(1){background:#5a2f1f}.pp-sw-arch i:nth-child(2){background:#b5652e;border-radius:99px 99px 0 0}.pp-sw-arch i:nth-child(3){background:#e9c46a}
+.pp-sw-riso i:nth-child(1){background:#d02f67}.pp-sw-riso i:nth-child(2){background:#fbf8f1}.pp-sw-riso i:nth-child(3){background:#1f8f8f}
+.pp-sw-table i:nth-child(1){background:#1f3a5f}.pp-sw-table i:nth-child(2){background:#e9c46a}.pp-sw-table i:nth-child(3){background:#c0392b}
+.pp-sw-cards i{background:#2e4a3a;margin:0 2px;border-radius:3px;border-bottom:14px solid #f1efe6}
+.pp-sw-trifold i:nth-child(1){background:#fbf8f1;border-right:1px dashed #b9b1a3}.pp-sw-trifold i:nth-child(2){background:#fbf8f1;border-right:1px dashed #b9b1a3}.pp-sw-trifold i:nth-child(3){background:#2e4a3a}
+.ppcard{display:flex;flex-direction:column;gap:10px}
+.ppcard-row{display:flex;gap:12px;align-items:center}
+.ppcard-ic{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--ink-3);color:var(--gold)}
+.ppcard-ic svg{width:22px;height:22px}
