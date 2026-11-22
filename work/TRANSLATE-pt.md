@@ -31,7 +31,8 @@ Clear, natural Brazilian Portuguese, understood in Portugal too. Impersonal wher
 ## The Divine Name
 - Hebrew prose ה' → **HaShem**; אלוקים → **D'us**; הקב"ה → **o Santo Bendito Seja**.
 - In a verse (whole or partial) the Name → **o Eterno**.
-- A blessing formula: "Bendito és Tu, HaShem, nosso D'us, Rei do universo …" when quoted in the study text.
+- A blessing formula: "Bendito és Tu, HaShem, nosso D'us, Rei do universo …" when quoted in the study text (see below for the
+  transliterated form).
 - Where the Names themselves are the subject, write them as the English does (Y-H-V-H, Ado-nai …).
 
 ## Citations
@@ -59,5 +60,6 @@ PH has no Portuguese, so the Portuguese follows the choices of the Spanish (`TRA
 - שחיטה → **abate** (masculine), glossed once per chapter: abate (<i>shechitá</i>). Citations keep Hilchot Shechitá.
 - Talmud Bavli → **Talmud Babilônico**; Yerushalmi → **Talmud de Jerusalém** (a citation such as "Yerushalmi Berakhot 1:1"
   keeps the house form). A translated word is never italicised.
-- Blessings stay in Portuguese ("Bendito és Tu, HaShem, nosso D'us, Rei do universo…"); the Spanish quotes them
-  transliterated as Har Bracha does, a form with no Portuguese model yet.
+- Where the Spanish quotes a blessing transliterated (Har Bracha's form), the Portuguese does too, respelled for a
+  Portuguese reader (ח = ch, צ = ts, י = Y, open é): "Baruch Atá Ad-onai Eloh-ênu Mélech HaOlam …" ("Bendito és Tu,
+  HaShem, nosso D'us, Rei do universo, …"). Elsewhere a blessing stays in Portuguese. (Curió, 22 Nov 2026: Mélech.)
