@@ -53,7 +53,7 @@ original chat is in `handoff/chat-transcript.jsonl.gz` (`zcat … | jq` for deta
   - `python3 test_daily.py`: the Daily Pearl schedule against the catalogue, the Home card and `#daily`, and finding
     next year's bookmark by itself (a stand-in PDF from `make_test_bookmark.py`, served through a fake proxy). It must
     end "daily pearl: 26/26".
-  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 73/73". After the grammar, `fixHits()` corrects short ranges, the Kitzur, Even HaEzer past siman 178 and “ad loc.” chains, and leaves unlinked any number Sefaria has no text for (`BOUNDS`, from Sefaria's own shapes; refresh with `node tools/make_cite_bounds.mjs`). `node tools/cite_audit.js` counts linked and missed citations across every chapter (`docs/citation-audit-hebrew.md`).
+  - `node test_cite_links.js`: citation links (the grammar plus Pearls' layer, offline). It must end "cite links: 77/77". After the grammar, `fixHits()` corrects short ranges, the Kitzur, Even HaEzer past siman 178 and “ad loc.” chains, and leaves unlinked any number Sefaria has no text for (`BOUNDS`, from Sefaria's own shapes; refresh with `node tools/make_cite_bounds.mjs`). `node tools/cite_audit.js` counts linked and missed citations across every chapter (`docs/citation-audit-hebrew.md`).
   - `python3 test_cite_offline.py`: a citation text opened once online opens offline afterwards (kept in IndexedDB
     `pearls-cite`). It must end "cite offline: 3/3".
   - `python3 test_android_shell.py`: the https app address, the data handover, the bundled fonts and the phone's own
