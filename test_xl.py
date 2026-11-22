@@ -47,7 +47,7 @@ with sync_playwright() as p:
     check("Spanish file loaded on demand", "es/21-01.js" in loaded)
     body = pg.eval_on_selector('.ai-sec[lang="es"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="es"]') else ""
     check("Spanish body shown with lang=es", "cordones de tzitzit" in body)
-    check("Spanish section titles in the contents", "La mitzvá de tzitzit" in pg.eval_on_selector(".toc", "e => e.textContent"))
+    check("Spanish section titles in the contents", "El precepto de tzitzit" in pg.eval_on_selector(".toc", "e => e.textContent"))
     banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
     check("labelled as an AI translation by Claude from the Hebrew", "AI translation" in banner and "Spanish" in banner and "Claude" in banner and "Hebrew" in banner)
     foot = pg.eval_on_selector("#reader > p.foot", "e => e.textContent")
