@@ -35,18 +35,19 @@ with sync_playwright() as p:
     pg.goto(url); pg.wait_for_timeout(400)
     pg.click('#onbChips [data-tag="shabbat"]'); pg.click("#onbGo"); pg.wait_for_timeout(300)
     langs = pg.evaluate("Object.keys((window.PH_XL||{}).langs||{})")
-    check("index lists Spanish", "es" in langs and pg.evaluate("!!PH_XL.ch['10-01'] && !!PH_XL.ch['10-01'].es"))
+    check("index lists Spanish", "es" in langs and pg.evaluate("!!PH_XL.ch['21-01'] && !!PH_XL.ch['21-01'].es"))
 
     # a chapter with a Spanish translation, read in English first: nothing Spanish is loaded until it is chosen
-    pg.goto(url + "#ch-10-01"); pg.wait_for_timeout(600)
+    pg.goto(url + "#ch-21-01"); pg.wait_for_timeout(600)
     check("English by default, no Spanish loaded", not pg.query_selector('.ai-sec[lang="es"]') and not any(x.startswith("es/") for x in loaded))
+    pg.evaluate("document.querySelector('details.chmore').open = true"); pg.wait_for_timeout(200)   # the Language bar sits in the More fold (2.8)
     btn = pg.query_selector('.langbar [data-act="setread"][data-v="es"]')
     check("chapter page offers Español", bool(btn) and "Español" in btn.text_content())
     btn.click(); pg.wait_for_timeout(700)
-    check("Spanish file loaded on demand", "es/10-01.js" in loaded)
+    check("Spanish file loaded on demand", "es/21-01.js" in loaded)
     body = pg.eval_on_selector('.ai-sec[lang="es"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="es"]') else ""
-    check("Spanish body shown with lang=es", "reconocimiento del bien" in body)
-    check("Spanish section titles in the contents", "La mitzvá de agradecer" in pg.eval_on_selector(".toc", "e => e.textContent"))
+    check("Spanish body shown with lang=es", "cordones de tzitzit" in body)
+    check("Spanish section titles in the contents", "La mitzvá de tzitzit" in pg.eval_on_selector(".toc", "e => e.textContent"))
     banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
     check("labelled as an AI translation by Claude from the Hebrew", "AI translation" in banner and "Spanish" in banner and "Claude" in banner and "Hebrew" in banner)
     foot = pg.eval_on_selector("#reader > p.foot", "e => e.textContent")
@@ -54,14 +55,14 @@ with sync_playwright() as p:
     check("every section marked AI", pg.evaluate("[...document.querySelectorAll('.ai-sec[lang=es] h3')].every(h => h.querySelector('.aitag'))"))
     check("citation links run on the Spanish", pg.evaluate("document.querySelectorAll('.ai-sec[lang=es] a.pc-cite').length") > 0)
     # respelling (Neo-Classic S&P) and Hebrew letter tints are for English and Hebrew: the Spanish shows as translated
-    pg.evaluate("PEARLS.setScheme('house'); PEARLS.state.prefs.tint = true"); pg.goto(url + "#ch-10-02"); pg.wait_for_timeout(700)
-    same = pg.evaluate("""async () => { const d = await PEARLS.loadBook('10-02', 'xl/es'), x = document.createElement('div');
+    pg.evaluate("PEARLS.setScheme('house'); PEARLS.state.prefs.tint = true"); pg.goto(url + "#ch-21-02"); pg.wait_for_timeout(700)
+    same = pg.evaluate("""async () => { const d = await PEARLS.loadBook('21-02', 'xl/es'), x = document.createElement('div');
       x.innerHTML = d.sections.map(s => s.body).join(''); const shown = [...document.querySelectorAll('.ai-sec[lang=es] > p')].map(p => p.textContent).join('|');
       return shown.length > 100 && shown === [...x.querySelectorAll(':scope > p')].map(p => p.textContent).join('|'); }""")
     check("no respelling or Hebrew tints on Spanish", same)
     pg.evaluate("PEARLS.setScheme('source'); PEARLS.state.prefs.tint = false")
     check("Español saved as the reading language", pg.evaluate("PEARLS.state.prefs.read") == "es")
-    check("listening stays English", pg.evaluate("PEARLS.listenLang(PEARLS.BYID['10-01'])") in ("en", "tts", "he") and pg.evaluate("PEARLS.listenLang(PEARLS.BYID['01-06'])") == "en")
+    check("listening stays English", pg.evaluate("PEARLS.listenLang(PEARLS.BYID['21-01'])") in ("en", "tts", "he") and pg.evaluate("PEARLS.listenLang(PEARLS.BYID['01-06'])") == "en")
 
     # an official-English chapter: English, with a note that Spanish isn't there yet
     pg.goto(url + "#ch-01-06"); pg.wait_for_timeout(600)
@@ -73,13 +74,13 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('[data-act=\"spelling\"]').click()"); pg.wait_for_timeout(300)
     chip = pg.query_selector('[data-read="es"]')
     check("Settings offers Español, selected", bool(chip) and "on" in (chip.get_attribute("class") or ""))
-    pg.keyboard.press("Escape"); pg.goto(url + "#ch-10-01"); pg.wait_for_timeout(600)
+    pg.keyboard.press("Escape"); pg.goto(url + "#ch-21-01"); pg.wait_for_timeout(600)
     # Português works the same way
     btn = pg.query_selector('.langbar [data-act="setread"][data-v="pt"]')
     check("chapter page offers Português", bool(btn) and "Português" in btn.text_content())
     btn.click(); pg.wait_for_timeout(700)
     body = pg.eval_on_selector('.ai-sec[lang="pt"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="pt"]') else ""
-    check("Portuguese body shown with lang=pt", "reconhecimento do bem" in body and "pt/10-01.js" in loaded)
+    check("Portuguese body shown with lang=pt", "fios de tsitsit" in body and "pt/21-01.js" in loaded)
     banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
     check("Portuguese labelled as an AI translation", "AI translation" in banner and "Portuguese" in banner and "Claude" in banner)
     # a chapter Har Bracha translated into Spanish itself: its text, labelled official, no AI marks
