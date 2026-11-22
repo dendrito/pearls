@@ -983,6 +983,119 @@
     [/\bBiur Hala(?:kh|ch)a\b/g, function () { return 'Beur Halakha'; }]
   ];
 
+  /* ── Har Bracha's own Spanish and French citation forms (2026-11-22) ─────────────────────────────────
+   * The official es/fr chapters cite in their own spelling, which the grammar does not read: measured,
+   * 0.16 links per 1,000 characters against 1.49 in the official English (tools/cite_audit.js).
+   * "Talmud Babilonio Tratado de Berajot 35(A)", "Shulján Aruj Oraj Jaím 65:1", "Mishná Berurá 185:1",
+   * "Rambám Hiljot Terumot 3:23"; "Choul‘han ‘Aroukh 204, 1", "Michna Beroura 200, 9", "‘Houlin 106a", "Dt 8, 10".
+   * Each is rewritten to the English house form before the grammar reads it, like EN_NORM; the forms are
+   * distinct enough that none occurs in English text. A tractate is accepted only when its folded name
+   * is one of the 63 (a word that only looks like one stays text). */
+  function foldXl(s, fr) {
+    s = String(s).replace(/[‘’ʿʾ`]/g, "'").normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    if (fr) s = s.replace(/'h/g, 'X').replace(/ch/g, 'sh').replace(/X/g, 'ch').replace(/ou/g, 'u').replace(/q/g, 'k');
+    else s = s.replace(/j/g, 'ch');
+    return s.replace(/kh/g, 'ch').replace(/gu(?=[ei])/g, 'g').replace(/y/g, 'i').replace(/t[sz]/g, 'z').replace(/c(?!h)/g, 'k')
+      .replace(/b/g, 'v').replace(/([^cs])h/g, '$1').replace(/^h/, '').replace(/[^a-z]/g, '').replace(/(.)\1+/g, '$1').replace(/h$/, '');
+  }
+  var TR_XL = {};
+  TRACTATES.forEach(function (r) { [r[0]].concat(r.slice(2)).forEach(function (n) { TR_XL[foldXl(n)] = r[0]; }); });
+  ['Beitsa', 'Betsa', 'Bétsa'].forEach(function (n) { TR_XL[foldXl(n, true)] = 'Beitzah'; });
+  function tractXl(s, fr) { return TR_XL[foldXl(s, fr)] || ''; }
+  var SEC_XL = function (s) {   // a section named in Spanish or French
+    var f = foldXl(s || '', /['‘’]h|ou/i.test(s || ''));
+    if (/^ora/.test(f)) return ', Orach Chayim';
+    if (/^io/.test(f)) return ", Yoreh De'ah";
+    if (/^even/.test(f)) return ', Even HaEzer';
+    if (/^(?:ch|sh)o/.test(f)) return ', Choshen Mishpat';
+    return '';
+  };
+  var TNK_FR = {'Gn': 'Genesis', 'Ex': 'Exodus', 'Lv': 'Leviticus', 'Nb': 'Numbers', 'Dt': 'Deuteronomy', 'Jos': 'Joshua',
+    'Jg': 'Judges', '1 S': 'I Samuel', '2 S': 'II Samuel', '1 R': 'I Kings', '2 R': 'II Kings', 'Is': 'Isaiah', 'Jr': 'Jeremiah',
+    'Ez': 'Ezekiel', 'Os': 'Hosea', 'Jl': 'Joel', 'Am': 'Amos', 'Ab': 'Obadiah', 'Jon': 'Jonah', 'Mi': 'Micah', 'Na': 'Nahum',
+    'Ha': 'Habakkuk', 'So': 'Zephaniah', 'Ag': 'Haggai', 'Za': 'Zechariah', 'Ml': 'Malachi', 'Ps': 'Psalms', 'Pr': 'Proverbs',
+    'Jb': 'Job', 'Ct': 'Song of Songs', 'Rt': 'Ruth', 'Lm': 'Lamentations', 'Qo': 'Ecclesiastes', 'Est': 'Esther', 'Dn': 'Daniel',
+    'Esd': 'Ezra', 'Ne': 'Nehemiah', '1 Ch': 'I Chronicles', '2 Ch': 'II Chronicles'};
+  Object.keys(TANAKH_ALIAS).forEach(function (k) { if (/[èéïÉ]|Nombres|Exode|Juges|Rois|Psaumes|Proverbes/.test(k)) TNK_FR[k] = TANAKH_ALIAS[k]; });
+  var A = "[‘’'ʿ]";   // the French texts write ‘ before a ḥ or an ayin
+  var LOCC = '(\\d{1,3})(?:\\s*,\\s*(\\d{1,3})(?![\\d,]*\\s*km))?';   // "204, 1" = 204:1
+  var loc2 = function (a, b) { return a + (b ? ':' + b : ''); };
+  // French works by their French names → the house form; the location "n, n" becomes "n:n"
+  var FR_WORKS = [
+    [A + '?Choul' + A + '?han ' + A + '?Aroukh(?:,?\\s+(Ora' + A + '?h ' + A + '?Ha[iï]m|Yor[eé] D[eé]' + A + '?a|Even Ha' + A + '?[eé]zer|' + A + '?Hochen Mich?pat))?', function (m) { return 'Shulchan Arukh' + SEC_XL(m[1]); }],
+    ['Michna Beroura', function () { return 'Mishnah Berurah'; }],
+    ['B[eé]our Halakha', function () { return 'Beur Halakha'; }],
+    ['Maguen Avraham', function () { return 'Magen Avraham'; }],
+    ['Tour[eé] Zahav', function () { return 'Taz'; }],
+    ['Beit Yossef', function () { return 'Beit Yosef'; }],
+    ['Birk[eé] Yossef', function () { return 'Birkei Yosef'; }],
+    [A + '?Hay[eé] Adam', function () { return 'Chayei Adam'; }],
+    ['Kaf Ha' + A + '?ha[iï]m', function () { return 'Kaf HaChaim'; }],
+    [A + '?Aroukh Hachoul' + A + '?han', function () { return 'Aruch HaShulchan'; }],
+    ['Elya Rabba', function () { return 'Eliya Rabba'; }],
+    ['Cha' + A + '?ar Hatsioun', function () { return 'Shaar HaTziyun'; }]
+  ];
+  var SEC_ES = '(?:,?\\s+(Oraj Ja[ií]m|Yor[eé] De' + A + '?[aá]|Even HaEzer|J[oó]shen U?[Mm]ishpat))?';
+  var PH_ES = {};
+  [['Shabat', 'Shabbat'], ['Pesaj', 'Pesach'], ['Tefilá', 'Prayer'], ['Mo’adim', 'Festivals'], ['Moadim', 'Festivals'],
+    ['Berajot', 'Berakhot'], ['Kashrut', 'Kashrut'], ['Zmanim', 'Zemanim'], ['Zemanim', 'Zemanim'], ['Sucot', 'Sukkot'],
+    ['Iamim Noraim', 'Days of Awe'], ['Tefilat Nashim', "Women's Prayer"], ['Taharat HaMishpajá', 'Family Purity'],
+    ['Mishpajá', 'Family'], ['Likutim', 'Likkutim I']].forEach(function (r) { PH_ES[foldXl(r[0])] = r[1]; });
+  var ES_WORKS = [
+    ['Shulj[aá]n Aruj' + SEC_ES + '(?! HaRav)', function (m) { return 'Shulchan Arukh' + SEC_XL(m[1]); }],
+    ['Ram[aá]' + SEC_ES, function (m) { return 'Rema' + SEC_XL(m[1]); }],
+    ['Jatam Sofer' + SEC_ES, function (m) { return 'Chatam Sofer' + SEC_XL(m[1]); }],
+    ['Pitjei Teshuv[aá]', function () { return 'Pitchei Teshuva'; }],
+    ['Jojmat Adam', function () { return 'Chokhmat Adam'; }],
+    ['(Bereshit|Shemot|Vaikr[aá]|Bamidbar|Devarim) Rab[aá]', function (m) { return {v: 'Vayikra'}[m[1].charAt(0).toLowerCase()] ? 'Vayikra Rabbah' : m[1].replace(/á/, 'a') + ' Rabbah'; }],
+    ['Vaikr[aá]', function () { return 'Vayikra'; }],
+    ['Shulj[aá]n Aruj HaRav', function () { return 'Shulchan Arukh HaRav'; }],
+    ['Mishn[aá] Berur[aá]', function () { return 'Mishnah Berurah'; }],
+    ['Turei Zahav', function () { return 'Taz'; }],
+    ['Siftei Coh?en', function () { return 'Shakh'; }],
+    ['Aruj HaShulj[aá]n', function () { return 'Aruch HaShulchan'; }],
+    ['Kaf HaJa[ií]m', function () { return 'Kaf HaChaim'; }],
+    ['Beur Halaj[aá]', function () { return 'Beur Halakha'; }],
+    ['Magu[eé]n Abraham', function () { return 'Magen Avraham'; }],
+    ['Shaar Hatzi[uú]n', function () { return 'Shaar HaTziyun'; }],
+    ['Sefer Hajinuj', function () { return 'Sefer Ha-ḥinukh'; }],
+    ['Jay[ei]i? Adam|Jaié Adam', function () { return 'Chayei Adam'; }]
+  ];
+  var XL_NORM = [
+    // a tractate with a folio: "(Talmud Babilonio) Tratado de Berajot 35(A)" · "‘Houlin 106a"
+    [/(?:Talmud Babilonio,?\s+)?(?:Tratado de\s+)?((?:[‘'’]?[A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ'’‘]*)(?:\s+[A-ZÁÉÍÓÚa-z][A-Za-zÀ-ÿ'’‘]*){0,2}?)\s+(\d{1,3})\s*(?:\(([AaBb])\)|([ab])\b)/g,
+      function (m) {
+        var fr = /[‘’']h|ou|ch/i.test(m[1]) && !/j/.test(m[1]), t = tractXl(m[1], fr) || tractXl(m[1], !fr);
+        if (!t || +m[2] < 2 || +m[2] > 176) return null;
+        return t + ' ' + m[2] + (m[3] || m[4]).toLowerCase();
+      }],
+    // "Talmud de Jérusalem, Qidouchin 4, 12" · "Talmud Jerosolimitano Tratado de Berajot 4:1"
+    [/Talmud (?:de J[ée]rusalem|Jerosolimitano),?\s+(?:Tratado de\s+)?([‘'’]?[A-Z][A-Za-zÀ-ÿ'’‘]*(?:\s+[A-Z][A-Za-zÀ-ÿ'’‘]*)?)\s+(\d{1,2})\s*[,:]\s*(\d{1,2})\b/g,
+      function (m) { var t = tractXl(m[1], true) || tractXl(m[1]); return t ? 'Yerushalmi ' + t + ' ' + m[2] + ':' + m[3] : null; }],
+    // "Mishná Tratado de Terumot 1:5" · "Pninei Halajá Pesaj 2:3"
+    [/Mishn[aá],?\s+Tratado de\s+([A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ'’]*(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ'’]*)?)\s+(\d{1,2}):(\d{1,2})\b/g,
+      function (m) { var t = tractXl(m[1]); return t ? 'Mishnah ' + t + ' ' + m[2] + ':' + m[3] : null; }],
+    [/Pninei Halaj[aá],?\s+((?:[A-Z][A-Za-zÀ-ÿ'’]*)(?:\s+[A-Za-zÀ-ÿ'’]+){0,2}?)\s+(\d{1,2})(?=[:\s,;)])/g,
+      function (m) { var v = PH_ES[foldXl(m[1])]; return v ? 'Peninei Halakha: ' + v + ' ' + m[2] : null; }],
+    // Maïmonide: "Maïmonide, Hilkhot Berakhot 1, 15" · "Maïmonide (Berakhot 6, 2)"; "sur …" is his Mishnah commentary
+    [/Ma[iï]monide((?:,\s*|\s*\(\s*|\s+)(?:Hilkhot\s+)?[A-Z][^\d,;()]{1,40}?\s+)(\d{1,2}),\s*(\d{1,3})\b/g,
+      function (m) { return /^\W*sur\b/.test(m[1]) ? null : 'Rambam' + m[1] + m[2] + ':' + m[3]; }],
+    // "Rambám Hiljot Shejitá 11:6" → "Rambam Hilkhot Shechita 11:6"
+    [/\bRamb[aá]m\b/g, function () { return 'Rambam'; }],
+    [/\bHi(?:lj|jl)ot\s+([A-ZÁÉÍÓÚ][^\d,;()]{1,40}?)(?=\s*,?\s*\d{1,2}:\d)/g,
+      function (m) { return 'Hilkhot ' + m[1].replace(/j/g, 'ch').replace(/J/g, 'Ch').normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC'); }],
+    // French Tanakh: "Dt 8, 10" · "Deutéronome 8, 10"
+    [new RegExp('(^|[\\s(;])(' + Object.keys(TNK_FR).sort(function (a, b) { return b.length - a.length; }).join('|') + ')\\.?\\s+(\\d{1,3}),\\s*(\\d{1,3})\\b', 'g'),
+      function (m) { return m[1] + TNK_FR[m[2]] + ' ' + m[3] + ':' + m[4]; }]
+  ].concat(FR_WORKS.map(function (w) {
+    return [new RegExp('(^|[^A-Za-zÀ-ÿ])(' + w[0] + ')\\s+' + LOCC, 'g'),
+      function (m) { return m[1] + w[1](m.slice(2)) + ' ' + loc2(m[m.length - 2], m[m.length - 1]); }];
+  }), ES_WORKS.map(function (w) {
+    return [new RegExp('(^|[^A-Za-zÀ-ÿ])(' + w[0] + ')(?=,?\\s+\\d)', 'g'),
+      function (m) { return m[1] + w[1](m.slice(2)); }];
+  }));
+  EN_NORM = EN_NORM.concat(XL_NORM);
+
   // returns [{start, end, ...hit}] for the works above; the caller masks them before the grammar runs
   function midrash(text, he, opts) {
     var ctx = ctxFor(opts), page = pageOf(opts && opts.ref);
@@ -1486,7 +1599,18 @@
       ["Sha'ar Ha-tziyun 3; Igrot Moshe OḤ 4:74", '', ['', '']],                     // not on Sefaria: named
       ['Peninei Halakha: Shabbat ch. 21', '', ['Peninei Halakhah, Shabbat 21:1']],
       ["Rabbeinu Yona (Sha'arei Teshuva 3:31); Rav Hai Gaon, Sha'arei Teshuva 14; Sha'arei Teshuva 63:4", '',
-        ["Sha'arei Teshuvah 3:31", 'Teshuvot HaGeonim (Shaarei Teshuva) 14', '']]      // three works of one name
+        ["Sha'arei Teshuvah 3:31", 'Teshuvot HaGeonim (Shaarei Teshuva) 14', '']],     // three works of one name
+      // Har Bracha's own Spanish and French citation forms
+      ['Talmud Babilonio Tratado de Berajot 35(A)', '', ['Berakhot 35a']],
+      ['Talmud Jerosolimitano Tratado de Nedarim 9:4', '', ['Jerusalem Talmud Nedarim 9:4']],
+      ['Rambám Hiljot Shejitá 11:6; Rambám Mikvaot 1:9', '', ['Mishneh Torah, Ritual Slaughter 11:6', 'Mishneh Torah, Immersion Pools 1:9']],
+      ['Shulján Aruj Oraj Jaím 206:1', '', ['Shulchan Arukh, Orach Chayim 206:1']],
+      ['Pninei Halajá Shabat 21:8', '', ['Peninei Halakhah, Shabbat 21:8']],
+      ['Choul\u2018han \u2018Aroukh 206, 1, Michna Beroura 3', 'Peninei Halakhah, Berakhot 6',
+        ['Shulchan Arukh, Orach Chayim 206:1', 'Mishnah Berurah 206:3']],
+      ['\u2018Houlin 106a; Dt 8, 10', '', ['Chullin 106a', 'Deuteronomy 8:10']],
+      ['Ma\u00efmonide (sur Berakhot 6, 3)', '', []],                               // his Mishnah commentary: not guessed
+      ['3,648 km', '', []]                                                         // a number, not a citation
     ];
     var pass = 0, fail = 0, failures = [];
     cases.forEach(function (k) {

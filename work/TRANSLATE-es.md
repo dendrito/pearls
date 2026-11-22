@@ -9,7 +9,7 @@ source: never translate the English.
 Write `work/es/BB-CC.json`, same shape as the English with Spanish field names:
 ```json
 {"book":"10","chapter":"04","chapter_es":"Birkat HaMazón","sections":[
-  {"slug":"10-04-01","title_es":"La mitzvá de Birkat HaMazón","body_es":"<p>…</p>","notes_es":[{"n":1,"es":"…"}]}
+  {"slug":"10-04-01","title_es":"El precepto de Birkat HaMazón","body_es":"<p>…</p>","notes_es":[{"n":1,"es":"…"}]}
 ]}
 ```
 Done only when `python3 -I work/check.py --lang es BB-CC` prints OK.
@@ -22,17 +22,20 @@ Halajá*) reads. Use "usted"-free impersonal constructions where the Hebrew is i
 ## Hebrew terms (follow Har Bracha's Spanish house style)
 - ח and כ without dagesh → **j** (berajá, halajá, Birkat HaMazón, jametz, Shulján Aruj, pikúaj néfesh, melajá/melajot).
 - צ → tz (mitzvá, Matzá), ק → k (kidush, kashrut), ש → sh (Shabat), final ה not written (berajá, mitzvá, Mishná).
-- Accent marks by Spanish rules for the Hebrew stress: Torá, Tefilá, berajá, halajá, mitzvá, Havdalá, Sucá, Melavé Malká,
+- Accent marks by Spanish rules for the Hebrew stress: Torá, Tefilá, berajá, halajá, mitzvá (only in fixed phrases, see below), Havdalá, Sucá, Melavé Malká,
   Muktzé, Eruvín, Shavuot, Pésaj.
 - Prefix ה written **Ha** joined, capitalised in names: HaMazón, HaMotzí, HaGafen, Taharat HaMishpajá.
-- Established forms: Shabat, Kidush, Havdalá, Pésaj, Sucot, Rosh HaShaná, Iom Kipur, Janucá, Purim, Jazal, Guemará,
+- Established forms: Shabat, Kidush, Havdalá, Pesaj, Sucot, Rosh HaShaná, Iom Kipur, Janucá, Purim, Guemará,
   Mishná, Talmud, Shulján Aruj, Rambam, Rashí, tefilín, tzitzit, kashrut, kasher.
 - Translate ordinary words (pan, vino, fruta, bendición when generic). Gloss a rare term once in parentheses.
 
 ## The Divine Name
-- Hebrew prose ה' → **HaShem**; אלוקים / הקב"ה → **Dios** / **el Santo, Bendito Sea**.
+- Hebrew prose ה' → **HaShem**; אלוקים → **D's**; הקב"ה → **el Santo Bendito Él**.
 - In a verse (whole or partial) the Name → **el Eterno**.
-- A blessing formula: "Bendito eres Tú, HaShem, nuestro Dios, Rey del universo …" when quoted in the study text.
+- A blessing formula quoted in the study text is given as Har Bracha gives it: the transliteration first, then the
+  Spanish in parentheses: "Baruj Atá Ad-onai Eloh-einu Melej Haolam Boré Perí HaGuefen" ("Bendito eres Tú, HaShem,
+  nuestro D's, Rey del universo, que creas el fruto de la vid"). A blessing quoted only by its ending, inside a longer
+  translated passage, stays in Spanish.
 - Where the Names themselves are the subject, write them as the English does (Y-H-V-H, Ado-nai …).
 
 ## Citations
@@ -48,3 +51,14 @@ Arabic numerals; kezait, reviit, kebeitzá keep the Hebrew term, with the author
 - A Name in transliteration is written hyphenated or with k: **Ad-onai**, **Elokim**, **Elokeinu** (never Adonai, Elohim).
 - Spellings: **Shabat** (tractate citations stay "Shabbat 21a"), **Ben Ish Ḥai**, **Yeḥaveh Da'at**, **hefsek tahará**.
 - "Maran" is always followed by whom it means (Maran HaRav Kook, Maran Rabí Yosef Karo); in Rav Ovadia's school a bare "Maran" means the Shulján Aruj.
+
+## Terms Har Bracha translates (Curió, 22 Nov 2026: "fully, terms too"; measured against their Spanish edition)
+- מצוה → **precepto** (masculine: el precepto, este precepto, los 613 preceptos). Keep **mitzvá** only in fixed Hebrew
+  phrases: Bar/Bat Mitzvá, Seudat Mitzvá, tevilat/matzat mitzvá, met mitzvá, miljemet mitzvá, Ner Mitzvá, Sefer Mitzvot
+  Gadol/Katán, tashmishei mitzvá, mitzvot hateluiot, and inside an italic Hebrew phrase (<i>mitzvá min hamuvjar</i>).
+- פוסקים → **juristas**; חז"ל → **nuestros sabios** (lower case "sabios" mid-sentence).
+- מעשר → **diezmo** (primer diezmo, segundo diezmo, diezmo del pobre); תרומה → **ofrenda** (gran ofrenda, ofrenda del
+  diezmo); an italic Hebrew gloss keeps the Hebrew (<i>maaser kesafim</i>).
+- שחיטה → **faena**, glossed once per chapter: faena (<i>shejitá</i>). A translated word is never italicised.
+- Talmud Bavli → **Talmud Babilonio**; Yerushalmi → **Talmud Jerosolimitano**; Jerusalén → **Jerusalém**.
+- Avraham → **Abraham** in prose (Magen Avraham and the blessing's Avraham Avinu stay); Pésaj → **Pesaj**; kezait → **kazait**.
