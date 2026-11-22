@@ -11,16 +11,30 @@ export async function onRequestGet({ request }) {
   let t;
   try { t = new URL(target); } catch { return new Response("Not Found", { status: 404 }); }
   if (t.protocol !== "https:" || !HOSTS.includes(t.hostname)) return new Response("Not Found", { status: 404 });
+  // Redirects are followed by hand, at most three, and only while they stay on the allowed hosts.
   let r;
-  try {
-    r = await fetch(t.toString(), {
-      headers: { "User-Agent": UA, "Accept": "application/json" },
-      cf: { cacheTtl: 86400, cacheEverything: true },   // the text changes rarely; spare their server
-    });
-  } catch { return new Response("Bad Gateway", { status: 502 }); }
-  const ct = (r.headers.get("Content-Type") || "application/json").split(";")[0].trim();
+  for (let hop = 0; ; hop++) {
+    try {
+      r = await fetch(t.toString(), {
+        headers: { "User-Agent": UA, "Accept": "application/json" },
+        cf: { cacheTtl: 86400, cacheEverything: true },   // the text changes rarely; spare their server
+        redirect: "manual",
+      });
+    } catch { return new Response("Bad Gateway", { status: 502 }); }
+    if (r.status < 300 || r.status >= 400) break;
+    let next;
+    try { next = new URL(r.headers.get("Location") || "", t); } catch { next = null; }
+    if (hop >= 3 || !next || next.protocol !== "https:" || !HOSTS.includes(next.hostname))
+      return new Response("Bad Gateway", { status: 502 });
+    t = next;
+  }
+  let ct = (r.headers.get("Content-Type") || "application/json").split(";")[0].trim();
+  // This answer is served from Pearls' own address, so a page from elsewhere must never run here as HTML.
+  const headers = { "Content-Type": ct + "; charset=utf-8", "Cache-Control": "public, max-age=3600",
+                    "X-Content-Type-Options": "nosniff" };
+  if (ct === "text/html") headers["Content-Security-Policy"] = "sandbox; default-src 'none'";
   return new Response(r.body, {
     status: r.status,
-    headers: { "Content-Type": ct + "; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    headers,
   });
 }
