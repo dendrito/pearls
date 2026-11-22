@@ -10,9 +10,10 @@ import http from "http";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { fileURLToPath } from "url";
 const require = createRequire(import.meta.url);
 const { _electron } = require("playwright");
-const ROOT = path.dirname(new URL(import.meta.url).pathname);
+const ROOT = path.dirname(fileURLToPath(import.meta.url));   // pathname would give "/D:/..." on Windows
 
 let pass = 0, total = 0;
 const check = (name, ok, extra = "") => { total++; if (ok) pass++; console.log(`${ok ? "ok  " : "FAIL"} ${name}${extra ? "  " + extra : ""}`); };
