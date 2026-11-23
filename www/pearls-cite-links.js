@@ -1087,9 +1087,14 @@
     // a tractate with a folio: "(Talmud Babilonio) Tratado de Berajot 35(A)" · "‘Houlin 106a"
     [/(?:Talmud Babilonio,?\s+)?(?:Tratado de\s+)?((?:[‘'’]?[A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ'’‘]*)(?:\s+[A-ZÁÉÍÓÚa-z][A-Za-zÀ-ÿ'’‘]*){0,2}?)\s+(\d{1,3})\s*(?:\(([AaBb])\)|([ab])\b)/g,
       function (m) {
-        var fr = /[‘’']h|ou|ch/i.test(m[1]) && !/j/.test(m[1]), t = tractXl(m[1], fr) || tractXl(m[1], !fr);
+        // the name may follow a work: "Tosafot Guittin 36a" keeps "Tosafot" and reads "Guittin"
+        var w = m[1].split(/\s+/), t = '', i;
+        for (i = 0; i < w.length && !t; i++) {
+          var n = w.slice(i).join(' '), fr = /[‘’']h|ou|ch/i.test(n) && !/j/.test(n);
+          t = tractXl(n, fr) || tractXl(n, !fr);
+        }
         if (!t || +m[2] < 2 || +m[2] > 176) return null;
-        return t + ' ' + m[2] + (m[3] || m[4]).toLowerCase();
+        return w.slice(0, i - 1).concat([t]).join(' ') + ' ' + m[2] + (m[3] || m[4]).toLowerCase();
       }],
     // "Talmud de Jérusalem, Qidouchin 4, 12" · "Talmud Jerosolimitano Tratado de Berajot 4:1"
     [/Talmud (?:de J[ée]rusalem|Jerosolimitano),?\s+(?:Tratado de\s+)?([‘'’]?[A-Z][A-Za-zÀ-ÿ'’‘]*(?:\s+[A-Z][A-Za-zÀ-ÿ'’‘]*)?)\s+(\d{1,2})\s*[,:]\s*(\d{1,2})\b/g,
