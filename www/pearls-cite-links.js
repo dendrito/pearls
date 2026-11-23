@@ -73,7 +73,7 @@
   var SAH_RE = /Shul(?:ch|ḥ|h)an [ʿ’']?Ar[uo](?:kh|ch|ḥ) Ha-?Rav\s+(\d{1,3}):(\d{1,3})(?:\s*[-\u2013]\s*(\d{1,3}))?/g;
 
   // PH citing itself: "Peninei Halakha: Shabbat 21:8" / "Peninei Halakhah, Shabbat 21:8"
-  var PH_SELF = /Peninei Hala(?:kh|ch)a?h?(?:\s*[:,]|\s+on)?\s*([A-Z][A-Za-z’' ]{2,30}?),?\s+(\d{1,2}):(\d{1,3})/g;
+  var PH_SELF = /Peninei Hala(?:kh|ch)a?h?(?:\s*[:,]|\s+on)?\s*([A-Z][A-Za-z’'\- ]{2,30}?),?\s+(\d{1,2}):(\d{1,3})/g;
 
   // What the reader sees says "Peninei Halakha"; the ref itself keeps Sefaria's "Peninei Halakhah" for lookups.
   function shown(s) { return String(s || '').replace(/\bPeninei\s+Hala(?:kh|ch|k)(?:a|ah)\b/gi, 'Peninei Halakha'); }
@@ -833,10 +833,14 @@
     ['Moadim', 'Festivals'], ["Yamim Nora'im", 'Days of Awe'], ['Yamim Noraim', 'Days of Awe'], ["Shevi'it", 'Shemitah and Yovel'],
     ['Kashrut', 'Kashrut'], ['Laws of Kashrut', 'Kashrut'], ['Zmanim', 'Zemanim'], ['Laws of Prayer', 'Prayer'],
     ["Pessa'h", 'Pesach'], ['Pessah', 'Pesach'], ['Souccot', 'Sukkot'], ['Soukkot', 'Sukkot'],
-    ['Simchat Habayit', "Simchat Habayit U'Virkhato"], ['Simḥat Ha-bayit', "Simchat Habayit U'Virkhato"]].forEach(function (r) { PH_VOL_EN[foldMT(r[0])] = r[1]; });
+    ['Simchat Habayit', "Simchat Habayit U'Virkhato"], ['Simḥat Ha-bayit', "Simchat Habayit U'Virkhato"],
+    // Hebrew names as the English and French text spell them: "Ha-am Ve-ha'aretz", "Shevi'it Ve-yovel", "Chabbat"
+    ["Ha-am Ve-ha'aretz", 'The Nation and the Land'], ["Ha'am Veha'aretz", 'The Nation and the Land'], ['HaAm VeHaAretz', 'The Nation and the Land'],
+    ["Shevi'it Ve-yovel", 'Shemitah and Yovel'], ["Chevi'it veYovel", 'Shemitah and Yovel'], ['Sheviit veYovel', 'Shemitah and Yovel'],
+    ['Chabbat', 'Shabbat']].forEach(function (r) { PH_VOL_EN[foldMT(r[0])] = r[1]; });
   var PH_TITLES = {}; Object.keys(PH_VOL_HE).forEach(function (k) { PH_TITLES[PH_VOL_HE[k]] = 1; });
   // the numbered collections, matched apart because folding would make "I" and "II" one word
-  var PH_PARTS = {'likutim': ['Likkutim I', 'Likkutim II'], 'likkutim': ['Likkutim I', 'Likkutim II'],
+  var PH_PARTS = {'likutim': ['Likkutim I', 'Likkutim II'], 'likkutim': ['Likkutim I', 'Likkutim II'], 'likoutim': ['Likkutim I', 'Likkutim II'],
     'collected essays': ['Likkutim I', 'Likkutim II']};
   function phVol(vol) {
     var v = String(vol).trim().replace(/’/g, "'").replace(/,$/, '');
@@ -1731,6 +1735,8 @@
       ['(SA 240:11)', "Peninei Halakhah, Simchat Habayit U'Virkhato 2", ['Shulchan Arukh, Orach Chayim 240:11']],   // EH ends at 178
       ['(SA 451:6; Taz 451:8)', 'Peninei Halakhah, Kashrut 33', ['Shulchan Arukh, Orach Chayim 451:6', 'Turei Zahav on Shulchan Arukh, Orach Chayim 451:8']],   // YD ends at 403
       ["(Peninei Halakha, Pessa'h 10:5; Souccot 4:2)", '', ['Peninei Halakhah, Pesach 10:5']],
+      ["(Peninei Halakha, Ha-am Ve-ha'aretz 6:12; Shevi'it Ve-yovel 10:11)", '', ['Peninei Halakhah, The Nation and the Land 6:12']],   // a hyphen in the volume's name
+      ['(Peninei Halakha, Chabbat 5:4; Peninei Halakha, Likoutim II 8:6)', '', ['Peninei Halakhah, Shabbat 5:4', 'Peninei Halakhah, Likkutim II 8:6']],
       ['(MA 306:15; Birkei Yosef ad loc. 7; MB ad loc. 33)', 'Peninei Halakhah, Shabbat 22',
         ['Magen Avraham 306:15', '', 'Mishnah Berurah 306:33']],                   // "ad loc." is the siman, not the 7
       ['(Peninei Halakha: Mo’adim 10:3; Peninei Halachah Likutim I, 4:6)', '',
