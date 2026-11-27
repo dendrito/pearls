@@ -1,4 +1,4 @@
-"""Other reading languages (www/xl, make_xl_books.py): choose Español (then Português), read a chapter that has a Spanish AI translation,
+"""Other reading languages (www/xl, make_xl_books.py): choose Español (then Português, then Français), read a chapter that has a Spanish AI translation,
 see the AI label and the credit, see Har Bracha's own Spanish labelled official where it exists, and get English with a note on a chapter that has none. Offline, like test_app.py.
 Must end "other languages: N/N"."""
 import json, os, shutil, subprocess, sys
@@ -83,6 +83,14 @@ with sync_playwright() as p:
     check("Portuguese body shown with lang=pt", "fios de tsitsit" in body and "pt/21-01.js" in loaded)
     banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
     check("Portuguese labelled as an AI translation", "AI translation" in banner and "Portuguese" in banner and "Claude" in banner)
+    # Français works the same way
+    btn = pg.query_selector('.langbar [data-act="setread"][data-v="fr"]')
+    check("chapter page offers Français", bool(btn) and "Français" in btn.text_content())
+    btn.click(); pg.wait_for_timeout(700)
+    body = pg.eval_on_selector('.ai-sec[lang="fr"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="fr"]') else ""
+    check("French body shown with lang=fr", "fils de tsitsit" in body and "fr/21-01.js" in loaded)
+    banner = pg.eval_on_selector("#reader .aibanner", "e => e.textContent")
+    check("French labelled as an AI translation", "AI translation" in banner and "French" in banner and "Claude" in banner)
     # a chapter Har Bracha translated into Spanish itself: its text, labelled official, no AI marks
     pg.evaluate("PEARLS.setLang('es')"); pg.goto(url + "#ch-18-01"); pg.wait_for_timeout(700)
     body = pg.eval_on_selector('.ai-sec[lang="es"]', "e => e.textContent") if pg.query_selector('.ai-sec[lang="es"]') else ""

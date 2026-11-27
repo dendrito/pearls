@@ -131,8 +131,7 @@ remembered in `prefs.booksKind` / `prefs.searchKind`.
 ## Other languages
 
 Spanish and Brazilian Portuguese are reading languages for chapters that have an AI translation into them (Claude, from
-the Hebrew; the Portuguese used the Spanish as a helper). Both cover the 180 Hebrew-only chapters. French is meant to
-follow the same way (`work/TRANSLATE-fr.md`).
+the Hebrew; the Portuguese used the Spanish as a helper). All three cover the 180 Hebrew-only chapters (French: `work/TRANSLATE-fr.md`, live since 27 Nov 2026).
 
 - `work/<lang>/BB-CC.json` holds the translation, in the English shape with `_<lang>` field names. Only chapters that
   pass `python3 -I work/check.py --lang <lang> BB-CC` ship. Never edit `work/`.

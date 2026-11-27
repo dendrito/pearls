@@ -25,7 +25,7 @@ with non-breaking spaces as French typography requires (a plain space is accepta
 - ש → ch (Chabbat, Kiddouch), the u sound → ou (Kiddouch, Souccot), צ → ts (mitsva, matsa), ק → k, final ה not written.
 - Prefix ה written **Ha** joined, capitalised in names: Hamazon, Hamotsi, Haguefen.
 - Established forms: Chabbat, Kiddouch, Havdala, Pessa'h, Souccot, Roch Hachana, Yom Kippour, 'Hanouka, Pourim, Torah,
-  'Hazal, Guemara, Michna, Talmud, Rambam, Rachi, téfillines, tsitsit, cacherout, cacher, mitsva/mitsvot,
+  'Hazal, Guemara, Michna, Talmud, Rambam, Rachi, téfillines (always this form), cohen/Cohanim (as Har Bracha), Ḥullin, tsitsit, cacherout, cacher, mitsva/mitsvot,
   halakha/halakhot, berakha/berakhot, mélakha/mélakhot.
 - Translate ordinary words (pain, vin, fruit, bénédiction when generic). Gloss a rare term once in parentheses.
 
