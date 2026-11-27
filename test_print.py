@@ -113,6 +113,12 @@ with sync_playwright() as p:
         pg.wait_for_selector(".pp-overlay .pp-sheet", timeout=30000); pg.wait_for_timeout(200)
         pg.screenshot(path=f"{shots}/print-3-{ink}.png")
         pg.evaluate("PEARLS_PRINT.close()")
+    # notes are gathered at the end of the chapter, never between two sections
+    nb = pg.evaluate("""async () => { const o = { style: 'classic', lang: 'en', cover: 'none', paper: 'a4', ink: 'colour', format: 'pages' };
+      const doc = await PEARLS.printGather({ ids: ['17-15'], title: 'N' }, o); const r = await PEARLS_PRINT.build(doc, o);
+      const secs = [...r.root.querySelectorAll('.pp-sec')]; const inSec = secs.filter(s => s.querySelector('.pp-fn')).length;
+      const out = { inSec, blocks: r.root.querySelectorAll('.pp-notes').length }; r.root.remove(); return out; }""")
+    check(nb["inSec"] == 0 and nb["blocks"] >= 1, f"notes close the chapter in a Notes block, none left inside a section ({nb})")
     b.close()
 print("errors:", errors or "none")
 print(f"print: {ok}/{total}")

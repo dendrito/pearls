@@ -58,10 +58,34 @@
     return (fontsOk = Promise.all(jobs).then(() => document.fonts.ready));
   }
 
+  /* ---------- footnotes: a section's notes are lifted out of its text and gathered at the end of the chapter ---------- */
+  const NOTES_WORD = { en: "Notes", he: "הערות", es: "Notas", pt: "Notas", fr: "Notes" };
+  const SEC_WORD = { en: "Section", he: "סעיף", es: "Sección", pt: "Seção", fr: "Section" };
+  function liftNotes(html) {   // -> { html: the text without its notes, notes: [<ol class="pp-fn"> html] }
+    if (!html || html.indexOf("pp-fn") < 0) return { html, notes: [] };
+    const d = document.createElement("div"); d.innerHTML = html; const notes = [];
+    d.querySelectorAll("ol.pp-fn").forEach(o => { notes.push(o.outerHTML); o.remove(); });
+    return { html: d.innerHTML, notes };
+  }
+  // items: [{n: section number, ols: [html]}] in one language -> one block, headed, at the foot of the chapter
+  function notesBlock(items, lang, dir) {
+    items = items.filter(x => x.ols.length); if (!items.length) return null;
+    const he = dir === "rtl", L = lang || "en";
+    const d = el("div", "pp-notes" + (he ? " pp-he" : "")); d.lang = L; if (he) d.dir = "rtl";
+    d.appendChild(el("h3", "pp-nh", esc(NOTES_WORD[L] || NOTES_WORD.en)));
+    const nums = []; let clash = false;
+    for (const it of items) for (const o of it.ols) { const t = document.createElement("div"); t.innerHTML = o; t.querySelectorAll("li[value]").forEach(li => { const v = li.getAttribute("value"); if (nums.includes(v)) clash = true; nums.push(v); }); }
+    for (const it of items) {
+      if (clash && items.length > 1) d.appendChild(el("p", "pp-nsec", `${esc(SEC_WORD[L] || SEC_WORD.en)} ${esc(it.n)}`));
+      for (const o of it.ols) d.insertAdjacentHTML("beforeend", o);
+    }
+    return d;
+  }
+
   /* ---------- the paginator ---------- */
   const fits = box => box.scrollHeight <= box.clientHeight + 1;
   const SPLIT = new Set(["P", "LI", "BLOCKQUOTE", "OL", "UL", "DIV", "SPAN", "EM", "I", "B", "STRONG", "A", "SMALL", "U", "Q", "CITE", "FONT", "SECTION", "DL", "DD"]);
-  const isHead = n => n && n.nodeType === 1 && (/^H[1-6]$/.test(n.tagName) || n.classList.contains("pp-h") || n.classList.contains("pp-chh"));
+  const isHead = n => n && n.nodeType === 1 && (/^H[1-6]$/.test(n.tagName) || n.classList.contains("pp-h") || n.classList.contains("pp-chh") || n.classList.contains("pp-nsec"));
   const splittable = n => n.nodeType === 1 && SPLIT.has(n.tagName) && !isHead(n) && !n.classList.contains("pp-keep") &&
     !(n.tagName === "P" && n.textContent.trim().length < 50);
   const lastEl = d => { let c = d.lastChild; while (c && c.nodeType === 3 && !c.data.trim()) c = c.previousSibling; return c; };
@@ -178,8 +202,10 @@
         <p class="tr"><span lang="he" dir="rtl">דברי תורה · נא לשמור על קדושת הדף</span><br>Contains words of Torah. Please treat this page with respect.</p>`);
     }
     // a section as one splittable block
-    secBlock(s, c, first) {   // s.title and s.he.title are HTML, made safe by the caller (printClean or esc)
+    secBlock(s, c, first, notes) {   // s.title and s.he.title are HTML, made safe by the caller (printClean or esc); notes: collect them here instead of leaving them in the text
       const he = s.dir === "rtl";
+      if (notes) { const l = liftNotes(s.html); s = { ...s, html: l.html }; if (l.notes.length) (he ? notes.he : notes.main).push({ n: s.n, ols: l.notes, lang: s.lang || (he ? "he" : "en"), dir: he ? "rtl" : "ltr" });
+        if (s.he) { const lh = liftNotes(s.he.html); s.he = { ...s.he, html: lh.html }; if (lh.notes.length) notes.he.push({ n: s.n, ols: lh.notes, lang: "he", dir: "rtl" }); } }
       const d = el("div", "pp-sec" + (he ? " pp-he" : ""));
       d.lang = s.lang || (he ? "he" : "en"); if (he) d.dir = "rtl";
       const num = this.s.id === "heritage" && !he ? `<em class="pp-hn" lang="he">${heNum(s.n)}</em>` : `<i>${esc(s.n)}</i>`;
@@ -195,7 +221,9 @@
     srcFor(c, withHead) {
       const src = el("div");
       if (withHead) src.appendChild(this.chHead(c));
-      c.secs.forEach((s, i) => src.appendChild(this.secBlock(s, c, i === 0)));
+      const notes = { main: [], he: [] };
+      c.secs.forEach((s, i) => src.appendChild(this.secBlock(s, c, i === 0, notes)));
+      for (const g of [notes.main, notes.he]) if (g.length) { const b = notesBlock(g, g[0].lang, g[0].dir); if (b) src.appendChild(b); }
       return src;
     }
     async pour(src, next) {   // next() gives the box after this one
@@ -235,8 +263,13 @@
     }
     async sbsChapter(c, next) {
       let box = next();
-      for (const [i, s] of c.secs.entries()) {
-        const en = this.secBlock({ ...s, he: null }, c, i === 0), heS = s.he ? this.secBlock({ n: s.n, title: s.he.title, html: s.he.html, dir: "rtl", lang: "he" }, c, false) : null;
+      const notes = { main: [], he: [] }, secs = c.secs.slice();
+      for (const [i, s] of secs.entries()) {
+        const en = this.secBlock({ ...s, he: null }, c, i === 0, notes), heS = s.he ? this.secBlock({ n: s.n, title: s.he.title, html: s.he.html, dir: "rtl", lang: "he" }, c, false, notes) : null;
+        if (i === secs.length - 1) {   // the chapter's notes close it, English beside Hebrew
+          const nE = notesBlock(notes.main, (notes.main[0] || {}).lang, "ltr"), nH = notesBlock(notes.he, "he", "rtl");
+          if (nE) en.appendChild(nE); if (nH && heS) heS.appendChild(nH);
+        }
         const sE = el("div"), sH = el("div"); sE.appendChild(en); if (heS) sH.appendChild(heS);
         for (;;) {
           const row = el("div", "pp-row"), cE = el("div", "pp-cell"), cH = el("div", "pp-cell pp-he");
