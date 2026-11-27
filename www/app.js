@@ -438,7 +438,7 @@ const hasHe = t => !AUD[t.id] || !!AUD[t.id][0], hasEn = t => !!(AUD[t.id] && AU
    because the English column is the one read along and the AI voice can only read English).
    English plays Har Bracha's English recording where there is one, and the AI voice where there isn't. */
 const langPref = () => state.prefs.read || "en";
-/* Other reading languages: AI translations from the Hebrew into Spanish (and later Portuguese, French), built by
+/* Other reading languages: AI translations from the Hebrew into Spanish, Portuguese and French, built by
    make_xl_books.py into xl/<lang>/BB-CC.js (loaded when a chapter opens) and xl/index.js (PH_XL: which chapters have
    which language, with their translated titles). Reading only: listening stays as it is (English recording, the English
    AI voice, else Hebrew), so for listenLang() an other language counts as English. Interface chrome stays English. */
@@ -2270,7 +2270,7 @@ function shabbatSpec() {   // the Friday bundle: what you're on, the Daily Pearl
 }
 function printLangs(spec) {   // English, Hebrew, both, and the other reading languages any chapter here has
   const out = [["en", "English"], ["he", "עברית"], ["both", "Both"]];
-  for (const [l, x] of Object.entries(XL.langs)) if (l !== "fr" && spec.ids.some(id => XL.ch[id] && XL.ch[id][l])) out.push([l, x.name]);
+  for (const [l, x] of Object.entries(XL.langs)) if (spec.ids.some(id => XL.ch[id] && XL.ch[id][l])) out.push([l, x.name]);
   return out;
 }
 function printDialog(kind, id, sec, keepKey) {

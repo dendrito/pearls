@@ -21,7 +21,7 @@ LANGS = {
            "video": "[Vídeo en la página original en hebreo]"},
     "pt": {"name": "Português", "short": "PT", "english": "Portuguese",
            "video": "[Vídeo na página original em hebraico]"},
-    # "fr": {"name": "Français", "short": "FR", "english": "French", "video": "[Vidéo sur la page originale en hébreu]"},
+    "fr": {"name": "Français", "short": "FR", "english": "French", "video": "[Vidéo sur la page originale en hébreu]"},
 }
 
 def valid(lang, cid):
