@@ -67,6 +67,11 @@
 .pp-flow .pp-h i{font-style:normal;color:var(--p2);margin-right:.45em}
 .pp-flow .pp-fn{font-size:.82em;line-height:1.35;margin:.4em 0 0;padding:.4em 0 0 1.4em;border-top:.2mm solid #d6cfc2;color:#3b352d}
 .pp-flow .pp-fn li{margin-bottom:.15em}
+.pp-flow .pp-notes{margin:1.6em 0 0;padding-top:.5em;border-top:.35mm solid #8a7f6d}
+.pp-flow .pp-notes .pp-nh{font:700 .72em/1.2 inherit;font-family:inherit;letter-spacing:.14em;text-transform:uppercase;margin:0 0 .4em;color:#5c5346}
+.pp-flow .pp-notes .pp-nsec{margin:.6em 0 .1em;font-weight:700;font-size:.8em;color:#5c5346}
+.pp-flow .pp-notes .pp-fn{border-top:0;margin:.2em 0 0;padding-top:0;font-size:.85em}
+.pp-flow .pp-notes .pp-nh+.pp-fn{margin-top:0}
 .pp-flow .pp-note{font:italic .9em/1.4 "EB Garamond",serif;color:#5c5348;margin:0 0 .6em;text-align:left}
 .pp-flow [dir=rtl],.pp-flow .pp-he{direction:rtl;text-align:justify;font-family:"Frank Ruhl Libre",serif;font-size:1em;line-height:1.6}
 .pp-flow .pp-he p{text-indent:0;margin-bottom:.25em}
